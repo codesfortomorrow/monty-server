@@ -151,8 +151,8 @@ http://localhost:{PORT}/api-spec
 
 ## docker backupDB
 
-$ docker exec -t postgres pg_dump -U postgres rebel-exchchange > db-notout.sql
+$ docker exec -t postgres pg_dump -U postgres monty-server > db-notout.sql
 
 ## IMPORT DB
 
-$ cat db-notout.sql | docker exec -i postgres psql -U postgres -d rebel-exchchange
+$ cat db-notout.sql | docker exec -i postgres psql -U postgres -d monty-server
