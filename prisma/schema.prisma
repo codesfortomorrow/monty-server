@@ -1,0 +1,1965 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [ltree]
+}
+
+// Enums
+enum AdminStatus {
+  Active @map("active")
+
+  @@map("admin_status")
+}
+
+enum UserStatus {
+  Active    @map("active")
+  Blocked   @map("blocked")
+  Inactive  @map("inactive")
+  Suspended @map("suspended")
+  BetLock   @map("bet_lock")
+
+  @@map("user_status")
+}
+
+enum OtpTransport {
+  Email  @map("email")
+  Mobile @map("mobile")
+
+  @@map("otp_transport")
+}
+
+enum SettingType {
+  Binary       @map("binary")
+  MultiSelect  @map("multi_select")
+  SingleSelect @map("single_select")
+
+  @@map("setting_type")
+}
+
+enum BankSelectType {
+  Account1 @map("account1")
+  Account2 @map("account2")
+  Account3 @map("account3")
+
+  @@map("bank_select_type")
+}
+
+enum UpiType {
+  QR1 @map("QR1")
+  QR2 @map("QR2")
+  QR3 @map("QR3")
+
+  @@map("upi_type")
+}
+
+enum AccountType {
+  Savings  @map("savings")
+  Current  @map("current")
+  Personal @map("personal")
+
+  @@map("account_type")
+}
+
+enum SettingContext {
+  User   @map("user")
+  System @map("system")
+
+  @@map("setting_context")
+}
+
+enum WalletType {
+  Main  @map("main")
+  Bonus @map("bonus")
+
+  @@map("wallet_type")
+}
+
+enum DeviceType {
+  Desktop @map("desktop")
+  Mobile  @map("mobile")
+}
+
+enum WalletTransactionType {
+  Debit  @map("debit")
+  Credit @map("credit")
+
+  @@map("wallet_transaction_type")
+}
+
+enum LoginStatus {
+  Success @map("success")
+  Failed  @map("failed")
+}
+
+enum WalletTransactionStatus {
+  Pending   @map("pending")
+  Confirmed @map("confirmed")
+  Failed    @map("failed")
+  Approved  @map("approved")
+  Rejected  @map("rejected")
+
+  @@map("wallet_transaction_status")
+}
+
+enum WalletTransactionContext {
+  Deposit            @map("deposit")
+  Withdrawal         @map("withdrawal")
+  WithdrawalRefund   @map("withdrawal_refund")
+  SystemDeposit      @map("system_deposit")
+  SystemWithdrawal   @map("system_withdrawal")
+  Win                @map("win")
+  Won                @map("won")
+  Lost               @map("lost")
+  Bet                @map("bet")
+  BetRefund          @map("bet_refund")
+  Rollback           @map("rollback")
+  Bonus              @map("bonus")
+  CryptoDeposit      @map("crypto_deposit")
+  CryptoWithdrawal   @map("crypto_withdrawal")
+  CasinoBet          @map("casino_bet")
+  CasinoBetRefund    @map("casino_bet_refund")
+  CasinoWin          @map("casino_win")
+  PointIssue         @map("point_issue")
+  PointRemove        @map("point_remove")
+  DepositApproval    @map("deposit_approval")
+  WithdrawalApproval @map("withdrawal_approval")
+  Commission         @map("commission")
+  BonusSettlement    @map("bonus_settlement")
+
+  JoiningBonus                @map("joining_bonus")
+  ReferralBonus               @map("referral_bonus")
+  ReferralLossCommissionBonus @map("referral_loss_commission_bonus")
+  LossBackBonus               @map("loss_back_bonus")
+  DepositBonus                @map("deposit_bonus")
+  BonusCancelled              @map("bonus_cancelled")
+
+  @@map("wallet_transaction_context")
+}
+
+enum SportType {
+  Cricket         @map("cricket")
+  Football        @map("football")
+  Tennis          @map("tennis")
+  GreyhoundRacing @map("greyhound_racing")
+  HorseRacing     @map("horse_racing")
+  Basketball      @map("basketball")
+  Soccer          @map("soccer")
+  Other           @map("other")
+
+  @@map("sport_type")
+}
+
+enum ProviderType {
+  Sports         @map("sports")
+  Casino         @map("casino")
+  Sms            @map("sms")
+  Email          @map("email")
+  PaymentGateway @map("payment_gateway")
+}
+
+enum MarketType {
+  Normal  @map("normal")
+  Fancy   @map("fancy")
+  Premium @map("premium")
+
+  @@map("market_type")
+}
+
+enum CommissionStatus {
+  Pending       @map("pending") // Not decided yet
+  Paid          @map("paid") // Commission earned & paid
+  NotCommission @map("not_commission") // No commission earned
+
+  @@map("commission_status")
+}
+
+enum StatusType {
+  Upcoming  @map("upcoming")
+  Live      @map("live")
+  Finished  @map("finished")
+  Cancelled @map("cancelled")
+  Open      @map("open")
+  Closed    @map("closed")
+  Void      @map("void")
+  Active    @map("active")
+  Inactive  @map("inactive")
+
+  @@map("status_type")
+}
+
+enum BetStatusType {
+  Pending   @map("pending")
+  Won       @map("won")
+  Lost      @map("lost")
+  Voided    @map("voided")
+  Cancelled @map("cancelled")
+  Rollback  @map("rollback")
+
+  @@map("bet_status_type")
+}
+
+enum GameTypeCategory {
+  Sports     @map("sport")
+  Casino     @map("casino")
+  Sportsbook @map("sport_book")
+
+  @@map("game_type_category")
+}
+
+enum BetType {
+  All  @map("all")
+  Back @map("back")
+  Lay  @map("lay")
+
+  @@map("bet_type")
+}
+
+enum ResultProvider {
+  Webhook @map("webhook")
+  Panel   @map("panel")
+
+  @@map("result_provider")
+}
+
+enum ResultStatusType {
+  Pending         @map("pending")
+  Proceed         @map("proceed")
+  Rollbacked      @map("rollbacked")
+  RollbackPending @map("rollback_pending")
+
+  @@map("result_status_type")
+}
+
+enum BonusStatus {
+  Active   @map("active")
+  Inactive @map("inactive")
+
+  @@map("bonus_status")
+}
+
+enum BonusCategory {
+  JoiningBonus  @map("joining_bonus")
+  ReferralBonus @map("referral_bonus")
+  DepositBonus  @map("deposit_bonus") //Refill Bonus
+
+  @@map("bonus_category")
+}
+
+enum BetCategory {
+  Sports     @map("sports")
+  Casino     @map("casino")
+  Sportsbook @map("sportsbook")
+
+  @@map("bet_category")
+}
+
+enum BonusApplicantStatusType {
+  Pending  @map("pending")
+  Approved @map("approved")
+  Unlocked @map("unlocked")
+
+  @@map("bonus_applicant_status_type")
+}
+
+enum BannerType {
+  MainBanner      @map("main_banner")
+  SideBanner      @map("side_banner")
+  HomeBanner      @map("home_banner")
+  WellcomeBanner  @map("wellcome_banner")
+  PromotionBanner @map("promotion_banner")
+
+  @@map("banner_type")
+}
+
+enum BannerPlatform {
+  WebBanner @map("web_banner")
+  AppBanner @map("app_banner")
+
+  @@map("banner_platform")
+}
+
+enum NotificationType {
+  Information @map("information")
+  Alert       @map("alert")
+
+  @@map("notification_type")
+}
+
+enum ContactType {
+  Whatsapp @map("whatsapp")
+  Telegram @map("telegram")
+  imo      @map("imo")
+}
+
+enum ExportType {
+  casinoRoundHistory       @map("casino_rount_histry")
+  casinoGame               @map("casino_game")
+  userTransaction          @map("user_transaction")
+  depositWithdraw          @map("deposit_withdraw")
+  betReports               @map("bet_reports")
+  casinoBetReports         @map("casino_Bet_reports")
+  casinoDownlineProfitLoss @map("casino_downline_profit_loss")
+  casinoPlayerProfitLoss   @map("casino_player_profit_loss")
+  playerProfitLoss         @map("player_profit_loss")
+  eventProfitLoss          @map("event_profit_loss")
+  downlineProfitLoss       @map("downline_profit_loss")
+  activity                 @map("activity")
+  depositReport            @map("deposit_report")
+  withdrawReport           @map("withdraw_report")
+  loginReport              @map("login_report")
+  signupReport             @map("signup_report")
+  activeUsersReport        @map("active_users_report")
+  idleUsersReport          @map("idle_users_report")
+  subUsersReport           @map("sub_users_report")
+  affiliateList            @map("affiliate_list")
+  affiliateCommission      @map("affiliate_commission")
+  bonusStatement           @map("bonus_statement")
+  transaction              @map("transaction")
+  gameTransaction          @map("game_transaction")
+
+  @@map("export_type")
+}
+
+enum ExportStatus {
+  Pending   @map("pending")
+  Completed @map("completed")
+  Failed    @map("failed")
+
+  @@map("export_status")
+}
+
+enum ExportFormat {
+  Excel @map("excel")
+  Pdf   @map("pdf")
+  Csv   @map("csv")
+
+  @@map("export_format")
+}
+
+enum KycStatus {
+  Pending  @map("pending")
+  Approved @map("approved")
+  Rejected @map("rejected")
+
+  @@map("kyc_status")
+}
+
+enum RequestStatus {
+  Pending  @map("pending")
+  Approved @map("approved")
+  Rejected @map("rejected")
+
+  @@map("request_status")
+}
+
+enum PaymentMode {
+  bKash     @map("bkash")
+  Rocket    @map("rocket")
+  Nagad     @map("nagad")
+  Bank      @map("bank")
+  Easypaisa @map("easypaisa")
+  Jazzcash  @map("jazzcash")
+
+  @@map("paymet_mode")
+}
+
+enum AffiliateStatus {
+  Active   @map("active")
+  Inactive @map("inactive")
+
+  @@map("affiliate_status")
+}
+
+// enum AccountType {
+//   Personal @map("personal")
+//   Agent    @map("agent")
+//   Payment  @map("Payment")
+
+//   @@map("account_type")
+// }
+
+enum TurnoverType {
+  Sports @map("sports")
+  Casino @map("casino")
+
+  @@map("turnoer_type")
+}
+
+// Models
+model Admin {
+  id             BigInt      @id @default(autoincrement()) @map("id")
+  firstname      String      @map("firstname")
+  lastname       String      @map("lastname")
+  email          String      @unique @map("email")
+  profileImage   String?     @map("profile_image")
+  status         AdminStatus @default(Active) @map("status")
+  roleId         Int         @map("role_id")
+  loginUniqueKey String?     @map("login_unique_key")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  meta            AdminMeta?
+  role            Role?            @relation("RoleToAdmin", fields: [roleId], references: [id])
+  exports         Export[]
+  wallets         Wallet[]
+  bank            Bank[]
+  Crypto          Crypto[]
+  upi             Upi[]
+  digitalPayments DigitalPayment[]
+
+  @@map("admin")
+}
+
+model AdminMeta {
+  passwordSalt    String?  @map("password_salt")
+  passwordHash    String?  @map("password_hash")
+  transactionCode String?  @map("transaction_code")
+  adminId         BigInt   @unique @map("admin_id")
+  mfaSecret       String?  @map("mfa_secret")
+  isMfaEnabled    Boolean? @default(false) @map("is_mfa_enabled")
+
+  admin Admin @relation(fields: [adminId], references: [id])
+
+  @@map("admin_meta")
+}
+
+model User {
+  id                    BigInt     @id @default(autoincrement()) @map("id")
+  firstname             String?    @map("firstname")
+  lastname              String?    @map("lastname")
+  username              String?    @unique @map("username")
+  email                 String?    @unique @map("email")
+  dialCode              String?    @map("dial_code")
+  mobile                String?    @unique @map("mobile")
+  profileImage          String?    @map("profile_image")
+  isVerified            Boolean    @default(false) @map("is_verified")
+  country               String?    @map("country")
+  status                UserStatus @default(Active) @map("status")
+  statusChangedBy       BigInt?    @map("status_changed_by")
+  partnership           Int        @default(0) @map("partnership")
+  parentPartnership     Int        @default(0) @map("parent_partnership")
+  commision             Int        @default(0) @map("commision")
+  isSelfRegistered      Boolean    @default(false) @map("is_self_registered")
+  isPartnershipEnabled  Boolean    @default(false) @map("is_partnership_enabled")
+  passwordChanged       Boolean?   @default(true) @map("password_changed")
+  transactionCodeViewed Boolean?   @default(true) @map("transaction_code_viewed")
+  roleId                Int        @map("role_id")
+  referralCode          String?    @map("referral_code")
+  loginUniqueKey        String?    @map("login_unique_key")
+  ChangeStatuasAt       DateTime?  @map("change_status_at")
+  deletedAt             DateTime?  @map("deleted_at") @db.Timestamptz
+  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  role                       Role?                       @relation("RoleToUser", fields: [roleId], references: [id])
+  meta                       UserMeta?
+  kyc                        Kyc?
+  wallets                    Wallet[]
+  userBonus                  BonusApplicantStatusType[]
+  referralsSent              Referral[]                  @relation("Referrer")
+  referralsReceived          Referral[]                  @relation("Referee")
+  affiliate                  Affiliate[]
+  affiliateReferral          AffiliateReferral[]
+  bets                       Bet[]
+  casinoTransactions         CasinoTransaction[]
+  CasinoRoundHistories       CasinoRoundHistory[]
+  recentGames                RecentGame[]
+  favoriteGames              FavoriteGame[]
+  userSetting                UserSetting[]
+  Exposure                   Exposure[]
+  Bank                       Bank[]
+  Crypto                     Crypto[]
+  Upis                       Upi[]
+  Export                     Export[]
+  DigitalPayment             DigitalPayment[]
+  activeBankers              ActiveBanker[]
+  paymentConfig              PaymentConfig[]
+  stakeSets                  StakeSet?
+  sportsPermissions          SportsPermission?
+  depositWithdrawRequests    DepositWithdrawRequest[]    @relation("UserRequestRelation")
+  depositWithdrawApproved    DepositWithdrawRequest[]    @relation("BankerUserRelation")
+  turnoverHistories          TurnoverHistory[]
+  bonusAuditLogs             BonusAuditLog[]
+  affiliateWeeklyActiveUsers AffiliateWeeklyActiveUser[]
+  userWalletstats            UserWalletStat?             @relation(fields: [userWalletStatId], references: [id])
+  appliedBonuses             BonusApplicant[]            @relation("UserBonusApplicants")
+  approvedBonuses            BonusApplicant[]            @relation("ApprovedBonusApplicants")
+  bonusLimitCounters         BonusLimitCounter[]
+  userWalletStatId           BigInt?
+
+  @@map("user")
+}
+
+model UserMeta {
+  id              BigInt                @id @default(autoincrement())
+  googleId        String?               @unique @map("google_id")
+  passwordSalt    String?               @map("password_salt")
+  passwordHash    String?               @map("password_hash")
+  transactionCode String?               @map("transaction_code")
+  mfaSecret       String?               @map("mfa_secret")
+  isMfaEnabled    Boolean?              @default(false) @map("is_mfa_enabled")
+  userId          BigInt                @unique @map("user_id")
+  casinoToken     String?               @map("casino_token")
+  uplineId        String?               @map("upline_id")
+  upline          Unsupported("ltree")?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_meta")
+}
+
+model Otp {
+  code             String       @map("code")
+  attempt          Int          @default(1) @map("attempt") @db.SmallInt
+  lastSentAt       DateTime     @default(now()) @map("last_sent_at") @db.Timestamptz
+  retries          Int          @default(0) @map("retries") @db.SmallInt
+  transport        OtpTransport @map("transport")
+  target           String       @map("target")
+  lastCodeVerified Boolean      @default(false) @map("last_code_verified")
+  blocked          Boolean      @default(false) @map("blocked")
+
+  @@unique([transport, target])
+  @@map("otp")
+}
+
+model Setting {
+  id               Int            @id @default(autoincrement()) @map("id")
+  mappedTo         String         @map("mapped_to")
+  text             String         @default("") @map("text")
+  description      String         @default("") @map("description")
+  type             SettingType    @map("type")
+  context          SettingContext @map("context")
+  default          Json           @map("default")
+  isDefinedOptions Boolean        @map("is_defined_options")
+  parentId         Int?           @map("parent_id")
+
+  subSettings   Setting[]       @relation("SubSettings")
+  dependsOn     Setting?        @relation("SubSettings", fields: [parentId], references: [id])
+  options       SettingOption[]
+  userSetting   UserSetting[]
+  systemSetting SystemSetting[]
+
+  @@unique([context, mappedTo])
+  @@map("setting")
+}
+
+model SettingOption {
+  id        Int    @id @default(autoincrement()) @map("id")
+  text      String @default("") @map("text")
+  value     String @map("value")
+  settingId Int    @map("setting_id")
+
+  setting Setting @relation(fields: [settingId], references: [id])
+
+  @@unique([settingId, value])
+  @@map("setting_option")
+}
+
+model UserSetting {
+  userId    BigInt @map("user_id")
+  settingId Int    @map("setting_id")
+  selection Json   @map("selection")
+
+  user    User    @relation(fields: [userId], references: [id])
+  setting Setting @relation(fields: [settingId], references: [id])
+
+  @@id([userId, settingId])
+  @@map("user_setting")
+}
+
+model SystemSetting {
+  settingId Int  @id @map("setting_id")
+  selection Json @map("selection")
+
+  setting Setting @relation(fields: [settingId], references: [id])
+
+  @@map("system_setting")
+}
+
+model Wallet {
+  id                    BigInt     @id @default(autoincrement()) @map("id")
+  userId                BigInt?    @map("user_id")
+  adminId               BigInt?    @map("admin_id")
+  type                  WalletType @map("type")
+  amount                Decimal    @default(0) @map("amount") @db.Decimal(15, 2)
+  nonWithdrawableAmount Decimal    @default(0) @map("non_withdrawable_amount") @db.Decimal(15, 2) //locked winnings
+  lockedAmount          Decimal    @default(0) @map("locked_amount") @db.Decimal(15, 2)
+  exposureAmount        Decimal    @default(0) @map("exposure_amount") @db.Decimal(15, 2)
+  creditAmount          Decimal    @default(0) @map("credit_amount") @db.Decimal(15, 2)
+  version               Int        @default(0) @map("version")
+  currencyId            Int        @map("currency_id")
+  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  user               User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin              Admin?               @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  currency           Currency             @relation(fields: [currencyId], references: [id])
+  walletTransactions WalletTransactions[]
+  userWalletstats    UserWalletStat[]
+
+  @@unique([userId, type])
+  @@map("wallets")
+}
+
+model WalletTransactions {
+  id                  BigInt                   @id @default(autoincrement()) @map("id")
+  walletId            BigInt                   @map("wallet_id")
+  amount              Decimal                  @map("amount") @db.Decimal(15, 2)
+  availableBalance    Decimal                  @map("available_balance") @db.Decimal(15, 2)
+  type                WalletTransactionType    @map("type")
+  entityId            String?                  @map("entity_id")
+  context             WalletTransactionContext @map("context")
+  meta                Json?                    @map("meta")
+  narration           String?                  @map("narration")
+  nonce               BigInt                   @map("nonce")
+  status              WalletTransactionStatus  @default(Confirmed) @map("status")
+  remark              String?                  @map("remark")
+  timestamp           DateTime                 @map("timestamp") @db.Timestamptz
+  isCommissionSettled Boolean                  @default(false) @map("is_commission_settled")
+  currencyId          Int                      @map("currency_id")
+  fromAccount         String?                  @map("from_account")
+  toAccount           String?                  @map("to_account")
+
+  // process bonus for ctx deposit only
+  isBonusProcessed Boolean @default(false) @map("is_bonus_processed")
+  isWinningLocked  Boolean @default(false) @map("is_winning_locked")
+
+  wallet   Wallet   @relation(fields: [walletId], references: [id])
+  currency Currency @relation(fields: [currencyId], references: [id])
+
+  @@unique([walletId, nonce])
+  @@index([entityId, context])
+  @@map("wallet_transactions")
+}
+
+model Currency {
+  id             Int      @id @default(autoincrement()) @map("id")
+  name           String   @map("name")
+  code           String   @unique @map("code")
+  symbol         String?  @map("symbol")
+  conversionRate Decimal  @default(1) @map("conversion_rate") @db.Decimal(15, 6)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  Wallet             Wallet[]
+  WalletTransactions WalletTransactions[]
+
+  @@map("currency")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement()) @map("id")
+  name        String   @unique @map("name")
+  description String?  @map("description")
+  level       Int      @map("level") // 👈 new column
+  isEditable  Boolean  @default(true) @map("is_editable")
+  updatedBy   BigInt?  @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  rolePrivileges RolePrivilege[] @relation("RoleToRolePrivileges")
+  user           User[]          @relation("RoleToUser")
+  Admin          Admin[]         @relation("RoleToAdmin")
+
+  @@map("role")
+}
+
+model Privilege {
+  id          Int      @id @default(autoincrement()) @map("id")
+  permissions String   @unique @map("permissions")
+  access      Json     @map("access")
+  description String?  @map("description")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  rolePrivileges RolePrivilege[] @relation("PrivilegeToRolePrivileges")
+
+  @@map("privilege")
+}
+
+model RolePrivilege {
+  roleId        Int      @map("role_id")
+  privilegeId   Int      @map("privilege_id")
+  updatedAccess Json?    @map("updated_access")
+  updatedBy     BigInt?  @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  role      Role      @relation("RoleToRolePrivileges", fields: [roleId], references: [id])
+  privilege Privilege @relation("PrivilegeToRolePrivileges", fields: [privilegeId], references: [id])
+
+  @@unique([roleId, privilegeId])
+  @@map("role_privilege")
+}
+
+model Provider {
+  id           Int          @id @default(autoincrement()) @map("id")
+  name         String       @map("name")
+  providerType ProviderType @map("provider_type")
+  settings     Json?        @map("settings")
+  externalId   String?      @map("external_id")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  gameTypes   GameType[]
+  casinoGames CasinoGame[]
+  Competition Competition[]
+  Event       Event[]
+
+  @@unique([name, providerType])
+  @@map("providers")
+}
+
+// model SportsProvider {
+//   id         Int      @id @default(autoincrement()) @map("id")
+//   name       String   @unique @map("name")
+//   externalId String?  @map("external_id")
+//   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+//   gameTypes GameType[]
+
+//   @@map("sports_provider")
+// }
+
+// model CasinoProvider {
+//   id        Int      @id @default(autoincrement()) @map("id")
+//   name      String   @unique @map("name")
+//   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+//   gameTypes   GameType[]
+//   casinoGames CasinoGame[]
+
+//   @@map("casino_provider")
+// }
+
+model GameType {
+  id          Int              @id @default(autoincrement()) @map("id")
+  category    GameTypeCategory @default(Sports) @map("category")
+  name        String           @map("name")
+  externalId  String?          @map("external_id")
+  description String?          @map("description")
+  providerId  Int?             @map("provider_id")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  // sportsProviderId Int?             @map("sports_provider_id")
+  // casinoProviderId Int?             @map("casino_provider_id")
+
+  provider Provider? @relation(fields: [providerId], references: [id])
+  // sportsProvider SportsProvider? @relation(fields: [sportsProviderId], references: [id])
+  // casinoProvider CasinoProvider? @relation(fields: [casinoProviderId], references: [id])
+
+  @@unique([category, name])
+  @@index([category])
+  @@map("game_type")
+}
+
+model Competition {
+  id         Int        @id @default(autoincrement()) @map("id")
+  externalId String     @map("external_id")
+  providerId Int?       @map("provider_id")
+  name       String     @map("name")
+  sport      SportType  @map("sport")
+  startDate  DateTime?  @map("start_date") @db.Timestamptz
+  endDate    DateTime?  @map("end_date") @db.Timestamptz
+  status     StatusType @map("status")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt  DateTime?  @map("deleted_at") @db.Timestamptz
+
+  events   Event[]
+  provider Provider? @relation(fields: [providerId], references: [id])
+
+  @@unique([externalId, name])
+  @@index([externalId])
+  @@index([sport])
+  @@index([status])
+  @@map("competition")
+}
+
+model Event {
+  id             BigInt     @id @default(autoincrement()) @map("id")
+  competitionId  Int?       @map("competition_id")
+  providerId     Int?       @map("provider_id")
+  externalId     String     @map("external_id")
+  name           String     @map("name")
+  sport          SportType  @map("sport")
+  startTime      DateTime   @map("start_time") @db.Timestamptz
+  status         StatusType @map("status")
+  isFancy        Boolean    @default(false) @map("is_fancy")
+  isBookmaker    Boolean    @default(false) @map("is_bookmaker")
+  isPremiumFancy Boolean    @default(false) @map("is_premium_fancy")
+  isPopular      Boolean    @default(false) @map("is_popular")
+  inplay         Boolean    @default(false) @map("inplay")
+  isBetSuspended Boolean    @default(false) @map("is_bet_suspended")
+  isSubscribed   Boolean    @default(false) @map("is_subscribed")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  competition        Competition?              @relation(fields: [competitionId], references: [id])
+  markets            Market[]
+  provider           Provider?                 @relation(fields: [providerId], references: [id])
+  betConfigs         BetConfig?
+  bets               Bet[]
+  betfairMapping     BetfairSportsRadarEvents? @relation("BetfairEvent")
+  sportsRadarMapping BetfairSportsRadarEvents? @relation("SportsRadarEvent")
+  results            Result[]
+  Exposure           Exposure[]
+
+  @@unique([competitionId, externalId])
+  @@index([competitionId])
+  @@index([externalId])
+  @@index([startTime])
+  @@index([status])
+  @@map("event")
+}
+
+model Market {
+  id                  BigInt     @id @default(autoincrement()) @map("id")
+  eventId             BigInt     @map("event_id")
+  externalId          String     @map("external_id")
+  name                String     @map("name")
+  startTime           DateTime?  @map("start_time") @db.Timestamptz
+  runner              Json?      @map("runner")
+  type                MarketType @default(Normal)
+  status              StatusType @map("status")
+  inPlayMaxBetAmount  Decimal?   @map("in_play_max_bet_amount")
+  inPlayMinBetAmount  Decimal?   @map("in_play_min_bet_amount")
+  offPlayMaxBetAmount Decimal?   @map("off_play_max_bet_amount")
+  offPlayMinBetAmount Decimal?   @map("off_play_min_bet_amount")
+  minRate             Decimal?   @map("min_rate")
+  maxRate             Decimal?   @map("max_rate")
+  potentialProfit     Decimal?   @map("potential_profit")
+  delay               Int?
+  exposureLimit       Decimal?   @map("exposure_limit")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  event    Event      @relation(fields: [eventId], references: [id])
+  // bets     Bet[]
+  results  Result[]
+  Exposure Exposure[]
+
+  @@unique([eventId, externalId])
+  @@index([eventId])
+  @@index([status])
+  @@index([startTime])
+  @@map("market")
+}
+
+model BetfairSportsRadarEvents {
+  id                 Int      @id @default(autoincrement()) @map("id")
+  betfairEventId     BigInt   @unique @map("betfair_event_id")
+  sportsRadarEventId BigInt   @unique @map("sports_radar_event_id")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  betfairEvent     Event? @relation("BetfairEvent", fields: [betfairEventId], references: [id], map: "fk_betfair_event")
+  sportsRadarEvent Event? @relation("SportsRadarEvent", fields: [sportsRadarEventId], references: [id], map: "fk_sports_radar_event")
+
+  @@map("betfair_sports_radar_events")
+}
+
+model BetConfig {
+  id                           Int      @id @default(autoincrement()) @map("id")
+  eventId                      BigInt?  @unique @map("event_id")
+  exposureLimit                Decimal? @map("exposure_limit")
+  inPlayMaxBetAmount           Decimal? @map("in_play_max_bet_amount")
+  inPlayMinBetAmount           Decimal? @map("in_play_min_bet_amount")
+  offPlayMaxBetAmount          Decimal? @map("off_play_max_bet_amount")
+  offPlayMinBetAmount          Decimal? @map("off_play_min_bet_amount")
+  potentialProfit              Decimal? @map("potential_profit")
+  minRate                      Decimal? @map("min_rate")
+  maxRate                      Decimal? @map("max_rate")
+  sessionInPlayMaxBetAmount    Decimal? @map("session_in_play_max_bet_amount")
+  sessionInPlayMinBetAmount    Decimal? @map("session_in_play_min_bet_amount")
+  sessionOffPlayMaxBetAmount   Decimal? @map("session_off_play_max_bet_amount")
+  sessionOffPlayMinBetAmount   Decimal? @map("session_off_play_min_bet_amount")
+  sessionPotentialProfit       Decimal? @map("session_potential_profit")
+  sessionMinRate               Decimal? @map("session_min_rate")
+  sessionMaxRate               Decimal? @map("session_max_rate")
+  bookmakerInPlayMaxBetAmount  Decimal? @map("bookmaker_in_play_max_bet_amount")
+  bookmakerInPlayMinBetAmount  Decimal? @map("bookmaker_in_play_min_bet_amount")
+  bookmakerOffPlayMaxBetAmount Decimal? @map("bookmaker_off_play_max_bet_amount")
+  bookmakerOffPlayMinBetAmount Decimal? @map("bookmaker_off_play_min_bet_amount")
+  bookmakerPotentialProfit     Decimal? @map("bookmaker_potential_profit")
+  bookmakerMinRate             Decimal? @map("bookmaker_min_rate")
+  bookmakerMaxRate             Decimal? @map("bookmaker_max_rate")
+  delay                        Int?
+  isDefault                    Boolean  @default(false) @map("is_default")
+  createdAt                    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  event Event? @relation(fields: [eventId], references: [id])
+
+  @@map("bet_config")
+}
+
+model CasinoGame {
+  id               Int        @id @default(autoincrement()) @map("id")
+  casinoProviderId Int?       @map("casino_provider_id")
+  externalId       String     @map("external_id")
+  name             String     @map("name")
+  code             String     @map("code")
+  gameProviderName String     @map("game_provider_name")
+  category         String?    @map("category")
+  isTrending       Boolean    @default(false) @map("is_trending")
+  priority         Int        @default(0)
+  gameImage        String     @map("game_image")
+  status           StatusType @map("status")
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  // casinoProvider       CasinoProvider?      @relation(fields: [casinoProviderId], references: [id])
+  casinoProvider       Provider?            @relation(fields: [casinoProviderId], references: [id])
+  recentGames          RecentGame[]
+  favoriteGames        FavoriteGame[]
+  CasinoTransaction    CasinoTransaction[]
+  CasinoRoundHistories CasinoRoundHistory[]
+
+  @@unique([casinoProviderId, externalId])
+  @@index([casinoProviderId, externalId])
+  @@map("casino_game")
+}
+
+model FavoriteGame {
+  id        Int      @id @default(autoincrement()) @map("id")
+  userId    BigInt   @map("user_id")
+  gameId    Int      @map("game_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User       @relation(fields: [userId], references: [id])
+  game CasinoGame @relation(fields: [gameId], references: [id])
+
+  @@unique([userId, gameId])
+  @@map("favorite_game")
+}
+
+model RecentGame {
+  id       Int      @id @default(autoincrement()) @map("id")
+  userId   BigInt   @map("user_id")
+  gameId   Int      @map("game_id")
+  playedAt DateTime @default(now()) @map("played_at") @db.Timestamptz
+
+  user User       @relation(fields: [userId], references: [id])
+  game CasinoGame @relation(fields: [gameId], references: [id])
+
+  @@unique([userId, gameId])
+  @@map("recent_game")
+}
+
+model Bet {
+  id                   BigInt        @id @default(autoincrement()) @map("id")
+  userId               BigInt        @map("user_id")
+  eventId              BigInt        @map("event_id")
+  sport                SportType     @map("sport")
+  marketId             String        @map("market_id")
+  marketName           String        @map("market_name")
+  marketCategory       String?       @map("market_category")
+  marketType           String        @map("market_type")
+  amount               Decimal       @map("amount") @db.Decimal(15, 2)
+  bonusUsages          Decimal       @default(0) @map("bonus_usages") @db.Decimal(15, 2)
+  odds                 Decimal       @map("odds") @db.Decimal(10, 2)
+  percentage           Decimal?      @map("percentage") @db.Decimal(10, 2)
+  betOn                BetType       @default(Back) @map("bet_on")
+  selection            String        @map("selection")
+  selectionId          String        @map("selection_id")
+  payout               Decimal       @db.Decimal(15, 2)
+  status               BetStatusType @map("status")
+  isBookmaker          Boolean       @default(false) @map("is_bookmaker")
+  placedAt             DateTime      @default(now()) @map("placed_at") @db.Timestamptz
+  settledAt            DateTime?     @map("settled_at") @db.Timestamptz
+  ip                   String?
+  isTurnOverCalculated Boolean       @default(false) @map("is_turn_over_calculated")
+  isPlCalculated       Boolean       @default(false) @map("is_pl_calculated")
+
+  user              User              @relation(fields: [userId], references: [id])
+  event             Event             @relation(fields: [eventId], references: [id])
+  // market Market? @relation(fields: [marketId], references: [externalId])
+  turnoverHistories TurnoverHistory[]
+  betPl             BetPl[]
+
+  @@index([userId, placedAt])
+  @@index([userId, status])
+  @@index([eventId, marketId, marketName])
+  @@index([marketId])
+  @@index([eventId])
+  @@index([status])
+  @@map("bet")
+}
+
+model Result {
+  id               BigInt           @id @default(autoincrement()) @map("id")
+  eventId          BigInt           @map("event_id")
+  marketId         BigInt?          @map("market_id")
+  marketExternalId String           @map("market_external_id")
+  selectionId      String?          @map("selection_id")
+  result           String           @map("result")
+  isRollbacked     Boolean          @default(false) @map("is_rollbacked")
+  status           ResultStatusType @default(Pending) @map("status")
+  outcome          Json             @map("outcome")
+  providedBy       ResultProvider   @default(Webhook) @map("provided_by")
+  count            BigInt           @default(0) @map("count")
+  selection        String?          @map("selection")
+
+  settledAt DateTime? @map("settled_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  market          Market?           @relation(fields: [marketId], references: [id])
+  event           Event             @relation(fields: [eventId], references: [id])
+  rolebackHistory RolebackHistory[]
+
+  @@unique([eventId, marketExternalId])
+  @@index([marketExternalId])
+  @@index([eventId])
+  @@map("result")
+}
+
+model RolebackHistory {
+  id           BigInt           @id @default(autoincrement()) @map("id")
+  resultId     BigInt           @map("result_id")
+  selectionId  String?          @map("selection_id")
+  result       String?          @map("result")
+  isRollbacked Boolean?         @map("is_rollbacked")
+  status       ResultStatusType @map("status")
+  outcome      Json?            @map("outcome")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  originalResult Result @relation(fields: [resultId], references: [id])
+
+  @@index([resultId])
+  @@map("roleback_history")
+}
+
+model StakeSet {
+  id     Int    @id @default(autoincrement()) @map("id")
+  userId BigInt @unique @map("user_id")
+  data   Json
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("stake_sets")
+}
+
+model Affiliate {
+  id              BigInt          @id @default(autoincrement()) @map("id")
+  userId          BigInt          @unique @map("user_id")
+  reasonFrom      String          @map("reason_from")
+  reasonTo        String?         @map("reason_to")
+  status          AffiliateStatus @default(Inactive) @map("status")
+  requestStatus   RequestStatus   @default(Pending) @map("request_status")
+  affiliateCode   String?         @map("affiliate_code")
+  totalCommission Decimal?        @default(0.00) @map("total_commission") @db.Decimal(15, 2)
+  lastCommission  Decimal?        @default(0.00) @map("last_commission") @db.Decimal(15, 2)
+  acceptingDate   DateTime?       @map("accepting_date") @db.Timestamptz
+  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime?       @updatedAt @map("updated_at") @db.Timestamptz
+
+  users                     User                        @relation(fields: [userId], references: [id])
+  affiliateReferrals        AffiliateReferral[]
+  affiliateWeeklyStatements WeeklyCommissionHistory[]
+  weeklyActiveUsers         AffiliateWeeklyActiveUser[]
+
+  @@map("affiliate")
+}
+
+model AffiliateReferral {
+  id               BigInt          @id @default(autoincrement()) @map("id")
+  affiliateId      BigInt          @map("affiliate_id")
+  referredUserId   BigInt          @map("referred_user_id")
+  commissionEarned Decimal         @default(0.00) @map("commission_earned") @db.Decimal(15, 2)
+  status           AffiliateStatus @default(Inactive) @map("status")
+  activeAt         DateTime?       @map("active-at")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime?       @updatedAt @map("updated_at") @db.Timestamptz
+
+  affiliate    Affiliate @relation(fields: [affiliateId], references: [id])
+  referredUser User      @relation(fields: [referredUserId], references: [id])
+
+  @@index([affiliateId])
+  @@index([referredUserId])
+  @@map("affiliate_referral")
+}
+
+model CasinoTransaction {
+  id                    Int                    @id @default(autoincrement()) @map("id")
+  providerRoundId       String                 @map("provider_round_id")
+  userId                BigInt                 @map("user_id")
+  gameId                Int                    @map("game_id") // It's Our CasinoGame Table id (primary key)
+  gameCode              String                 @map("game_code")
+  gameName              String                 @map("game_name")
+  providerCode          String                 @map("provider_code")
+  providerTransactionId String                 @map("provider_transaction_id")
+  amount                Decimal                @default(0) @map("amount") @db.Decimal(15, 2)
+  payout                Decimal                @default(0) @map("payout") @db.Decimal(15, 2)
+  status                BetStatusType          @map("status")
+  debitTxnId            String?                @map("debit_txn_id")
+  creditTxnId           String?                @map("credit_txn_id")
+  rollbackTxnId         String?                @map("rollback_txn_id")
+  remark                String?                @map("remark")
+  type                  WalletTransactionType? @map("type")
+  isRollbacked          Boolean                @default(false) @map("is_rolled_back")
+  createdAt             DateTime?              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime?              @updatedAt @map("updated_at") @db.Timestamptz
+
+  user              User              @relation(fields: [userId], references: [id])
+  casinoGame        CasinoGame        @relation(fields: [gameId], references: [id])
+  turnoverHistories TurnoverHistory[]
+
+  @@map("casino_transaction")
+}
+
+model CasinoRoundHistory {
+  id          Int           @id @default(autoincrement())
+  gameId      Int           @map("game_id")
+  gameName    String?       @map("game_name")
+  roundId     String        @unique @map("round_id")
+  txnId       String        @unique @map("txn_id")
+  userId      BigInt        @map("user_id")
+  status      BetStatusType @default(Pending) @map("status")
+  totalBets   Decimal       @default(0.00) @map("total_bets") @db.Decimal(15, 2)
+  totalWins   Decimal       @default(0.00) @map("total_wins") @db.Decimal(15, 2)
+  totalLosses Decimal       @default(0.00) @map("total_losses") @db.Decimal(15, 2)
+  completed   Boolean       @default(false)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  isTurnOverCalculated Boolean @default(false) @map("is_turnover_calculated")
+  isPlCalculated       Boolean @default(false) @map("is_pl_calculated")
+
+  // 🔗 Relations
+  user       User        @relation(fields: [userId], references: [id])
+  casinoGame CasinoGame? @relation(fields: [gameId], references: [id])
+  betPl      BetPl[]
+
+  @@map("casino_round_histories")
+}
+
+model ActivityLog {
+  id          Int                   @id @default(autoincrement()) @map("id")
+  remark      String                @map("remark")
+  ipAddress   String                @map("ip_address")
+  loginStatus LoginStatus           @map("login_status")
+  isp         String?               @map("isp")
+  city        String?               @map("city")
+  state       String?               @map("state")
+  country     String?               @map("country")
+  loginAt     DateTime              @default(now()) @map("login_at") @db.Timestamptz
+  device      DeviceType            @default(Desktop) @map("device")
+  userId      BigInt?               @map("user_id")
+  userType    String?               @map("user_type")
+  upline      Unsupported("ltree")?
+
+  @@map("activity_log")
+}
+
+model Bonus {
+  id Int @id @default(autoincrement())
+
+  category    String  @map("category")
+  name        String  @map("name")
+  description String? @map("description")
+
+  status BonusStatus @default(Inactive) @map("status")
+
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
+  approvalType ApprovalType @default(AUTO) @map("approval_type")
+
+  maxApplicants Int?       @map("max_applicants")
+  maxPerUser    Int?       @map("max_per_user")
+  frequency     Frequency? @map("frequency")
+
+  minDepositAmount Float? @map("min_deposit_amount")
+  maxBonusAmount   Float? @map("max_bonus_amount")
+
+  referrerMinBonusAmount Float? @map("referrer_min_bonus_amount")
+
+  bonusEligibleRole BonusEligibleRole? @map("bonus_eligible_role")
+  referralType      ReferralType?      @map("referral_type")
+
+  referrerReleaseType ReleaseType @default(FIXED) @map("referrer_release_type")
+  referrerPercentage  Float?      @map("referrer_percentage")
+
+  releaseType ReleaseType @default(FIXED) @map("release_type")
+  percentage  Float?      @map("percentage")
+
+  turnoverFormula TurnoverFormula? @map("turnover_formula")
+  multiplier      Int?             @map("multiplier")
+
+  minOdd Float? @map("min_odd")
+  maxOdd Float? @map("max_odd")
+
+  betType BetType @default(All) @map("bet_type")
+
+  installments Int? @map("installments")
+  expireInDays Int? @map("expire_in_days")
+
+  claimDays   Int[] @default([]) @map("claim_days")
+  claimMonths Int[] @default([]) @map("claim_months")
+
+  claimFrom DateTime? @map("claim_from")
+  claimTo   DateTime? @map("claim_to")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /**
+   * ───────── Relations ─────────
+   */
+
+  gameCategories      GameCategory[]      @relation("BonusToGameCategories")
+  referrals           Referral[]
+  bonusAuditLogs      BonusAuditLog[]
+  bonusGameCategories BonusGameCategory[]
+  applicants          BonusApplicant[]
+  limitCounters       BonusLimitCounter[]
+
+  @@map("bonus")
+}
+
+enum GameCategoryType {
+  TYPE
+  PROVIDER
+  SUB_PROVIDER
+  GAME
+}
+
+model GameCategory {
+  id         Int              @id @default(autoincrement())
+  name       String
+  type       GameCategoryType
+  metadata   Json?
+  parentId   Int?
+  externalId Int?             @unique
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  parent   GameCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children GameCategory[] @relation("CategoryTree")
+
+  bonuses Bonus[] @relation("BonusToGameCategories")
+
+  bonusGameCategories BonusGameCategory[]
+
+  @@unique([name, type, parentId])
+  @@map("game_categories")
+}
+
+model BonusGameCategory {
+  bonusId    Int
+  categoryId Int
+
+  bonus    Bonus        @relation(fields: [bonusId], references: [id], onDelete: Cascade)
+  category GameCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([bonusId, categoryId])
+  @@map("bonus_game_categories")
+}
+
+enum ApprovalType {
+  AUTO   @map("auto")
+  MANUAL @map("manual")
+
+  @@map("approval_type")
+}
+
+enum ReleaseType {
+  FIXED      @map("fixed")
+  PERCENTAGE @map("percentage")
+
+  @@map("release_type")
+}
+
+enum BonusEligibleRole {
+  BOTH     @map("both")
+  REFERRER @map("referrer")
+  REFEREE  @map("referee")
+
+  @@map("bonus_eligible_role")
+}
+
+enum ReferralType {
+  FTD    @map("ftd")
+  SIGNUP @map("signup")
+
+  @@map("referral_type")
+}
+
+enum Frequency {
+  EVERY   @map("every")
+  DAILY   @map("daily")
+  WEEKLY  @map("weekly")
+  MONTHLY @map("monthly")
+
+  @@map("frequency")
+}
+
+enum TurnoverFormula {
+  BONUS_MULTIPLIER              @map("bonus_multiplier")
+  DEPOSIT_PLUS_BONUS_MULTIPLIER @map("deposit_plus_bonus_multiplier")
+
+  @@map("turnover_formula")
+}
+
+enum BonusApplicantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+  CLAIMED
+}
+
+enum TriggerEvent {
+  SIGNUP
+  JOINING
+  DEPOSIT
+  LOSSBACK
+  REFERRAL
+}
+
+enum BonusType {
+  FIRST_TIME
+  REFILL
+}
+
+model BonusApplicant {
+  id                Int                  @id @default(autoincrement())
+  userId            BigInt               @map("user_id")
+  bonusId           Int                  @map("bonus_id")
+  triggerEvent      TriggerEvent         @map("trigger_event")
+  depositId         BigInt?              @map("deposit_id")
+  awardedAmount     Float                @map("awarded_amount")
+  turnoverRequired  Float                @default(0) @map("turnover_required")
+  turnoverCompleted Float                @default(0) @map("turnover_completed")
+  awardedAt         DateTime             @default(now()) @map("awarded_at")
+  expireAt          DateTime?            @map("expire_at")
+  timesClaimed      Int                  @default(0) @map("times_claimed")
+  timesRejected     Int                  @default(0) @map("times_rejected")
+  approvalBy        BigInt?              @map("approval_by")
+  approvalAt        DateTime?            @map("approval_at")
+  rejectReason      String?              @map("reject_reason")
+  meta              Json?
+  status            BonusApplicantStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Relations
+  user         User                    @relation("UserBonusApplicants", fields: [userId], references: [id], onDelete: Cascade)
+  approver     User?                   @relation("ApprovedBonusApplicants", fields: [approvalBy], references: [id], onDelete: Cascade)
+  bonus        Bonus                   @relation(fields: [bonusId], references: [id], onDelete: Cascade)
+  deposit      DepositWithdrawRequest? @relation(fields: [depositId], references: [id], onDelete: Cascade)
+  installments BonusInstallment[]
+
+  @@map("bonus_applicants")
+}
+
+model BonusInstallment {
+  id               Int                  @id @default(autoincrement())
+  bonusApplicantId Int                  @map("bonus_applicant_id")
+  installmentNo    Int                  @map("installment_no")
+  amount           Float
+  releaseDate      DateTime?            @map("release_date")
+  rejectReason     String?              @map("reject_reason")
+  status           BonusApplicantStatus @default(PENDING)
+
+  bonusApplicant BonusApplicant @relation(fields: [bonusApplicantId], references: [id], onDelete: Cascade)
+
+  @@map("bonus_installments")
+}
+
+model BonusLimitCounter {
+  id         Int    @id @default(autoincrement())
+  bonusId    Int    @map("bonus_id")
+  userId     BigInt @map("user_id")
+  claimCount Int    @default(0) @map("claim_count")
+
+  bonus Bonus @relation(fields: [bonusId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([bonusId, userId])
+  @@map("bonus_limit_counter")
+}
+
+model BonusSetting {
+  id                            Int       @id @default(autoincrement())
+  bonusType                     BonusType @map("bonus_type")
+  bonusPercentage               Decimal   @map("bonus_percentage") @db.Decimal(5, 2)
+  bonusReleasePercentage        Decimal?  @map("bonus_release_percentage") @db.Decimal(5, 2)
+  minDepositAmount              Int       @map("min_deposit_amount")
+  maxBonusAmount                Int       @map("max_bonus_amount")
+  minDepositToUnlockRefillBonus Int?      @map("min_deposit_to_unlock_refill_bonus")
+  status                        Boolean
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bonus_settings")
+}
+
+model Referral {
+  id                   Int      @id @default(autoincrement())
+  referrerId           BigInt   @map("referrer_id") // match User.id type
+  refereeId            BigInt   @map("referee_id") // match User.id type
+  firstTimeDepositDone Boolean  @default(false) @map("first_time_deposit_done")
+  firstTimeDepositId   Int?     @map("first_time_deposit_id")
+  referredThrough      String
+  bonusId              Int?     @map("bonus_id")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  referrer User   @relation("Referrer", fields: [referrerId], references: [id])
+  referee  User   @relation("Referee", fields: [refereeId], references: [id])
+  bonus    Bonus? @relation(fields: [bonusId], references: [id])
+
+  // Constraints
+  @@unique([refereeId], map: "unique_referee_id")
+  @@index([referrerId], map: "idx_referrer_id")
+  @@map("referral")
+}
+
+model BonusAuditLog {
+  id      BigInt @id @default(autoincrement())
+  bonusId Int    @map("bonus_id")
+  userId  BigInt @map("user_id")
+
+  action  String
+  details Json?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  bonus Bonus @relation(fields: [bonusId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("bonus_audit_log")
+}
+
+model Exposure {
+  id                         BigInt     @id @default(autoincrement()) @map("id")
+  userId                     BigInt     @map("user_id")
+  eventId                    BigInt     @map("event_id")
+  marketId                   BigInt?    @map("market_id")
+  marketExternalId           String     @map("market_external_id")
+  selectionId                String     @map("selection_id")
+  sportId                    Int        @map("sport_id")
+  isUplineExposureCalculated Boolean    @default(false) @map("is_upline_exposure_calculated")
+  amount                     Decimal    @default(0.00) @map("amount") @db.Decimal(16, 2)
+  status                     StatusType @map("status")
+  createdAt                  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  user            User             @relation(fields: [userId], references: [id])
+  event           Event            @relation(fields: [eventId], references: [id])
+  market          Market?          @relation(fields: [marketId], references: [id])
+  uplineExposures UplineExposure[]
+
+  @@unique([userId, eventId, marketExternalId, selectionId])
+  @@index([userId])
+  @@index([marketExternalId])
+  @@map("exposure")
+}
+
+model Upi {
+  id        BigInt     @id @default(autoincrement()) @map("id")
+  userId    BigInt?    @map("user_id")
+  adminId   BigInt?    @map("admin_id")
+  name      String?    @map("name")
+  upiId     String     @map("upi_id")
+  number    String?    @map("number")
+  qrCode    String?    @map("qr_code")
+  status    StatusType @default(Active) @map("status")
+  type      UpiType?   @map("type")
+  minAmount Decimal?   @map("min_amount") @db.Decimal(10, 2)
+  maxAmount Decimal?   @map("max_amount") @db.Decimal(10, 2)
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  user                    User?                    @relation(fields: [userId], references: [id])
+  admin                   Admin?                   @relation(fields: [adminId], references: [id])
+  depositWithdrawRequests DepositWithdrawRequest[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("upi")
+}
+
+model Bank {
+  id               BigInt          @id @default(autoincrement()) @map("id")
+  userId           BigInt?         @map("user_id")
+  adminId          BigInt?         @map("admin_id")
+  accountNumber    String          @map("account_number")
+  iban             String          @map("iban")
+  accountHolder    String          @map("account_holder")
+  //   accountType      AccountType     @map("account_type")
+  status           StatusType      @default(Active) @map("status")
+  bankName         String          @map("bank_name")
+  branchName       String          @map("branchName")
+  distict          String          @map("distict")
+  selectType       BankSelectType? @map("select_type")
+  minDepositAmount Decimal?        @map("min_deposit_amount") @db.Decimal(10, 2)
+  maxDepositAmount Decimal?        @map("max_deposit_amount") @db.Decimal(10, 2)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  user                    User?                    @relation(fields: [userId], references: [id])
+  admin                   Admin?                   @relation(fields: [adminId], references: [id])
+  depositWithdrawRequests DepositWithdrawRequest[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("bank")
+}
+
+model Crypto {
+  id               BigInt     @id @default(autoincrement()) @map("id")
+  userId           BigInt?    @map("user_id")
+  adminId          BigInt?    @map("admin_id")
+  walletAddress    String     @map("wallet_address")
+  qrImage          String?    @map("qr_image")
+  chain            String     @default("USDT") @map("chain")
+  minDepositAmount Decimal?   @map("min_deposit_amount") @db.Decimal(10, 2)
+  maxDepositAmount Decimal?   @map("max_deposit_amount") @db.Decimal(10, 2)
+  status           StatusType @default(Active) @map("status")
+  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  networkId        Int        @map("network_id")
+  network          Network    @relation(fields: [networkId], references: [id])
+
+  user                    User?                    @relation(fields: [userId], references: [id])
+  depositWithdrawRequests DepositWithdrawRequest[]
+  admin                   Admin?                   @relation(fields: [adminId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("crypto")
+}
+
+model DepositWithdrawRequest {
+  id               BigInt                  @id @default(autoincrement()) @map("id")
+  userId           BigInt                  @map("user_id")
+  type             WalletTransactionType   @map("type")
+  amount           Decimal                 @map("amount") @db.Decimal(15, 2)
+  status           WalletTransactionStatus @default(Pending) @map("status")
+  image            String?                 @map("image")
+  transactionCode  String?                 @map("transaction_code")
+  transactionHash  String?                 @map("transaction_hash")
+  upiId            BigInt?                 @map("upi_id")
+  bankId           BigInt?                 @map("bank_id")
+  cryptoId         BigInt?                 @map("crypto_id")
+  conversionRate   Decimal?                @map("conversion_rate") @db.Decimal(15, 2)
+  remark           String?                 @map("remark")
+  statusUpdatedAt  DateTime?               @map("status_updated_at")
+  bankerId         BigInt?                 @map("banker_id") // todo: For banker approval or anyelse id who update status 
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  digitalPaymentId BigInt?                 @map("digital_payment_id")
+
+  upi             Upi?             @relation(fields: [upiId], references: [id])
+  bank            Bank?            @relation(fields: [bankId], references: [id])
+  crypto          Crypto?          @relation(fields: [cryptoId], references: [id])
+  digitalPayment  DigitalPayment?  @relation(fields: [digitalPaymentId], references: [id])
+  user            User             @relation("UserRequestRelation", fields: [userId], references: [id])
+  bankerUser      User?            @relation("BankerUserRelation", fields: [bankerId], references: [id])
+  bonusApplicants BonusApplicant[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([upiId])
+  @@index([bankId])
+  @@index([cryptoId])
+  @@index([bankerId])
+  @@map("deposit_withdraw_request")
+}
+
+model Banner {
+  id          Int            @id @default(autoincrement()) @map("id")
+  name        String?        @map("name")
+  heading     String?        @map("heading")
+  description String?        @map("description")
+  size        String?        @map("size")
+  image       String         @map("image")
+  type        BannerType     @default(MainBanner) @map("type")
+  platform    BannerPlatform @default(WebBanner) @map("platform")
+  isPubliced  Boolean        @default(false) @map("is_publiced")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("banner")
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement()) @map("id")
+  title     String           @map("title")
+  body      String           @map("body")
+  type      NotificationType @default(Information) @map("type")
+  data      Json             @map("data")
+  isActive  Boolean          @default(true) @map("is_active")
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("notification")
+}
+
+model ContactSupport {
+  id        Int         @id @default(autoincrement()) @map("id")
+  label     String?     @map("label")
+  type      ContactType @map("type")
+  number    String      @map("number")
+  isActive  Boolean     @default(false) @map("is_active")
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("contact_support")
+}
+
+model Export {
+  id         BigInt       @id @default(autoincrement()) @map("id")
+  timestamp  DateTime     @map("timestamp")
+  status     ExportStatus @default(Pending) @map("status")
+  type       ExportType   @map("type")
+  format     ExportFormat @default(Excel) @map("format")
+  attachment String?      @map("attachment")
+  filters    Json?        @map("filter")
+  userId     BigInt?      @map("user_id")
+  adminId    BigInt?      @map("admin_id")
+  name       String?      @map("name")
+  timezone   String?      @default("Asia/Kolkata") @map("timezone")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  user  User?  @relation(fields: [userId], references: [id])
+  admin Admin? @relation(fields: [adminId], references: [id])
+
+  @@map("export")
+}
+
+model ActiveBanker {
+  id       BigInt @id @default(autoincrement()) @map("id")
+  bankerId BigInt @map("banker_id")
+
+  user User @relation(fields: [bankerId], references: [id])
+
+  @@map("active_banker")
+}
+
+model DigitalPayment {
+  id          BigInt      @id @default(autoincrement()) @map("id")
+  userId      BigInt?     @map("user_id")
+  adminId     BigInt?     @map("admin_id")
+  paymentMode PaymentMode @map("payment_mode")
+  accountType AccountType @default(Savings) @map("account_type")
+  number      String      @map("number")
+  status      StatusType  @default(Inactive) @map("status")
+  maxAmount   Decimal?    @default(0) @map("max_amount") @db.Decimal(15, 2)
+  minAmount   Decimal?    @default(0) @map("min_amount") @db.Decimal(15, 2)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  user                    User?                    @relation(fields: [userId], references: [id])
+  admin                   Admin?                   @relation(fields: [adminId], references: [id])
+  depositWithdrawRequests DepositWithdrawRequest[]
+
+  @@map("digital_payment")
+}
+
+enum PaymentType {
+  EWallet @map("ewallet")
+  Bank    @map("bank")
+  Crypto  @map("crypto")
+}
+
+model PaymentConfig {
+  id             BigInt                @id @default(autoincrement()) @map("id")
+  userId         BigInt                @map("user_id")
+  paymentMode    PaymentType           @map("payment_type")
+  type           WalletTransactionType @map("type")
+  maxAmount      Decimal?              @map("max_amount") @db.Decimal(15, 2)
+  minAmount      Decimal?              @map("min_amount") @db.Decimal(15, 2)
+  conversionRate Decimal?              @map("conversion_rate") @db.Decimal(15, 2)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([paymentMode])
+  @@index([type])
+  @@map("payment_config")
+}
+
+model AffiliateCommissionRange {
+  id         BigInt   @id @default(autoincrement()) @map("id")
+  fromUser   Int      @map("from_user")
+  toUser     Int?     @map("to_user")
+  percentage Float    @map("percentage")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  history AffiliateCommissionRangeHistory[]
+
+  @@map("affiliate_commission_range")
+}
+
+model AffiliateCommissionRangeHistory {
+  id            BigInt                   @id @default(autoincrement()) @map("id")
+  slabId        BigInt                   @map("slab_id")
+  fromUserOld   Int                      @map("from_user_old")
+  fromUserNew   Int                      @map("from_user_new")
+  toUserOld     Int?                     @map("to_user_old")
+  toUserNew     Int?                     @map("to_user_new")
+  percentageOld Float                    @map("percentage_old")
+  percentageNew Float                    @map("percentage_new")
+  changedBy     String                   @map("changed_by")
+  changedAt     DateTime                 @default(now()) @map("changed_at") @db.Timestamptz
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  slab          AffiliateCommissionRange @relation(fields: [slabId], references: [id])
+
+  @@map("affiliate_commission_range_history")
+}
+
+model Kyc {
+  id         BigInt    @id @default(autoincrement()) @map("id")
+  userId     BigInt    @unique @map("user_id")
+  cardNumber String    @map("card_number")
+  frontImage String    @map("front_image")
+  backImage  String    @map("back_image")
+  status     KycStatus @default(Pending) @map("status")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("kyc")
+}
+
+model WeeklyCommissionHistory {
+  id                BigInt           @id @default(autoincrement()) @map("id")
+  affiliateId       BigInt           @map("affiliate_id")
+  weekStart         DateTime         @map("week_start")
+  weekEnd           DateTime         @map("week_end")
+  activeUsers       Int              @map("active_users")
+  totalLoss         Decimal          @map("total_loss") @db.Decimal(15, 2)
+  deductionAmount   Decimal          @map("deduction_amount") @db.Decimal(15, 2)
+  status            CommissionStatus @default(Pending) @map("status")
+  commissionPercent Decimal          @map("commission_percent") @db.Decimal(5, 2)
+  commissionAmount  Decimal          @map("commission_amount") @db.Decimal(15, 2)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
+
+  weeklyActiveUsers AffiliateWeeklyActiveUser[]
+
+  @@index([affiliateId])
+  @@map("weekly_commission_history")
+}
+
+model SportsPermission {
+  id         Int      @id @default(autoincrement())
+  userId     BigInt   @unique @map("user_id")
+  permission Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("sports_permission")
+}
+
+model TurnoverHistory {
+  id                         BigInt       @id @default(autoincrement()) @map("id")
+  userId                     BigInt       @map("user_id")
+  sourceType                 TurnoverType @map("source_type")
+  betId                      BigInt?      @map("bet_id")
+  casinoTransactionHisotryId Int?         @map("casino_transaction_hisotry_id")
+  amount                     Decimal      @map("amount") @db.Decimal(15, 2)
+  turnoverMain               Decimal      @default(0) @map("turnover_main") @db.Decimal(15, 2)
+  turnoverBonus              Decimal      @default(0) @map("turnover_bonus") @db.Decimal(15, 2)
+  createdAt                  DateTime     @default(now()) @map("created_at")
+  updatedAt                  DateTime     @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id])
+  bet               Bet?               @relation(fields: [betId], references: [id])
+  casinoTransaction CasinoTransaction? @relation(fields: [casinoTransactionHisotryId], references: [id])
+
+  @@index([userId])
+  @@index([sourceType])
+  @@map("turnover_history")
+}
+
+model UserTurnoverAccount {
+  id               BigInt       @id @default(autoincrement())
+  bonusApplicant   Int?         @map("bonus_applicant")
+  userId           BigInt       @map("user_id")
+  depositId        BigInt       @map("deposit_id")
+  walletId         BigInt       @map("wallet_id")
+  version          Int          @default(0) @map("version")
+  amount           Decimal      @default(0.00) @db.Decimal(16, 2)
+  originalBonus    Decimal      @default(0.00) @map("original_amount") @db.Decimal(16, 2)
+  returnedAmount   Decimal      @default(0.00) @map("returned_amount") @db.Decimal(16, 2)
+  requiredTurnover Decimal      @default(0.00) @map("required_turnover") @db.Decimal(16, 2)
+  turnoverType     WalletType
+  status           ExportStatus @default(Pending)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  setteledAt       DateTime?
+
+  lockedWinning Decimal @default(0.00) @map("locked_winning") @db.Decimal(14, 2)
+
+  @@map("user_turnover_account")
+}
+
+model UserWalletStat {
+  id BigInt @id @default(autoincrement())
+
+  userId   BigInt @unique @map("user_id")
+  walletId BigInt @map("wallet_id")
+
+  totalDepositAmount  Decimal @default(0) @map("total_deposit_amount") @db.Decimal(18, 2)
+  totalWithdrawAmount Decimal @default(0) @map("total_withdraw_amount") @db.Decimal(18, 2)
+
+  depositCount  Int @default(0) @map("deposit_count")
+  withdrawCount Int @default(0) @map("withdraw_count")
+
+  lastTransactionId BigInt? @map("last_transaction_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  User      User[]
+  Wallet    Wallet   @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
+  @@map("user_wallet_stat")
+}
+
+model AffiliateWeeklyActiveUser {
+  id                        BigInt   @id @default(autoincrement()) @map("id")
+  affiliateId               BigInt   @map("affiliate_id")
+  weeklyCommissionHistoryId BigInt   @map("weekly_commission_history_id")
+  referredUserId            BigInt   @map("referred_user_id")
+  turnover                  Decimal  @default(0.00) @map("turnover") @db.Decimal(15, 2)
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  affiliate               Affiliate               @relation(fields: [affiliateId], references: [id])
+  weeklyCommissionHistory WeeklyCommissionHistory @relation(fields: [weeklyCommissionHistoryId], references: [id])
+  referredUser            User                    @relation(fields: [referredUserId], references: [id])
+
+  @@unique([weeklyCommissionHistoryId, referredUserId])
+  @@index([affiliateId])
+  @@index([weeklyCommissionHistoryId])
+  @@index([referredUserId])
+  @@map("affiliate_weekly_active_user")
+}
+
+enum NetworkType {
+  Evm  @map("evm")
+  Tron @map("tron")
+  Bsc  @map("bsc")
+
+  @@map("network_type")
+}
+
+model Network {
+  id                 Int         @id @default(autoincrement())
+  name               String
+  nativeCoinSymbol   String      @unique @map("native_coin_symbol")
+  nativeCoinDecimals Int         @map("native_coin_decimals") @db.SmallInt
+  nativeCoinCmcId    Int?        @unique @map("native_coin_cmc_id")
+  nativeCoinUsdRate  Decimal?    @map("native_coin_usd_rate") @db.Decimal
+  coinType           Int         @unique @map("coin_type")
+  type               NetworkType
+  syncedTillBlock    BigInt?     @map("synced_till_block")
+  rpcUrl             String?     @map("rpc_url")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  paymentOptions PaymentOption[]
+  cryptos        Crypto[]
+
+  @@map("network")
+}
+
+model PaymentOption {
+  id            Int      @id @default(autoincrement())
+  name          String
+  displayName   String   @map("display_name")
+  logo          String
+  symbol        String   @unique
+  ticker        String   @unique
+  decimals      Int      @db.SmallInt
+  cmcId         Int?     @map("cmc_id")
+  minTxnValue   Decimal  @map("min_txn_value") @db.Decimal
+  estNetworkFee Decimal? @map("est_network_fee") @db.Decimal
+  usdRate       Decimal? @map("usd_rate") @db.Decimal
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  network   Network @relation(fields: [networkId], references: [id])
+  networkId Int     @map("network_id")
+
+  @@index([networkId])
+  @@map("payment_option")
+}
+
+model BetPl {
+  id        BigInt           @id @default(autoincrement()) @map("id")
+  betId     BigInt?          @map("bet_id")
+  casinoId  Int?             @map("casino_id")
+  uplineId  BigInt?          @map("upline_id")
+  uplinePl  Decimal          @map("upline_pl")
+  userType  String           @map("user_type")
+  totalPl   Decimal          @map("total_pl")
+  category  GameTypeCategory @default(Sports) @map("category")
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  bet    Bet?                @relation(fields: [betId], references: [id])
+  casino CasinoRoundHistory? @relation(fields: [casinoId], references: [id])
+
+  @@unique([betId, uplineId, userType])
+  @@unique([casinoId, uplineId, userType])
+  @@index([casinoId])
+  @@index([betId])
+  @@index([uplineId])
+  @@index([updatedAt])
+  @@index([category])
+  @@map("bet_pl")
+}
+
+model UplineExposure {
+  id         BigInt   @id @default(autoincrement()) @map("id")
+  exposureId BigInt   @map("exposure_id")
+  uplineId   BigInt?  @map("upline_id")
+  uplinePl   Decimal  @map("upline_pl")
+  userType   String   @map("user_type")
+  totalPl    Decimal  @map("total_pl")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  exposure Exposure @relation(fields: [exposureId], references: [id])
+
+  @@unique([exposureId, uplineId, userType])
+  @@index([exposureId])
+  @@index([uplineId])
+  @@index([updatedAt])
+  @@map("upline_exposure")
+}
