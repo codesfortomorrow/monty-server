@@ -81,7 +81,7 @@ export class SportsOrchestratorProcessorService
     const now = Date.now();
     const competitionTimestamp = now + 2 * 60 * 60 * 1000;
     const marketTimestamp = now + 2 * 60 * 60 * 1000;
-    const duplicateEventTimestamp = now + 2 * 60 * 60 * 1000;
+    // const duplicateEventTimestamp = now + 2 * 60 * 60 * 1000;
 
     let storedCompetitionTimestamp = Number(
       (await this.redis.client.get(this.COMPETITION_KEY)) ?? 0,
@@ -89,9 +89,9 @@ export class SportsOrchestratorProcessorService
     let storedMarketTimestamp = Number(
       (await this.redis.client.get(this.MARKET_KEY)) ?? 0,
     );
-    let storedDuplicateEventTimestamp = Number(
-      (await this.redis.client.get(this.DUPLICATE_EVENT_KEY)) ?? 0,
-    );
+    // let storedDuplicateEventTimestamp = Number(
+    //   (await this.redis.client.get(this.DUPLICATE_EVENT_KEY)) ?? 0,
+    // );
     if (!storedCompetitionTimestamp) {
       storedCompetitionTimestamp = now;
       await this.redis.client.set(
@@ -105,13 +105,13 @@ export class SportsOrchestratorProcessorService
       await this.redis.client.set(this.MARKET_KEY, storedMarketTimestamp);
     }
 
-    if (!storedDuplicateEventTimestamp) {
-      storedDuplicateEventTimestamp = now;
-      await this.redis.client.set(
-        this.DUPLICATE_EVENT_KEY,
-        storedDuplicateEventTimestamp,
-      );
-    }
+    // if (!storedDuplicateEventTimestamp) {
+    //   storedDuplicateEventTimestamp = now;
+    //   await this.redis.client.set(
+    //     this.DUPLICATE_EVENT_KEY,
+    //     storedDuplicateEventTimestamp,
+    //   );
+    // }
 
     if (storedCompetitionTimestamp <= now) {
       try {
@@ -143,35 +143,35 @@ export class SportsOrchestratorProcessorService
       }
     }
 
-    if (storedDuplicateEventTimestamp <= now) {
-      try {
-        if (!this.isRunningDuplicateEvent) {
-          this.isRunningDuplicateEvent = true;
-          await this.syncDuplicateEvents();
-          await this.redis.client.set(
-            this.DUPLICATE_EVENT_KEY,
-            duplicateEventTimestamp,
-          );
-        } else {
-          this.logger.warn(
-            `Duplicate event sync skipped (another job already running)`,
-          );
-        }
-      } catch (error: any) {
-        this.logger.error(
-          `Error During Duplicate Event Syncing, Error: ${error.message}`,
-        );
-        this.alertService.notifySportSyncFailure({
-          meta: {
-            'Sync Type': 'Duplicate Events',
-            Source: SportsOrchestratorProcessorService.name,
-          },
-          error: error.message,
-        });
-      } finally {
-        this.isRunningDuplicateEvent = false;
-      }
-    }
+    // if (storedDuplicateEventTimestamp <= now) {
+    //   try {
+    //     if (!this.isRunningDuplicateEvent) {
+    //       this.isRunningDuplicateEvent = true;
+    //       await this.syncDuplicateEvents();
+    //       await this.redis.client.set(
+    //         this.DUPLICATE_EVENT_KEY,
+    //         duplicateEventTimestamp,
+    //       );
+    //     } else {
+    //       this.logger.warn(
+    //         `Duplicate event sync skipped (another job already running)`,
+    //       );
+    //     }
+    //   } catch (error: any) {
+    //     this.logger.error(
+    //       `Error During Duplicate Event Syncing, Error: ${error.message}`,
+    //     );
+    //     this.alertService.notifySportSyncFailure({
+    //       meta: {
+    //         'Sync Type': 'Duplicate Events',
+    //         Source: SportsOrchestratorProcessorService.name,
+    //       },
+    //       error: error.message,
+    //     });
+    //   } finally {
+    //     this.isRunningDuplicateEvent = false;
+    //   }
+    // }
 
     if (storedMarketTimestamp <= now) {
       try {
@@ -221,6 +221,7 @@ export class SportsOrchestratorProcessorService
   // @Cron(CronExpression.EVERY_2_HOURS, { name: 'markets-sync' })
   async syncMarkets() {
     await this.marketsProcessor.syncMarkets();
+    await this.marketsProcessor.syncRaceMarkets();
   }
 
   @UseFilters(SentryExceptionFilter)
@@ -262,7 +263,7 @@ export class SportsOrchestratorProcessorService
   public async manualRun(): Promise<string> {
     if (
       this.isRunningCompetition ||
-      this.isRunningDuplicateEvent ||
+      // this.isRunningDuplicateEvent ||
       this.isRunningMarket
     ) {
       return 'Another orchestration already running';
@@ -270,7 +271,7 @@ export class SportsOrchestratorProcessorService
 
     await this.redis.client.del(
       this.COMPETITION_KEY,
-      this.DUPLICATE_EVENT_KEY,
+      // this.DUPLICATE_EVENT_KEY,
       this.MARKET_KEY,
     );
     this.initSportSync();

@@ -26,7 +26,10 @@ export class FixtureController {
   @Get('race')
   @CacheTTL(1000)
   async getRaceFixture(@Query() query: FixtureRequest) {
-    const fixture = await this.fixtureService.getFixtureDetails(query, false);
+    const fixture = await this.fixtureService.getRaceFixtureDetails(
+      query,
+      false,
+    );
     return {
       success: true,
       message: 'Fixture fetched successfully',

@@ -194,8 +194,8 @@ export class KafkaService
       for (const market of markets) {
         // const marketId =
         //   market?.data?.marketId || market?.marketId || market?.id;
-        const eventID =
-          market?.data?.eventID || market?.eventID || market?.data?.matchId;
+        // const eventID =
+        //   market?.data?.eventID || market?.eventID || market?.data?.matchId;
 
         const marketName = market?.marketName || market?.data?.marektName;
 
