@@ -837,24 +837,23 @@ export class UsersService {
   ) {
     // 1️⃣ Fetch creator + role
     let creator;
-    let creatorMeta;
     let creatorStatus: UserStatus | null = null;
+
+    if (dto.partnership && dto.partnership <= 0) {
+      throw new Error('Partnership percentage must be greater than 0.');
+    }
     if (userType === UserType.User) {
       creator = await this.prisma.user.findUnique({
         where: { id: creatorId },
         include: { role: true },
       });
-      creatorMeta = await this.getMetaById(creatorId);
       if (creator) creatorStatus = creator.status;
     } else {
       creator = await this.prisma.admin.findUnique({
         where: { id: creatorId },
         include: { role: true },
       });
-      creatorMeta = await this.adminService.getMetaById(creatorId);
     }
-    if (!creatorMeta || creatorMeta.transactionCode !== dto.transactionCode)
-      throw new Error('Wrong transaction code');
     if (!creator?.role) throw new Error('Creator role not found');
 
     const targetRole = await this.prisma.role.findUnique({
@@ -1012,11 +1011,6 @@ export class UsersService {
       skip = (query.page - 1) * query.limit;
     }
 
-    let reportLimit = '';
-    if (!isExport) {
-      reportLimit += 'LIMIT $10 OFFSET $11';
-    }
-
     const UserStatusDB = {
       Active: 'active',
       Blocked: 'blocked',
@@ -1089,6 +1083,7 @@ export class UsersService {
         profitLoss: number;
         downlinePl: number;
         downlinePlInPercent: number;
+        withdrawalBalance: number;
       }[]
     >(
       `
@@ -1168,34 +1163,40 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
       statusFilter,
     );
 
-    let extraBalanceInfo = null;
     if (isDownlineBalanceInformationNeeded) {
       for (const usr of downlineUsers) {
-        const summary = await this.getDownlineSummaryForUser(
-          usr.id,
-          usr.upline,
-        );
-
+        let summary = {
+          player_exposure: 0,
+          total_downline_balance: 0,
+          player_balance: 0,
+        };
+        if (usr.role !== 'USER') {
+          summary = await this.getDownlineSummaryForUser(usr.id, usr.upline);
+        }
         usr.exposure = Number(summary.player_exposure || 0);
 
-        usr.downlineBalance =
-          Number(summary.total_downline_balance || 0) + usr.exposure;
+        usr.downlineBalance = Number(summary.total_downline_balance || 0);
 
         usr.totalBalance =
-          usr.downlineBalance +
-          Number(usr.availableBalance || 0) +
-          Number(usr.exposureAmount || 0);
+          usr.downlineBalance + Number(usr.availableBalance || 0);
+        //  +
+        // Number(usr.exposureAmount || 0);
 
         usr.playerBalance = Number(summary.player_balance || 0);
 
-        usr.downlinePl = usr.totalBalance - Number(usr.creditAmount || 0);
-
+        usr.downlinePl = Number(usr.creditAmount || 0) - usr.totalBalance;
+        usr.withdrawalBalance =
+          usr.totalBalance + Number(usr.exposureAmount || 0) - usr.lockedAmount;
         usr.downlinePlInPercent =
-          usr.totalBalance -
-          (Number(usr.creditAmount || 0) * (usr.partnership || 100)) / 100;
+          ((Number(usr.creditAmount || 0) - usr.totalBalance) *
+            (usr.partnership || 100)) /
+          100;
 
-        usr.referance = usr.totalBalance - Number(usr.creditAmount || 0);
-        usr.lifetimePl = usr.totalWithdrawAmount - usr.totalDepositAmount;
+        usr.referance = usr.isSelfRegistered
+          ? usr.totalDepositAmount - usr.totalWithdrawAmount - usr.totalBalance
+          : Number(usr.creditAmount || 0) - usr.totalBalance;
+        usr.lifetimePl =
+          usr.totalDepositAmount - usr.totalWithdrawAmount - usr.totalBalance;
       }
     }
 
@@ -1733,6 +1734,7 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
 
   async exportSubUserReport(
     userId: bigint,
+    basePath: string,
     userType: UserType,
     query: GetSubuserRequest,
   ) {
@@ -1756,6 +1758,7 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
           status: query.status,
+          path: basePath,
         },
       },
     });

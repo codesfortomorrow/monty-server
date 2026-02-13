@@ -33,7 +33,6 @@ import {
 @ApiTags('Admin')
 @ApiBearerAuth()
 @UseFilters(SentryExceptionFilter)
-@Roles(UserType.Admin)
 @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
 @Controller('admin')
 export class AdminController extends BaseController {
@@ -42,12 +41,14 @@ export class AdminController extends BaseController {
   }
 
   @Get()
+  @Roles(UserType.Admin)
   async getProfile(@Req() req: AuthenticatedRequest) {
     const ctx = this.getContext(req);
     return await this.adminService.getProfile(ctx.user.id);
   }
 
   @Patch()
+  @Roles(UserType.Admin)
   async updateProfileDetails(
     @Req() req: AuthenticatedRequest,
     @Body() data: UpdateProfileDetailsRequestDto,
@@ -58,6 +59,7 @@ export class AdminController extends BaseController {
   }
 
   @Post('profile-image')
+  @Roles(UserType.Admin)
   updateProfileImage(
     @Req() req: AuthenticatedRequest,
     @Body() data: UpdateProfileImageRequestDto,
@@ -67,6 +69,7 @@ export class AdminController extends BaseController {
   }
 
   @Post('change-password')
+  @Roles(UserType.Admin)
   async changePassword(
     @Req() req: AuthenticatedRequest,
     @Body() data: ChangePasswordRequestDto,
@@ -81,6 +84,7 @@ export class AdminController extends BaseController {
   }
 
   @Post('authenticate')
+  @Roles(UserType.Admin)
   async authenticate(
     @Req() req: AuthenticatedRequest,
     @Body() data: AuthenticateRequestDto,
@@ -91,6 +95,7 @@ export class AdminController extends BaseController {
   }
 
   @Patch('users/password/:id')
+  @Roles(UserType.Admin, UserType.User)
   async changeUserPassword(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,

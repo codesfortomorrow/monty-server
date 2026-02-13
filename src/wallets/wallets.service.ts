@@ -831,18 +831,6 @@ export class WalletsService {
     userType: UserType;
     body: CreditLimitRequest;
   }) {
-    let userMeta;
-    if (data.userType === UserType.Admin) {
-      userMeta = await this.prisma.adminMeta.findUnique({
-        where: { adminId: data.creatorId },
-      });
-    } else {
-      userMeta = await this.prisma.userMeta.findUnique({
-        where: { userId: data.creatorId },
-      });
-    }
-    if (!userMeta || userMeta.transactionCode !== data.body.transactionCode)
-      throw new Error('Wrong transaction code');
     console.log('Before start: ', data.userType);
     return this.prisma.$transaction(async (tx) => {
       return await this.giveCreditLimit({
