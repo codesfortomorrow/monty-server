@@ -21,7 +21,6 @@ import {
 } from 'src/market-mapper/market.type';
 import { PrismaService } from 'src/prisma';
 import { targetMarkets } from 'src/utils/market';
-import e from 'express';
 
 @Injectable()
 export class OddsService {
@@ -143,24 +142,24 @@ export class OddsService {
         parsed,
       );
 
-      const extraMarkets: ExtraMarketData[] = [];
+      // const extraMarkets: ExtraMarketData[] = [];
       const fancyMarkets: FancyMarketData[] = [];
 
-      if (parsed.has(extraKey)) {
-        const extra = parsed.get(extraKey) as { data: ExtraMarket[] };
-        if (Array.isArray(extra?.data)) {
-          extraMarkets.push(
-            ...extra.data
-              .map(this.mapExtraMarket)
-              .filter(
-                (m) =>
-                  m.marketId &&
-                  !m.status?.toLowerCase().startsWith('close') &&
-                  m.runners,
-              ),
-          );
-        }
-      }
+      // if (parsed.has(extraKey)) {
+      //   const extra = parsed.get(extraKey) as { data: ExtraMarket[] };
+      //   if (Array.isArray(extra?.data)) {
+      //     extraMarkets.push(
+      //       ...extra.data
+      //         .map(this.mapExtraMarket)
+      //         .filter(
+      //           (m) =>
+      //             m.marketId &&
+      //             !m.status?.toLowerCase().startsWith('close') &&
+      //             m.runners,
+      //         ),
+      //     );
+      //   }
+      // }
 
       if (parsed.has(fancyKey)) {
         const fancy = parsed.get(fancyKey) as { data: FancyMarket[] };
@@ -216,7 +215,7 @@ export class OddsService {
           mainMarkets.length > 0
             ? this.groupBy(mainMarkets, 'marketName')
             : this.groupBy(mappedDbMarket, 'marketName'),
-        premiumMarket: this.groupBy(extraMarkets, 'category', 'marketName'),
+        // premiumMarket: this.groupBy(extraMarkets, 'category', 'marketName'),
         fancyMarkets: this.groupBy(fancyMarkets, 'marketCategory'),
       };
     });

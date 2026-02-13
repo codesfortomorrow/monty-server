@@ -22,12 +22,12 @@ export class CompetitionsController {
     return 'Successfully fetched';
   }
 
-  @ApiOperation({ summary: 'Only For Manual Fetch' })
-  @Post('/other/provider')
-  async fetchCompetitionOfOtherProvider() {
-    await this.competitionProcessor.handleCompetitionSync();
-    return 'Successfully fetched';
-  }
+  // @ApiOperation({ summary: 'Only For Manual Fetch' })
+  // @Post('/other/provider')
+  // async fetchCompetitionOfOtherProvider() {
+  //   await this.competitionProcessor.handleCompetitionSync();
+  //   return 'Successfully fetched';
+  // }
 
   // UI APIs
   @Get()

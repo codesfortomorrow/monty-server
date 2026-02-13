@@ -630,7 +630,12 @@ export class CasinoService extends BaseService {
       WalletType.Main,
     );
 
-    if (!user || !wallet) {
+    const bonusWallet = await this.walletService.getByUserId(
+      userId,
+      WalletType.Bonus,
+    );
+
+    if (!user || !wallet || !bonusWallet) {
       return {
         success: false,
         status: 'ACCOUNT_BLOCKED',
@@ -653,7 +658,8 @@ export class CasinoService extends BaseService {
     const exposureAmount = 0; // if you have separate exposure model, fetch it here
 
     const updatedBalance = Math.round(
-      Number(wallet.amount) -
+      Number(wallet.amount) +
+        Number(bonusWallet.amount) -
         Math.abs(exposureAmount) -
         Math.abs(Number(wallet.lockedAmount)),
     );

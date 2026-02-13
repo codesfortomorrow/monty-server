@@ -13,8 +13,6 @@ import { ExtraMarketPayload } from 'src/market-mapper/market.type';
 import { EventsService } from 'src/events/events.service';
 // import { Cron, CronExpression } from '@nestjs/schedule';
 import { Sentry } from 'src/configs/sentry.config';
-import { Queue } from 'bullmq';
-import { InjectQueue } from '@nestjs/bullmq';
 export const SPORT_ID_MAP = {
   Cricket: 4,
   Soccer: 1,
@@ -43,8 +41,6 @@ export class MarketProcessor
     private readonly redis: RedisService,
     private readonly eventService: EventsService,
     private readonly alertService: AlertService,
-    @InjectQueue('premium-market')
-    private readonly premiumMarketQueue: Queue,
     @Inject(sportConfigFactory.KEY)
     private readonly sportConfig: ConfigType<typeof sportConfigFactory>,
   ) {
@@ -338,58 +334,7 @@ export class MarketProcessor
       // select: { id: true, externalId: true, },
     });
   }
-  // async checkAndStorePremiumMarket(premiumData: ExtraMarketPayload) {
-  //   const eventId = premiumData.eventId || premiumData.eventID;
-  //   const event = await this.eventService.getByExternalId(eventId);
-  //   if (!event) return;
-  //   const markets = premiumData.data;
 
-  //   await this.utils.batchable(
-  //     markets,
-  //     async (market) => {
-  //       const existsKey = `market:exists:${eventId}:${market.marketId}`;
-  //       const isExists = await this.redis.client.exists(existsKey);
-
-  //       if (isExists) return;
-  //       this.logger.debug(
-  //         `[${market.marketName}] Market missing — syncing markets for event ${eventId}`,
-  //       );
-  //       this.upsertMarket(
-  //         event.id,
-  //         {
-  //           marketId: market.marketId,
-  //           marketName: market.marketName,
-  //           runners: market.runners,
-  //           type: MarketType.Premium,
-  //         },
-  //         event.externalId,
-  //       );
-  //       await this.utils.sleep(2000);
-  //     },
-  //     os.availableParallelism() / 2,
-  //   );
-  // }
-
-  async checkAndStorePremiumMarket(premiumData: ExtraMarketPayload) {
-    const eventId = premiumData.eventId || premiumData.eventID;
-    const event = await this.eventService.getByExternalId(eventId);
-    if (!event) return;
-    const markets = premiumData.data;
-
-    for (const market of markets) {
-      await this.premiumMarketQueue.add(
-        'sync-premium-market',
-        {
-          eventId: event.id,
-          eventExternalId: event.externalId,
-          market,
-        },
-        {
-          jobId: `${event.externalId}:${market.marketId}`,
-        },
-      );
-    }
-  }
   async startMissingMarketProcessor() {
     if (!this.utils.isMaster()) return;
 

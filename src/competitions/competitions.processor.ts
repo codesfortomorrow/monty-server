@@ -46,20 +46,6 @@ export class CompetitionsProcessor extends BaseService {
     this.logger.info('✅ Sports Data Processor completed successfully.');
   }
 
-  /**
-   * Run every 5 hours
-   */
-  /**
-   * Fetch Competitions of others provider
-   */
-  // @Cron(CronExpression.EVERY_5_HOURS)
-  async handleCompetitionSync() {
-    if (!this.utils.isMaster()) return;
-    this.logger.info('🏁 Competition sync started');
-    await this.syncOtherProviderCompetitions();
-    this.logger.info('✅ Competition sync finished');
-  }
-
   async fetchRaceMarketCompttionAndEvents() {
     if (!this.utils.isMaster()) return;
     this.logger.info('🏁 Race Competition sync started');
@@ -112,46 +98,6 @@ export class CompetitionsProcessor extends BaseService {
         }, 3);
       },
     );
-  }
-
-  async syncOtherProviderCompetitions() {
-    const baseUrl = this.sportConfig.sportBaseUrl;
-    const sports = this.sportConfig.sports;
-
-    if (!baseUrl || !sports)
-      throw new Error(
-        'Base Url or Sports are not configured, aborting competition sync',
-      );
-
-    // fetch providers (exclude Sat Sports & BetFair)
-    const providers = await this.prisma.provider.findMany({
-      where: {
-        providerType: ProviderType.Sports,
-        isActive: true,
-        name: { notIn: ['Sat Sports', 'BetFair'] },
-      },
-    });
-
-    this.logger.info(`Found ${providers.length} providers to sync`);
-    await this.utils.batchable(providers, async (provider) => {
-      await this.utils.batchable(
-        Object.entries(sports),
-        async ([sportName, sportId]) => {
-          if (sportId == 7 || sportId == 4339) {
-            return;
-          }
-
-          await this.utils.rerunnable(async () => {
-            await this.processOtherCompetition(
-              baseUrl,
-              sportName,
-              sportId,
-              provider,
-            );
-          }, 3);
-        },
-      );
-    });
   }
 
   private async processSport(
@@ -217,12 +163,14 @@ export class CompetitionsProcessor extends BaseService {
       }, 3);
     } catch (error) {
       // Call Alert Service
-      // this.alertService.notifyApiFailure({
-      //  //portName,
-      //   //sportId,
-      //   url,
-      //   error: error.message,
-      // });
+      this.alertService.notifyApiFailure({
+        url,
+        meta: {
+          'Sport Name': sportName,
+          'Sport Id': sportId,
+        },
+        error: error.message,
+      });
     }
 
     const competitions = response?.data ?? [];
@@ -313,102 +261,6 @@ export class CompetitionsProcessor extends BaseService {
     } catch (error) {
       this.logger.error(
         `Error to upsert competition & event. error: ${error.message}`,
-      );
-    }
-  }
-
-  async processOtherCompetition(
-    baseUrl: string,
-    sportName: string,
-    sportId: number,
-    provider: Provider,
-  ) {
-    if (!provider.externalId) {
-      this.logger.warn(
-        `Skipping provider ${provider.name} (id=${provider.id}) - missing externalId`,
-      );
-      return;
-    }
-    // const url = `${baseUrl}/competition/by-providerId?sportId=${sportId}&providerId=${provider.externalId}`;
-    const url = `${baseUrl}/event/by-provider?sportId=${sportId}&providerId=${provider.externalId}&competitionId=%20`;
-
-    try {
-      // use utils.rerunnable to call the 3rd party (with exponential backoff)
-      let response: RemoteResponse | null = null;
-
-      try {
-        response = await this.utils.rerunnable(async () => {
-          const resp = await firstValueFrom(
-            this.http
-              .get<RemoteResponse>(url)
-              .pipe(timeout(this.REQUEST_TIMEOUT_MS)),
-          );
-          return resp.data;
-        }, 3);
-      } catch (error) {
-        // Call Alert Service
-        this.alertService.notifyApiFailure({
-          url,
-          meta: {
-            'Sport Name': sportName,
-            'Sport Id': sportId,
-          },
-          error: error.message,
-        });
-
-        this.logger.error(
-          `Error to call third party api (Sport = ${sportName}), (url = ${url}) ${error.message}`,
-        );
-      }
-
-      this.logger.info(
-        `Third party response for ${provider.name} (Sport = ${sportName}) ${JSON.stringify(response, null, 2)}`,
-      );
-
-      const competitions = response?.data ?? [];
-
-      if (!Array.isArray(competitions)) {
-        this.logger.warn(
-          `Provider ${provider.name} (${provider.externalId}) returned non-array for sport ${sportName}: ${JSON.stringify(
-            competitions,
-          )}`,
-        );
-        return;
-      }
-
-      // batch upsert using utils.batchable - concurrency tuned by utils.batchable implementation
-      await this.utils.batchable(competitions, async (comp) => {
-        // Use upsert with unique constraint (externalId + name)
-        // await this.prisma.competition.upsert({
-        //   where: {
-        //     externalId_name: {
-        //       externalId: comp.competitionId,
-        //       name: comp.competitionName,
-        //     },
-        //   },
-        //   create: {
-        //     externalId: comp.competitionId,
-        //     name: comp.competitionName,
-        //     sport: getSportEnum(comp.sportName),
-        //     status: StatusType.Active,
-        //     providerId: provider.id,
-        //   },
-        //   update: {
-        //     sport: getSportEnum(comp.sportName),
-        //     status: StatusType.Active,
-        //   },
-        // });
-
-        await this.upsertCompetitionAndEvents(sportName, comp, provider.id);
-        await this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
-      });
-
-      this.logger.info(
-        `Synced ${competitions.length} competitions for provider ${provider.name} (sport=${sportName})`,
-      );
-    } catch (err: any) {
-      this.logger.error(
-        `Failed to sync competitions for provider ${provider.name} (sport=${sportName}): ${err?.message ?? err}`,
       );
     }
   }

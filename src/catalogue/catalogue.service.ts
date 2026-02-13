@@ -200,12 +200,12 @@ export class CatalogueService extends BaseService {
         enriched.markets = this.filterMarketRecord(enriched.markets, marketId);
       }
 
-      if (marketType && marketType.toLowerCase() === 'premium') {
-        enriched.premiumMarket = this.filterMarketRecord(
-          enriched.premiumMarket,
-          marketId,
-        );
-      }
+      // if (marketType && marketType.toLowerCase() === 'premium') {
+      //   enriched.premiumMarket = this.filterMarketRecord(
+      //     enriched.premiumMarket,
+      //     marketId,
+      //   );
+      // }
 
       if (marketType && marketType.toLowerCase() === 'fancy') {
         enriched.fancyMarkets = this.filterMarketRecord(

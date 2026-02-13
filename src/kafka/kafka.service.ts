@@ -227,7 +227,7 @@ export class KafkaService
           if (!marketName) return;
           switch (marketName.toLowerCase()) {
             case 'extramarket':
-              await this.handleExtraMarket(market);
+              // await this.handleExtraMarket(market);
               break;
             default:
               await this.handleOtherOdds(market);
@@ -260,22 +260,22 @@ export class KafkaService
   // ========================================
   // 2. EXTRA MARKETS
   // ========================================
-  private async handleExtraMarket(raw: any) {
-    const mapped = this.mapper.mapExtraMarketPayload(raw);
-    if (!mapped) return;
+  // private async handleExtraMarket(raw: any) {
+  //   const mapped = this.mapper.mapExtraMarketPayload(raw);
+  //   if (!mapped) return;
 
-    const { eventID } = mapped;
-    const key = `extra:${eventID}`;
-    await this.redis.client.setex(
-      key,
-      50, // 50 sec
-      JSON.stringify(mapped),
-    );
+  //   const { eventID } = mapped;
+  //   const key = `extra:${eventID}`;
+  //   await this.redis.client.setex(
+  //     key,
+  //     50, // 50 sec
+  //     JSON.stringify(mapped),
+  //   );
 
-    await this.marketProcessor.checkAndStorePremiumMarket(mapped);
+  //   await this.marketProcessor.checkAndStorePremiumMarket(mapped);
 
-    this.logger.debug(`[EXTRA] Stored: ${eventID}`);
-  }
+  //   this.logger.debug(`[EXTRA] Stored: ${eventID}`);
+  // }
 
   // ========================================
   // 3. OTHER ODDS (Match Odds, Bookmaker, Mini, Toss, etc.)

@@ -230,7 +230,7 @@ export class WalletsService {
       const wallet = await this.getByUserId(userId, walletType, {
         tx: prismaClient,
       });
-      let newCredit;
+      let newCredit = wallet.creditAmount;
       if (wallet.user && wallet.user.isSelfRegistered) {
         newCredit = new Prisma.Decimal(0);
       } else {
@@ -354,7 +354,7 @@ export class WalletsService {
       const wallet = await this.getByUserId(userId, walletType, {
         tx: options.tx,
       });
-      let newCredit;
+      let newCredit = wallet.creditAmount;
       if (wallet.user && wallet.user.isSelfRegistered) {
         newCredit = new Prisma.Decimal(0);
       } else {
@@ -620,8 +620,11 @@ export class WalletsService {
     const mainWallet = await tx.wallet.findFirst({
       where: { userId, type: WalletType.Main },
     });
+    const bonusWallet = await tx.wallet.findFirst({
+      where: { userId, type: WalletType.Bonus },
+    });
 
-    if (!mainWallet) throw new Error('MAIN_WALLET_NOT_FOUND');
+    if (!mainWallet || !bonusWallet) throw new Error('WALLET_NOT_FOUND');
 
     // Step 2: Recalculate total required exposure (always negative)
     const refreshedExposureAmount =
@@ -630,7 +633,9 @@ export class WalletsService {
 
     // Step 3: Calculate MAIN & BONUS exposure distribution
     const mainAvailable =
-      Number(mainWallet.amount) - Number(mainWallet.lockedAmount);
+      Number(mainWallet.amount) +
+      Number(bonusWallet.amount) -
+      Number(mainWallet.lockedAmount);
     let mainExposure = 0;
     let remainingExposure = totalRequiredExposure;
 
@@ -665,7 +670,6 @@ export class WalletsService {
 
     return { updatedWallet: updatedMainWallet };
   }
-
   async addExposure(
     userId: bigint,
     amount: Prisma.Decimal,
@@ -1024,7 +1028,7 @@ export class WalletsService {
           uplineId,
           new Prisma.Decimal(data.amount).toDP(2),
           WalletType.Main,
-          false,
+          true,
           {
             tx,
             context: WalletTransactionContext.PointIssue,
@@ -1079,6 +1083,16 @@ export class WalletsService {
     }
     if (!uplineMeta || uplineMeta.transactionCode !== data.transactionCode)
       throw new Error('Wrong transaction code');
+
+    const userWallet = await this.getByUserId(userId, WalletType.Main);
+    const withdrawableBalance =
+      Number(userWallet.amount) +
+      Number(userWallet.exposureAmount) -
+      Number(userWallet.lockedAmount);
+
+    if (data.amount > withdrawableBalance)
+      throw new Error('Insufficient balance');
+
     return await this.prisma.$transaction(async (tx) => {
       await this.subtractBalance(
         userId,
@@ -1104,7 +1118,7 @@ export class WalletsService {
           uplineId,
           new Prisma.Decimal(data.amount).toDP(2),
           WalletType.Main,
-          false,
+          true,
           {
             tx,
             context: WalletTransactionContext.PointRemove,

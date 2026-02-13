@@ -5,7 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 // import { Cron, CronExpression } from '@nestjs/schedule';
 import { Competition, SportType, StatusType } from '@prisma/client';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 import { PrismaService } from 'src/prisma';
 import { getSportEnum, getSportId, getStatusEnum } from 'src/utils/sports';
 import { CloseEventResponse, EventResponse } from './events.type';
@@ -16,6 +16,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class EventsProcessor extends BaseService {
   private readonly CACHE_TTL = 60 * 60 * 24 * 2; // 2 days
+  private readonly REQUEST_TIMEOUT_MS = 10000; // 10 seconds
 
   private isRunning = false;
   constructor(
@@ -242,11 +243,14 @@ export class EventsProcessor extends BaseService {
         const url = `${this.sportConfig.sportBaseUrl}/event/closed-event?sport=${sport}`;
         const response = await this.utils.rerunnable(async () => {
           const res = await firstValueFrom(
-            this.http.get<CloseEventResponse[]>(url),
+            this.http
+              .get<CloseEventResponse[]>(url)
+              .pipe(timeout(this.REQUEST_TIMEOUT_MS)),
           );
           return res.data;
         }, 3);
         if (!response.length) {
+          this.logger.warn(`No Result Found In Close Event Webhook`);
           return;
         }
 

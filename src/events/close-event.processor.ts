@@ -36,7 +36,7 @@ export class CloseEventProcessor extends BaseProcessor {
 
       if (updateCount.count > 0) {
         this.logger.info(`Closed event for eventId ${eventExternalId}`);
-        await this.redis.client.setex(existsKey, 1 * 24 * 60 * 60, 1);
+        await this.redis.client.setex(existsKey, 1 * 60 * 60, 1);
 
         // Redis clear
         const fixtureKeys = `fixture:*`;
