@@ -277,7 +277,7 @@ export class BetService extends BaseService {
             selectionId: data.selectionId,
             selection: data.runnerName,
             amount: data.stake,
-            bonusUsages: exposureUpdate.deductFromBonus,
+            // bonusUsages: exposureUpdate.deductFromBonus,
             odds: data.rate,
             percentage: data.fancyPercentage,
             payout: 0,
@@ -925,7 +925,7 @@ export class BetService extends BaseService {
       // if (!market) throw new Error(`Market not found: ${marketExternalId}`);
 
       const { amount: balance, exposureAmount, lockedAmount } = data.wallet;
-      const { amount: bonusBalance } = data.bonusWallet;
+      // const { amount: bonusBalance } = data.bonusWallet;
 
       // ---------------------------------------------------------
       // 1️⃣ CALCULATE UPDATED EXPOSURE (IN MEMORY)
@@ -990,10 +990,10 @@ export class BetService extends BaseService {
         Number(balance) +
         Number(exposureAmount) +
         Number(minPrevExposure) -
-        Number(lockedAmount) +
-        Number(bonusBalance);
+        Number(lockedAmount);
+      // + Number(bonusBalance);
 
-      const totalBalanceWithoutBonus = availableCredit - Number(bonusBalance);
+      // const totalBalanceWithoutBonus = availableCredit - Number(bonusBalance);
 
       if (
         availableCredit < 0 ||
@@ -1002,11 +1002,11 @@ export class BetService extends BaseService {
         throw new Error('Insufficient balance');
       }
 
-      let deductFromBonus = 0;
-      if (totalBalanceWithoutBonus < Math.abs(minUpdatedExposure)) {
-        deductFromBonus =
-          Math.abs(minUpdatedExposure) - totalBalanceWithoutBonus;
-      }
+      // let deductFromBonus = 0;
+      // if (totalBalanceWithoutBonus < Math.abs(minUpdatedExposure)) {
+      //   deductFromBonus =
+      //     Math.abs(minUpdatedExposure) - totalBalanceWithoutBonus;
+      // }
 
       // if (market.exposureLimit) {
       //   if (Math.abs(minUpdatedExposure) > Number(market.exposureLimit))
@@ -1051,7 +1051,7 @@ export class BetService extends BaseService {
         );
       }
 
-      return { success: true, error: null, deductFromBonus };
+      return { success: true, error: null };
     } catch (err: any) {
       this.logger.error('updateBetExposure Error:', err);
       return { success: false, error: err.message ?? 'Unknown error' };
