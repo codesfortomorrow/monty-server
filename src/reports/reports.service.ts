@@ -15,7 +15,7 @@ import { PrismaService } from 'src/prisma';
 import { RedisService } from 'src/redis';
 import { UsersService } from 'src/users';
 import { CasinoBetReportsRequest } from './dto/casino-bet-reports.request';
-import { ExportFormat, ExportStatus, ExportType, Prisma } from '@prisma/client';
+import { ExportFormat, ExportStatus, ExportType } from '@prisma/client';
 
 @Injectable()
 export class ReportsService extends BaseService {
@@ -103,12 +103,17 @@ export class ReportsService extends BaseService {
             b.placed_at AS "placedAt",
             b.settled_at AS "settledAt",
             u.username,
-            um.upline
+            um.upline,
+            CASE
+              WHEN rt.result_selection IS NOT NULL THEN rt.result_selection
+              ELSE rt.result
+            END AS result
           FROM bet b
           JOIN event e ON e.id = b.event_id
           JOIN user_meta um ON um.user_id = b.user_id
           JOIN "user" u ON u.id = b.user_id
           JOIN role r ON r.id = u.role_id
+          LEFT JOIN result rt ON rt.event_id = b.event_id AND rt.market_external_id = b.market_id
           WHERE 
             r.name != 'DEMO'
             AND ($1::text IS NULL OR e.name ILIKE '%' || $1 || '%'
@@ -171,6 +176,7 @@ export class ReportsService extends BaseService {
           settledAt: Date | null;
           username: string | null;
           upline: string | null;
+          result: string | null;
         }[]
       >(sqlQuery, ...params);
 
@@ -306,6 +312,7 @@ export class ReportsService extends BaseService {
     }
     return map;
   }
+
   async getPlayerProfitLoss(
     userId: bigint,
     userType: UserType,
@@ -993,6 +1000,7 @@ export class ReportsService extends BaseService {
   async exportCasinoPlayerProfitLossReports(
     userId: bigint,
     userType: UserType,
+    path: string,
     query: CasinoProfitLossReportsRequest,
   ) {
     const isAdmin = userType === UserType.Admin;
@@ -1012,6 +1020,7 @@ export class ReportsService extends BaseService {
           searchByUserId: query.searchByUserId,
           transactionLimit: query.transactionLimit,
           reportType: query.reportType,
+          path: path,
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
         },
@@ -1030,6 +1039,7 @@ export class ReportsService extends BaseService {
   async exportCasinoDownlineProfitLossReports(
     userId: bigint,
     userType: UserType,
+    path: string,
     query: CasinoProfitLossReportsRequest,
   ) {
     const isAdmin = userType === UserType.Admin;
@@ -1049,6 +1059,7 @@ export class ReportsService extends BaseService {
           searchByUserId: query.searchByUserName,
           reportType: query.reportType,
           transactionLimit: query.transactionLimit,
+          path: path,
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
         },
@@ -1145,6 +1156,7 @@ export class ReportsService extends BaseService {
   async exportDownlineProfitLossReports(
     userId: bigint,
     userType: UserType,
+    path: string,
     query: DownlineProfitLossRequest,
   ) {
     const isAdmin = userType === UserType.Admin;
@@ -1165,6 +1177,7 @@ export class ReportsService extends BaseService {
           transactionLimit: query.transactionLimit,
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
+          path: path,
         },
       },
     });
@@ -1189,7 +1202,7 @@ export class ReportsService extends BaseService {
     const limit = query.limit ?? 10;
 
     let uplinePath: string | null = '0';
-    let ap: number = 0;
+    let ap: number = 100;
     if (userType === UserType.User) {
       uplinePath = await this.userService.getUplinePathById(userId);
       const user = await this.userService.getPartnership(BigInt(userId));
@@ -1233,26 +1246,38 @@ export class ReportsService extends BaseService {
           query.toDate ?? null,
         );
         console.log(plSummary, 'plSummary');
-        const profitLoss = Number(plSummary[0]?.totalPl ?? 0);
-        const plProfit = Number(plSummary[0]?.uplinePl ?? 0);
+        let profitLoss = Number(plSummary[0]?.totalPl ?? 0);
+        const clientPl =
+          usr.role === 'USER'
+            ? (profitLoss * (100 - ap)) / 100
+            : Number(plSummary[0]?.uplinePl ?? 0);
         const partnership = Number(usr.partnership ?? 0);
-        console.log('console.log(partnership,ap)', partnership, ap);
-        //const playerPl = plProfit;
-        const uplinePl = profitLoss * ((partnership - ap) / 100);
-        const downlinePl = profitLoss * (partnership / 100);
+        const uplinePl =
+          usr.role === 'USER'
+            ? (profitLoss * ap) / 100
+            : (profitLoss * partnership) / 100;
 
+        const downlinePl = usr.role === 'USER' ? 0 : profitLoss - uplinePl;
+        console.log(
+          'usr.role',
+          usr.role,
+          'downlinePl',
+          downlinePl,
+          Number(plSummary[0]?.uplinePl ?? 0),
+        );
+        profitLoss = profitLoss * -1;
         users.push({
           ...usr,
           profitLoss,
-          //playerPl,
+          clientPl,
           uplinePl,
           downlinePl,
         });
       }
 
       // Totals
-      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0) * -1;
-      const totalPlayerPl = users.reduce((sum, u) => sum + u.playerPl, 0);
+      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0);
+      const totalClientPl = users.reduce((sum, u) => sum + u.clientPl, 0);
       const totalUplinePl = users.reduce((sum, u) => sum + u.uplinePl, 0);
       const totalDownlinePl = users.reduce((sum, u) => sum + u.downlinePl, 0);
 
@@ -1260,7 +1285,7 @@ export class ReportsService extends BaseService {
         downlineUsers: users,
         pagination,
         totals,
-        totalPlayerPl,
+        totalClientPl,
         totalUplinePl,
         totalDownlinePl,
       };
@@ -1480,10 +1505,10 @@ export class ReportsService extends BaseService {
     let uplinePath: string | null = '0';
     if (userType === UserType.User) {
       uplinePath = await this.userService.getUplinePathById(userId);
-      const user = await this.userService.getPartnership(BigInt(userId));
-      if (user) {
-        ap = user.partnership;
-      }
+      // const user = await this.userService.getPartnership(BigInt(userId));
+      // if (user) {
+      //   ap = user.partnership;
+      // }
     }
     if (!uplinePath) throw new Error('User not found');
 
@@ -1520,26 +1545,38 @@ export class ReportsService extends BaseService {
           query.fromDate ?? null,
           query.toDate ?? null,
         );
-
-        const profitLoss = Number(plSummary[0]?.totalPl ?? 0);
-        const plProfit = Number(plSummary[0]?.uplinePl ?? 0);
+        let profitLoss = Number(plSummary[0]?.totalPl ?? 0);
+        const clientPl =
+          usr.role === 'USER'
+            ? (profitLoss * (100 - ap)) / 100
+            : Number(plSummary[0]?.uplinePl ?? 0);
         const partnership = Number(usr.partnership ?? 0);
+        const uplinePl =
+          usr.role === 'USER'
+            ? (profitLoss * ap) / 100
+            : (profitLoss * partnership) / 100;
 
-        const uplinePl = profitLoss * ((partnership - ap) / 100);
-        const downlinePl = profitLoss * (partnership / 100);
-
+        const downlinePl = usr.role === 'USER' ? 0 : profitLoss - uplinePl;
+        console.log(
+          'usr.role',
+          usr.role,
+          'downlinePl',
+          downlinePl,
+          Number(plSummary[0]?.uplinePl ?? 0),
+        );
+        profitLoss = profitLoss * -1;
         users.push({
           ...usr,
           profitLoss,
-          //playerPl,
+          clientPl,
           uplinePl,
           downlinePl,
         });
       }
 
       // Totals
-      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0) * -1;
-      const totalPlayerPl = users.reduce((sum, u) => sum + u.playerPl, 0);
+      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0);
+      const totalClientPl = users.reduce((sum, u) => sum + u.clientPl, 0);
       const totalUplinePl = users.reduce((sum, u) => sum + u.uplinePl, 0);
       const totalDownlinePl = users.reduce((sum, u) => sum + u.downlinePl, 0);
 
@@ -1547,7 +1584,7 @@ export class ReportsService extends BaseService {
         downlineUsers: users,
         pagination,
         totals,
-        totalPlayerPl,
+        totalClientPl,
         totalUplinePl,
         totalDownlinePl,
       };

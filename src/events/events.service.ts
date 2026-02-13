@@ -7,8 +7,8 @@ import { ConfigType } from '@nestjs/config';
 import { sportConfigFactory } from '@Config';
 import { BaseService, Pagination, UtilsService } from '@Common';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
-import { getSportEnum, getStatusEnum } from 'src/utils/sports';
+import { firstValueFrom, timeout } from 'rxjs';
+import { getSportEnum, getSportId } from 'src/utils/sports';
 import dayjs from 'dayjs';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -16,6 +16,7 @@ import { Queue } from 'bullmq';
 @Injectable()
 export class EventsService extends BaseService {
   private readonly CACHE_TTL = 60 * 1; // 1 minutes
+  private readonly REQUEST_TIMEOUT_MS = 10000; // 10 seconds
   constructor(
     private readonly http: HttpService,
     private readonly prisma: PrismaService,
@@ -227,7 +228,8 @@ export class EventsService extends BaseService {
     const redisKey = `scorecard:${eventId}`;
     const data = await this.redis.client.get(redisKey);
     if (data) {
-      return JSON.parse(data || '{}');
+      const parsed = JSON.parse(data || '{}');
+      if (parsed.data && parsed.data?.score_url) return parsed;
     }
 
     const event = await this.prisma.event.findUnique({
@@ -241,23 +243,32 @@ export class EventsService extends BaseService {
 
     try {
       const response = await this.utils.rerunnable(async () => {
-        const res = await firstValueFrom(this.http.get(url));
+        const res = await firstValueFrom(
+          this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+        );
         return res.data;
       }, 3);
       if (!response) {
         this.logger.warn(`⚠️ No scorecard data found for ${event.name}`);
         return null;
       }
+
       let liveTv;
-      // console.log(event.providerId, event.inplay);
-      // if (event.providerId || !event.inplay) liveTv = null;
+      console.log(event.providerId, event.inplay);
+      const sports = this.sportConfig.sports;
+      const sportId = getSportId(sports, event.sport);
+      if (event.providerId || !event.inplay) liveTv = null;
       // else liveTv = `https://video.starrexch.me/?eventid=${event.externalId}`;
+      else
+        liveTv = `https://e765432.diamondcricketid.com/dtv.php?id=${event.externalId}&sportid=${sportId}`;
+      response._eventInfo.liveStreamUrl = liveTv;
+
       await this.redis.client.setex(
         redisKey,
         2 * 24 * 60 * 60,
-        JSON.stringify({ response, liveTv }),
+        JSON.stringify(response),
       );
-      return { response, liveTv };
+      return response;
     } catch (error) {
       this.logger.error(
         `Failed to get scorecard data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
