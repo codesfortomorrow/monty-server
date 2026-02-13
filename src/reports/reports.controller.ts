@@ -67,7 +67,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       pagination,
       totals,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     } = await this.reportsService.getDownlineProfitLoss(
@@ -82,7 +82,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       totals,
       pagination,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     };
@@ -100,7 +100,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       pagination,
       totals,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     } = await this.reportsService.getDownlineProfitLoss(
@@ -115,7 +115,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       totals,
       pagination,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     };
@@ -131,8 +131,8 @@ export class ReportsController extends BaseController {
     const ctx = this.getContext(req);
     const { eventRows: eventProfitLoss, pagination } =
       await this.reportsService.getEventProfitLossReport(
-        ctx.user.id,
-        ctx.user.type,
+        query.userId ? BigInt(query.userId) : ctx.user.id,
+        query.userId ? UserType.User : ctx.user.type,
         query,
       );
     return {
@@ -175,8 +175,8 @@ export class ReportsController extends BaseController {
     const ctx = this.getContext(req);
     const { markets: marketProfitLoss, pagination } =
       await this.reportsService.getMarketProfitLossReport(
-        ctx.user.id,
-        ctx.user.type,
+        query.userId ? BigInt(query.userId) : ctx.user.id,
+        query.userId ? UserType.User : ctx.user.type,
         eventId,
         query,
       );
@@ -272,7 +272,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       pagination,
       totals,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     } = await this.reportsService.getCasinoDownlineProfitLoss(
@@ -286,7 +286,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       totals,
       pagination,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     };
@@ -303,7 +303,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       pagination,
       totals,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     } = await this.reportsService.getCasinoDownlineProfitLoss(
@@ -317,7 +317,7 @@ export class ReportsController extends BaseController {
       downlineUsers,
       totals,
       pagination,
-      totalPlayerPl,
+      totalClientPl,
       totalUplinePl,
       totalDownlinePl,
     };
@@ -387,6 +387,7 @@ export class ReportsController extends BaseController {
     return this.reportsService.exportDownlineProfitLossReports(
       ctx.user.id,
       ctx.user.type,
+      query.path || String(ctx.user.path),
       query,
     );
   }
@@ -432,6 +433,7 @@ export class ReportsController extends BaseController {
     return await this.reportsService.exportCasinoDownlineProfitLossReports(
       ctx.user.id,
       ctx.user.type,
+      query.path || String(ctx.user.path),
       query,
     );
   }
@@ -447,6 +449,7 @@ export class ReportsController extends BaseController {
     return await this.reportsService.exportCasinoPlayerProfitLossReports(
       ctx.user.id,
       ctx.user.type,
+      query.path || String(ctx.user.path),
       query,
     );
   }
