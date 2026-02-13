@@ -8,8 +8,8 @@ import {
   Bet,
   BetStatusType,
   BetType,
-  GameTypeCategory,
   Prisma,
+  ResultProvider,
   ResultStatusType,
   StatusType,
   WalletTransactionContext,
@@ -21,7 +21,6 @@ import { Sentry } from 'src/configs/sentry.config';
 import { PrismaService } from 'src/prisma';
 import { TurnoverService } from 'src/turnover/turnover.service';
 import { WalletsService } from 'src/wallets/wallets.service';
-import { HierarchyUser } from './bet-result.service';
 
 @Injectable()
 export class BetResultProccessor
@@ -303,6 +302,7 @@ export class BetResultProccessor
 
           console.log('totalPayout : ', totalPayout);
           console.log('totalBonusPayout : ', totalBonusPayout);
+          console.log('userid', user.userId);
 
           this.logger.debug('TOTAL PAYOUT:', totalPayout.toString());
 
@@ -759,6 +759,7 @@ export class BetResultProccessor
           externalMarketId: result.marketExternalId,
           selectionId: result.selectionId || '',
           result: result.result,
+          rollbackProvider: result.rollbackedBy,
         });
       });
     } catch (error) {
@@ -772,6 +773,7 @@ export class BetResultProccessor
     externalMarketId: string;
     selectionId: string;
     result: string | number;
+    rollbackProvider: ResultProvider | null;
   }) {
     if (!data.selectionId) {
       this.logger.info('No selections provided for resolution');
@@ -810,9 +812,14 @@ export class BetResultProccessor
       });
     });
 
+    const resultStatus =
+      data.rollbackProvider === ResultProvider.Webhook
+        ? ResultStatusType.Rollbacked
+        : ResultStatusType.Pending;
+
     await this.prisma.result.update({
       where: { id: data.resultId },
-      data: { status: ResultStatusType.Pending, settledAt: new Date() },
+      data: { status: resultStatus, settledAt: new Date() },
     });
   }
 

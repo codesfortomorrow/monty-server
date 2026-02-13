@@ -1,7 +1,6 @@
 import { BaseService, Pagination } from '@Common';
 import { Injectable } from '@nestjs/common';
 import {
-  GameTypeCategory,
   Prisma,
   ResultProvider,
   ResultStatusType,
@@ -13,21 +12,21 @@ import { EventsService } from 'src/events/events.service';
 import { MarketService } from 'src/market/market.service';
 import {
   BetResultRequest,
+  CreateUserForResultPanelRequest,
   settleBetMarketRequest,
   UnsettleBetMarketRequest,
 } from './dto';
 import { ManualRollbackRequest } from './dto/manual-rollback.request';
 import { targetMarkets } from 'src/utils/market';
 import { RedisService } from 'src/redis';
-import { use } from 'passport';
+import { UsersService } from 'src/users';
+
 export interface HierarchyUser {
   id: number | null;
   ap: number;
   username: string;
   role: string;
 }
-import { UsersService } from 'src/users';
-import { CreateUserForResultPanelRequest } from './dto/create-user-for-result-panel.request';
 
 @Injectable()
 export class BetResultService extends BaseService {
@@ -62,15 +61,15 @@ export class BetResultService extends BaseService {
             b.placed_at      AS "placedAt"
         FROM bet b
         JOIN event e ON e.id = b.event_id
-        WHERE b.status = 'pending'
-          AND (b.market_type = 'FANCY' OR b.market_type = 'PREMIUM' OR b.is_bookmaker = true
+        WHERE
+          (b.market_type = 'FANCY' OR b.market_type = 'PREMIUM' OR b.is_bookmaker = true
             OR b.market_name ILIKE 'Who will Win the Match?')
-          AND NOT EXISTS (
+          AND((b.status = 'pending' AND NOT EXISTS (
             SELECT 1
             FROM result r
             WHERE r.event_id = b.event_id
-              AND r.market_external_id = b.market_id
-          )
+            AND r.market_external_id = b.market_id
+          )) OR b.status = 'rollback')
         ORDER BY
           e.external_id,
           b.market_id,
@@ -113,15 +112,14 @@ export class BetResultService extends BaseService {
         FROM bet b
         JOIN event e ON e.id = b.event_id
         RIGHT JOIN providers p ON p.id = e.provider_id
-        WHERE b.status = 'pending'
-          AND p.name ILIKE 'sportradar'
+        WHERE p.name ILIKE 'sportradar'
           AND b.market_type = 'NORMAL'
-          AND NOT EXISTS (
+          AND((b.status = 'pending' AND NOT EXISTS (
             SELECT 1
             FROM result r
             WHERE r.event_id = b.event_id
-              AND r.market_external_id = b.market_id
-          )
+            AND r.market_external_id = b.market_id
+          )) OR b.status = 'rollback')
         ORDER BY
           e.external_id,
           b.market_id,
@@ -448,6 +446,27 @@ export class BetResultService extends BaseService {
         isBetExist = true;
       }
 
+      let resultSelection: string | null = null;
+      if (market) {
+        const runners = market.runner as {
+          runnerId?: string;
+          selectionId?: string;
+          runnerName: string;
+        }[];
+        this.logger.info(`Market Runners ${runners}`);
+        if (Array.isArray(runners) && runners.length > 0) {
+          const selectionObj = runners.find(
+            (a) =>
+              a?.runnerId == result.selectionId ||
+              a?.selectionId == result.selectionId,
+          );
+          this.logger.info(`Result Selection Object ${selectionObj}`);
+          if (selectionObj) {
+            resultSelection = selectionObj.runnerName;
+          }
+        }
+      }
+
       await this.prisma.result.upsert({
         where: {
           eventId_marketExternalId: {
@@ -465,6 +484,8 @@ export class BetResultService extends BaseService {
           selectionId: String(result.selectionId),
           result: String(result.result),
           outcome: JSON.parse(JSON.stringify(result)),
+          resultSelection: resultSelection,
+          rollbackedBy: result.isRollback == 1 ? ResultProvider.Webhook : null,
         },
         create: {
           eventId: event.id,
@@ -477,6 +498,7 @@ export class BetResultService extends BaseService {
             ? ResultStatusType.Pending
             : ResultStatusType.Proceed,
           selection: !market ? selection : null,
+          resultSelection: resultSelection,
         },
       });
 
@@ -585,6 +607,27 @@ export class BetResultService extends BaseService {
       isBetExist = true;
     }
 
+    let resultSelection: string | null = null;
+    if (market) {
+      const runners = market.runner as {
+        runnerId?: string;
+        selectionId?: string;
+        runnerName: string;
+      }[];
+      this.logger.info(`Market Runners ${runners}`);
+      if (Array.isArray(runners) && runners.length > 0) {
+        const selectionObj = runners.find(
+          (a) =>
+            a?.runnerId == result.selectionId ||
+            a?.selectionId == result.selectionId,
+        );
+        this.logger.info(`Result Selection Object ${selectionObj}`);
+        if (selectionObj) {
+          resultSelection = selectionObj.runnerName;
+        }
+      }
+    }
+
     await this.prisma.result.create({
       data: {
         eventId: event.id,
@@ -598,6 +641,7 @@ export class BetResultService extends BaseService {
           ? ResultStatusType.Pending
           : ResultStatusType.Proceed,
         selection: !market ? selection : null,
+        resultSelection: resultSelection,
       },
     });
 
@@ -647,6 +691,32 @@ export class BetResultService extends BaseService {
       },
     });
 
+    const market = await this.marketService.getByEventIdAndExternalId(
+      event.id,
+      result.marketId,
+    );
+
+    let resultSelection: string | null = null;
+    if (market) {
+      const runners = market.runner as {
+        runnerId?: string;
+        selectionId?: string;
+        runnerName: string;
+      }[];
+      this.logger.info(`Market Runners ${runners}`);
+      if (Array.isArray(runners) && runners.length > 0) {
+        const selectionObj = runners.find(
+          (a) =>
+            a?.runnerId == result.selectionId ||
+            a?.selectionId == result.selectionId,
+        );
+        this.logger.info(`Result Selection Object ${selectionObj}`);
+        if (selectionObj) {
+          resultSelection = selectionObj.runnerName;
+        }
+      }
+    }
+
     await this.prisma.result.update({
       where: { id: existResult.id },
       data: {
@@ -654,6 +724,8 @@ export class BetResultService extends BaseService {
         isRollbacked: true,
         selectionId: String(result.selectionId),
         result: String(result.result),
+        resultSelection: resultSelection,
+        rollbackedBy: ResultProvider.Panel,
         outcome: JSON.parse(JSON.stringify(result)),
         count: {
           increment: 1,
@@ -903,159 +975,6 @@ export class BetResultService extends BaseService {
     //     },
     //   };
     // }
-  }
-
-  async getHierarchy(uid: bigint): Promise<{ data: HierarchyUser[] }> {
-    const uplineResult = await this.prisma.$queryRawUnsafe<
-      { upline: string | null }[]
-    >(
-      `SELECT upline::text AS upline FROM user_meta WHERE user_id = $1::bigint`,
-      uid,
-    );
-
-    if (uplineResult.length === 0) {
-      throw new Error("User's upline path not found");
-    }
-
-    const uplinePath = uplineResult[0].upline;
-
-    const users = await this.prisma.$queryRaw<HierarchyUser[]>(
-      Prisma.sql`
-      SELECT 
-        u.id, 
-        u.partnership::REAL AS ap, 
-        u.username,
-        r.name AS role
-      FROM "user" u
-      join role r ON r.id = u.role_id
-      JOIN user_meta um ON um.user_id = u.id
-      WHERE um.upline @> ${uplinePath}::ltree
-      ORDER BY u.id DESC
-    `,
-    );
-    users.push({
-      id: null,
-      ap: 0,
-      username: 'Self',
-      role: 'ADMIN',
-    });
-
-    await this.processBetProfitLoss(2, users, Number(uid), -100, this.prisma);
-    return { data: users };
-  }
-
-  private async processBetProfitLoss(
-    bet: any,
-    betUsers: any[],
-    userId: number,
-    settlementAmount: number,
-    tx: Prisma.TransactionClient,
-  ): Promise<void> {
-    const forwardUpAmount = settlementAmount * -1;
-    const addAp = 100;
-    console.log(betUsers, 'betUsers');
-    try {
-      for (let k = 0; k < betUsers.length; k++) {
-        const user = betUsers[k];
-        if (user.role === 'DEMO') break;
-        // if (String(user.id) === String(userId)) continue;
-
-        let apAmount: number;
-        const role = user.role; // ADMIN | MASTER | SUPER MASTER | USER
-
-        if (role === 'ADMIN') {
-          console.log('role ', role);
-          if (k > 0 && betUsers[k - 1].role !== 'USER') {
-            const lowerIndexAp = betUsers[k - 1].ap;
-            apAmount = (forwardUpAmount * lowerIndexAp) / 100;
-          } else {
-            apAmount = forwardUpAmount;
-          }
-          console.log('role ', apAmount);
-        } else if (role === 'MASTER') {
-          apAmount = (forwardUpAmount * (addAp - user.ap)) / 100;
-        } else {
-          if (k > 0 && betUsers[k - 1].role !== 'USER') {
-            const lowerIndexAp = betUsers[k - 1].ap - user.ap;
-            apAmount = (forwardUpAmount * lowerIndexAp) / 100;
-            console.log(lowerIndexAp);
-            console.log('totalPl', forwardUpAmount, 'uplinePl', apAmount);
-          } else {
-            if (k > 0 && betUsers[k - 1].role === 'USER') {
-              apAmount = (forwardUpAmount * (addAp - user.ap)) / 100;
-            } else {
-              apAmount = (forwardUpAmount * user.ap) / 100;
-            }
-          }
-        }
-        console.log(betUsers, 'betUsers');
-        const betId = 1;
-
-        if (role === 'ADMIN') {
-          const existing = await tx.betPl.findFirst({
-            where: {
-              casinoId: betId,
-              userType: 'ADMIN',
-              uplineId: null,
-            },
-          });
-
-          if (existing) {
-            await tx.betPl.update({
-              where: { id: existing.id },
-              data: {
-                uplinePl: new Prisma.Decimal(apAmount),
-                totalPl: new Prisma.Decimal(forwardUpAmount),
-                updatedAt: new Date(),
-              },
-            });
-          } else {
-            await tx.betPl.create({
-              data: {
-                casinoId: betId,
-                uplineId: null,
-                userType: 'ADMIN',
-                uplinePl: new Prisma.Decimal(apAmount),
-                totalPl: new Prisma.Decimal(forwardUpAmount),
-                category: GameTypeCategory.Casino,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            });
-          }
-
-          continue;
-        }
-
-        await tx.betPl.upsert({
-          where: {
-            casinoId_uplineId_userType: {
-              casinoId: betId,
-              uplineId: BigInt(user.id),
-              userType: role,
-            },
-          },
-          update: {
-            uplinePl: new Prisma.Decimal(apAmount),
-            totalPl: new Prisma.Decimal(forwardUpAmount),
-            updatedAt: new Date(),
-          },
-          create: {
-            casinoId: betId,
-            uplineId: BigInt(user.id),
-            uplinePl: new Prisma.Decimal(apAmount),
-            userType: role,
-            category: GameTypeCategory.Casino,
-            totalPl: new Prisma.Decimal(forwardUpAmount),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-      }
-    } catch (err) {
-      console.error(`processBetProfitLoss failed`, err);
-      throw err;
-    }
   }
 
   async createUserForResultPanel(paylad: CreateUserForResultPanelRequest) {

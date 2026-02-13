@@ -12,10 +12,10 @@ export class SportsOrchestratorController {
   @ApiOperation({ summary: 'Only For Manual Sports Data Sync' })
   @Get()
   async syncSports() {
-    this.sportsOrchestratorService.manualRun();
+    const res = await this.sportsOrchestratorService.manualRun();
     return {
       success: true,
-      message: 'Sport syncing started',
+      message: res,
     };
   }
 }

@@ -1004,8 +1004,10 @@ model Result {
   status           ResultStatusType @default(Pending) @map("status")
   outcome          Json             @map("outcome")
   providedBy       ResultProvider   @default(Webhook) @map("provided_by")
+  rollbackedBy     ResultProvider?  @map("rollbacked_by")
   count            BigInt           @default(0) @map("count")
   selection        String?          @map("selection")
+  resultSelection  String?          @map("result_selection")
 
   settledAt DateTime? @map("settled_at") @db.Timestamptz
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz

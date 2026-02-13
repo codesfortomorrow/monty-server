@@ -425,7 +425,7 @@ export class MqttService
       JSON.stringify(mapped),
     );
 
-    await this.marketProcessor.checkAndStorePremiumMarket(mapped);
+    // await this.marketProcessor.checkAndStorePremiumMarket(mapped);
 
     this.logger.debug(`[EXTRA] Stored: ${eventID}`);
   }
