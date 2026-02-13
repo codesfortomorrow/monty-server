@@ -130,7 +130,7 @@ export class AuthService {
     let role,
       transactionCode: string | null = null;
     let passwordChanged: boolean | null;
-    if (userType === UserType.User || UserType.ResultManager) {
+    if (userType === UserType.User || userType === UserType.ResultManager) {
       const userMeta = await this.usersService.getMetaById(userId);
       if (userMeta.isMfaEnabled && userMeta.mfaSecret) {
         return { success: true, mfaRequired: true, userId, accessToken: null };

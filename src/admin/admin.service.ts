@@ -287,7 +287,7 @@ export class AdminService {
     if (parts.length <= 2)
       throw new Error('You can change password only for your level-1 downline');
     const directParentId = BigInt(parts[parts.length - 2]);
-    if (directParentId !== requesterUserId) {
+    if (directParentId != requesterUserId) {
       throw new Error('You can change password only for your level-1 downline');
     }
 

@@ -80,11 +80,4 @@ export class CreateSubUserRequest {
   @IsString()
   @MinLength(6)
   password: string;
-
-  @ApiProperty({
-    description: 'Transaction code for verification',
-    example: '12345',
-  })
-  @IsString()
-  transactionCode: string;
 }
