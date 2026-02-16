@@ -979,18 +979,6 @@ export class WalletsService {
     userType: UserType,
     data: UpdateBalanceRequest,
   ) {
-    let uplineMeta;
-    if (userType === UserType.Admin) {
-      uplineMeta = await this.prisma.adminMeta.findUnique({
-        where: { adminId: uplineId },
-      });
-    } else {
-      uplineMeta = await this.prisma.userMeta.findUnique({
-        where: { userId: uplineId },
-      });
-    }
-    if (!uplineMeta || uplineMeta.transactionCode !== data.transactionCode)
-      throw new Error('Wrong transaction code');
     return await this.prisma.$transaction(async (tx) => {
       await this.addBalance(
         BigInt(userId),
@@ -1059,19 +1047,6 @@ export class WalletsService {
     userType: UserType,
     data: UpdateBalanceRequest,
   ) {
-    let uplineMeta;
-    if (userType === UserType.Admin) {
-      uplineMeta = await this.prisma.adminMeta.findUnique({
-        where: { adminId: uplineId },
-      });
-    } else {
-      uplineMeta = await this.prisma.userMeta.findUnique({
-        where: { userId: uplineId },
-      });
-    }
-    if (!uplineMeta || uplineMeta.transactionCode !== data.transactionCode)
-      throw new Error('Wrong transaction code');
-
     const userWallet = await this.getByUserId(userId, WalletType.Main);
     const withdrawableBalance =
       Number(userWallet.amount) +
