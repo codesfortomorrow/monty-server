@@ -6,7 +6,7 @@ export const sportConfigFactory = registerAs('sport', () => ({
     Cricket: 4,
     Soccer: 1,
     Tennis: 2,
-    GreyhoundRacing: 4339,
+    Greyhound: 4339,
     HorseRacing: 7,
   },
 }));
