@@ -8,7 +8,7 @@ export enum SportFilterType {
   Soccer = 'Soccer',
   Casino = 'Casino',
   HorseRacing = 'HorseRacing',
-  GreyhoundRacing = 'GreyhoundRacing',
+  Greyhound = 'Greyhound',
 }
 export class BetProfitLossRequest extends PaginationRequest {
   @ApiProperty({ enum: SportFilterType })

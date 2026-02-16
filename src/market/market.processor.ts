@@ -9,23 +9,12 @@ import { sportConfigFactory } from '@Config';
 import { ConfigType } from '@nestjs/config';
 import { MarketApiResponse } from './market.type';
 import { RedisService } from 'src/redis';
-import { ExtraMarketPayload } from 'src/market-mapper/market.type';
 import { EventsService } from 'src/events/events.service';
 // import { Cron, CronExpression } from '@nestjs/schedule';
 import { Sentry } from 'src/configs/sentry.config';
-export const SPORT_ID_MAP = {
-  Cricket: 4,
-  Soccer: 1,
-  Tennis: 2,
-  Football: 1,
-  Basketball: 5,
-  GreyhoundRacing: 4339,
-  HorseRacing: 7,
-  Other: 9,
-} as const;
 
-export type SportName = keyof typeof SPORT_ID_MAP;
 import { AlertService } from 'src/alert/alert.service';
+import { getSportId } from 'src/utils/sports';
 
 @Injectable()
 export class MarketProcessor
@@ -62,10 +51,11 @@ export class MarketProcessor
         return;
       }
       const baseUrl = this.sportConfig.sportBaseUrl;
+      const sports = this.sportConfig.sports;
 
-      if (!baseUrl)
+      if (!baseUrl || !sports)
         throw new Error(
-          'Base Url is not configured, aborting competition sync',
+          'Base Url or Sports is not configured, aborting competition sync',
         );
 
       // Use Utils.batchable for concurrent batch processing
@@ -76,7 +66,7 @@ export class MarketProcessor
               baseUrl,
               event.id,
               event.externalId,
-              SPORT_ID_MAP[event.sport],
+              getSportId(sports, event.sport)!,
               event.provider?.externalId,
             ),
           3,
@@ -99,10 +89,11 @@ export class MarketProcessor
         return;
       }
       const baseUrl = this.sportConfig.sportBaseUrl;
+      const sports = this.sportConfig.sports;
 
-      if (!baseUrl)
+      if (!baseUrl || !sports)
         throw new Error(
-          'Base Url is not configured, aborting competition sync',
+          'Base Url or Sports is not configured, aborting competition sync',
         );
 
       // Use Utils.batchable for concurrent batch processing
@@ -113,7 +104,7 @@ export class MarketProcessor
               baseUrl,
               event.id,
               event.externalId,
-              SPORT_ID_MAP[event.sport],
+              getSportId(sports, event.sport)!,
               // '2',
             ),
           3,
@@ -269,7 +260,7 @@ export class MarketProcessor
       this.sportConfig.sportBaseUrl!,
       event.id,
       event.externalId,
-      SPORT_ID_MAP[event.sport],
+      getSportId(this.sportConfig.sports!, event.sport)!,
       event.provider?.externalId,
     );
 
@@ -321,7 +312,7 @@ export class MarketProcessor
             StatusType.Open,
           ],
         },
-        sport: { in: [SportType.GreyhoundRacing, SportType.HorseRacing] },
+        sport: { in: [SportType.Greyhound, SportType.HorseRacing] },
       },
       include: {
         provider: {

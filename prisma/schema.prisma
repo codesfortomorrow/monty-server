@@ -146,6 +146,7 @@ enum SportType {
   Football        @map("football")
   Tennis          @map("tennis")
   GreyhoundRacing @map("greyhound_racing")
+  Greyhound       @map("greyhound")
   HorseRacing     @map("horse_racing")
   Basketball      @map("basketball")
   Soccer          @map("soccer")
