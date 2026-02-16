@@ -213,6 +213,7 @@ export class BetService extends BaseService {
 
       const validation = await this.validateBetPlacement({
         marketType: data.marketType,
+        marketName: data.marketName,
         betOn: data.betOn,
         eventId: event.externalId,
         marketId: data.marketId,
@@ -323,6 +324,7 @@ export class BetService extends BaseService {
 
   private async validateBetPlacement(data: {
     marketType: 'NORMAL' | 'FANCY' | 'PREMIUM';
+    marketName: string;
     betOn: 'BACK' | 'LAY';
     eventId: string;
     marketId: string;
@@ -396,7 +398,7 @@ export class BetService extends BaseService {
 
         let updatedOdd: number;
         // external validator API
-        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}`;
+        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}&marketName=${data.marketName}`;
         const result = await this.utils.rerunnable(async () => {
           const apiRes = await firstValueFrom(
             this.http.get(apiUrl).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
@@ -492,7 +494,7 @@ export class BetService extends BaseService {
 
         let updatedOdd: number;
         // external validator API
-        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}`;
+        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}&marketName=${data.marketName}`;
 
         const result = await this.utils.rerunnable(async () => {
           const apiRes = await firstValueFrom(this.http.get(apiUrl));
@@ -589,7 +591,7 @@ export class BetService extends BaseService {
 
         let updatedOdd: number;
         // external validator API
-        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}`;
+        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}&marketName=${data.marketName}`;
 
         const result = await this.utils.rerunnable(async () => {
           const apiRes = await firstValueFrom(this.http.get(apiUrl));

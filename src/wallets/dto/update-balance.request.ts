@@ -29,11 +29,4 @@ export class UpdateBalanceRequest {
   @IsOptional()
   @IsString()
   toAccount?: string;
-
-  @ApiProperty({
-    description: 'Transaction code for verification',
-    example: '12345',
-  })
-  @IsString()
-  transactionCode: string;
 }
