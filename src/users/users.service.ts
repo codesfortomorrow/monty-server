@@ -44,10 +44,9 @@ import {
 } from './dto';
 import { AdminService } from 'src/admin';
 import crypto from 'crypto';
-// import { BonusProcessor } from 'src/bonus/services/bonus.internal.processor';
+import { BonusProcessor } from 'src/bonus/services/bonus.internal.processor';
 type UserWithUpline<T> = T & { upline: string };
 import { getStatusPriorityLevel } from 'src/utils/user-status';
-import { use } from 'passport';
 
 @Injectable()
 export class UsersService {
@@ -63,7 +62,7 @@ export class UsersService {
     private readonly otpService: OtpService,
     private readonly walletService: WalletsService,
     private readonly adminService: AdminService,
-    // private readonly bonusProcessor: BonusProcessor,
+    private readonly bonusProcessor: BonusProcessor,
   ) {}
 
   private getProfileImageUrl(profileImage: string): string {
@@ -389,18 +388,22 @@ export class UsersService {
         }
       }
 
-      if (affiliateResult?.isAffiliate && affiliateResult.affiliateId) {
-        await this.createAffiliateReferral(
-          affiliateResult.affiliateId,
-          user.id,
-          tx,
-        );
-      }
+      // if (affiliateResult?.isAffiliate && affiliateResult.affiliateId) {
+      //   await this.createAffiliateReferral(
+      //     affiliateResult.affiliateId,
+      //     user.id,
+      //     tx,
+      //   );
+      // }
 
       // Refferal Bonus -------------------------------
-      // if (data.referralCode) {
-      //   this.bonusProcessor.emitReferralEvent(user.id, data.referralCode);
-      // }
+      console.log('line 401 : ', data.referralCode);
+      if (data.referralCode) {
+        this.bonusProcessor.emitReferralEvent(
+          Number(user.id),
+          data.referralCode,
+        );
+      }
 
       return { ...user, uplinePath };
     });
@@ -1163,6 +1166,7 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
       statusFilter,
     );
 
+    let extraBalanceInfo = null;
     if (isDownlineBalanceInformationNeeded) {
       for (const usr of downlineUsers) {
         let summary = {
