@@ -562,21 +562,6 @@ export class BankerService extends BaseService {
         }
       }
 
-      let creator;
-      let creatorMeta;
-      if (userType === UserType.User) {
-        creator = await this.userService.getById(bankerId);
-        creatorMeta = await this.userService.getMetaById(bankerId);
-      } else {
-        creator = await this.prisma.admin.findUnique({
-          where: { id: bankerId },
-          include: { role: true },
-        });
-        creatorMeta = await this.adminService.getMetaById(bankerId);
-      }
-      if (!creatorMeta || creatorMeta.transactionCode !== transactionCode)
-        throw new Error('Wrong transaction code');
-
       const user = await this.userService.getById(request.userId);
       let banker;
       let username;
