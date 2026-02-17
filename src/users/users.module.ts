@@ -5,16 +5,10 @@ import { PrismaModule } from '../prisma';
 import { OtpModule } from '../otp';
 import { WalletsModule } from 'src/wallets/wallets.module';
 import { AdminModule } from 'src/admin';
-// import { BonusModule } from 'src/bonus/bonus.module';
+import { BonusModule } from 'src/bonus/bonus.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    OtpModule,
-    WalletsModule,
-    AdminModule,
-    // BonusModule
-  ],
+  imports: [PrismaModule, OtpModule, WalletsModule, AdminModule, BonusModule],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],
