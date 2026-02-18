@@ -1,19 +1,20 @@
 import { PaginationRequest } from '@Common';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SportType } from '@prisma/client';
 import { IsDate, IsEnum, IsOptional, IsString } from 'class-validator';
-export enum SportFilterType {
-  Cricket = 'Cricket',
-  Football = 'Football',
-  Tennis = 'Tennis',
-  Soccer = 'Soccer',
-  Casino = 'Casino',
-  HorseRacing = 'HorseRacing',
-  Greyhound = 'Greyhound',
-}
+// export enum SportFilterType {
+//   Cricket = 'Cricket',
+//   Football = 'Football',
+//   Tennis = 'Tennis',
+//   Soccer = 'Soccer',
+//   Casino = 'Casino',
+//   HorseRacing = 'HorseRacing',
+//   Greyhound = 'Greyhound',
+// }
 export class BetProfitLossRequest extends PaginationRequest {
-  @ApiProperty({ enum: SportFilterType })
-  @IsEnum(SportFilterType)
-  sport: SportFilterType;
+  @ApiProperty({ enum: SportType })
+  @IsEnum(SportType)
+  sport: SportType;
 
   @ApiPropertyOptional({ description: 'Filter bet profit/loss by from date' })
   @IsDate()

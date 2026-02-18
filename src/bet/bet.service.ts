@@ -450,6 +450,31 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
+          } else if (data.acceptOddsChange) {
+            const allPrices = currentPrice;
+
+            if (
+              data.position !== undefined &&
+              data.position >= 0 &&
+              data.position < allPrices.length
+            ) {
+              const positionPrice = allPrices[data.position];
+              return {
+                success: true,
+                updatedPrice: Number(positionPrice),
+                message: `Odds changed. Using price from position ${data.position}`,
+              };
+            }
+
+            const fallbackPrice = updatedOdd
+              ? Number(updatedOdd)
+              : Number(allPrices[0]);
+
+            return {
+              success: true,
+              updatedPrice: fallbackPrice,
+              message: `Odds changed. Price updated to ${fallbackPrice}`,
+            };
           } else {
             return {
               success: false,
@@ -521,6 +546,31 @@ export class BetService extends BaseService {
         } else {
           if (data.acceptOddsChange && result.allPrices) {
             const allPrices = result.allPrices || [];
+
+            if (
+              data.position !== undefined &&
+              data.position >= 0 &&
+              data.position < allPrices.length
+            ) {
+              const positionPrice = allPrices[data.position];
+              return {
+                success: true,
+                updatedPrice: Number(positionPrice),
+                message: `Odds changed. Using price from position ${data.position}`,
+              };
+            }
+
+            const fallbackPrice = updatedOdd
+              ? Number(updatedOdd)
+              : Number(allPrices[0]);
+
+            return {
+              success: true,
+              updatedPrice: fallbackPrice,
+              message: `Odds changed. Price updated to ${fallbackPrice}`,
+            };
+          } else if (data.acceptOddsChange) {
+            const allPrices = currentPrice;
 
             if (
               data.position !== undefined &&
@@ -618,6 +668,31 @@ export class BetService extends BaseService {
         } else {
           if (data.acceptOddsChange && result.allPrices) {
             const allPrices = result.allPrices || [];
+
+            if (
+              data.position !== undefined &&
+              data.position >= 0 &&
+              data.position < allPrices.length
+            ) {
+              const positionPrice = allPrices[data.position];
+              return {
+                success: true,
+                updatedPrice: Number(positionPrice),
+                message: `Odds changed. Using price from position ${data.position}`,
+              };
+            }
+
+            const fallbackPrice = updatedOdd
+              ? Number(updatedOdd)
+              : Number(allPrices[0]);
+
+            return {
+              success: true,
+              updatedPrice: fallbackPrice,
+              message: `Odds changed. Price updated to ${fallbackPrice}`,
+            };
+          } else if (data.acceptOddsChange) {
+            const allPrices = currentPrice;
 
             if (
               data.position !== undefined &&
@@ -1567,6 +1642,7 @@ export class BetService extends BaseService {
       };
     }
 
+    console.log('Bet WHere condition', JSON.stringify(where));
     const count = await this.prisma.bet.count({ where });
     const bets = await this.prisma.bet.findMany({
       where,
