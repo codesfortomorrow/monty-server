@@ -3,7 +3,7 @@ export interface MainMarketData {
   marketName: string;
   eventId: string;
   inplay: boolean;
-  marketStartTime: string; // ISO date string
+  marketStartTime: string | Date | null; // ISO date string
   status: string;
   marketType: string;
 
