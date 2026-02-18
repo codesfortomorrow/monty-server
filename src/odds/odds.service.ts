@@ -290,7 +290,7 @@ export class OddsService {
           marketName: market.name || odds?.data?.marketName,
           eventId: eventId,
           inplay: odds?.data?.inplay,
-          marketStartTime: odds?.data?.marketStartTime, // ISO date string
+          marketStartTime: odds?.data?.marketStartTime || market.startTime, // ISO date string
           status: odds?.data?.status || market.status,
           marketType: odds?.data?.marketType,
           runners: this.mergeRunners(market.runner, odds?.data?.runners),
@@ -601,5 +601,63 @@ export class OddsService {
       },
       {} as Record<string, T[]>,
     );
+  }
+
+  async filterRaceMarket(
+    events: (Event & { markets: Market[]; competition?: Competition | null })[],
+  ) {
+    if (!events?.length) return [];
+
+    const enrichedEvents = await this.utils.batchable(events, async (event) => {
+      const eventId = event.externalId;
+      const marketKeys = event.markets.map(
+        (m) => `odds:${eventId}:${m.externalId}`,
+      );
+      if (!marketKeys.length) return null;
+
+      const BATCH_SIZE = 50;
+      const redisValues: (string | null)[] = [];
+
+      for (let i = 0; i < marketKeys.length; i += BATCH_SIZE) {
+        const batch = marketKeys.slice(i, i + BATCH_SIZE);
+
+        const res = await this.redis.client.mget(...batch);
+        redisValues.push(...res);
+      }
+
+      const parsed = new Map<string, any>();
+
+      marketKeys.forEach((key, idx) => {
+        const val = redisValues[idx];
+        if (!val) return;
+        try {
+          parsed.set(key, JSON.parse(val));
+        } catch {}
+      });
+
+      const mainMarkets: MainMarketData[] = this.mapMainMarket(
+        event.externalId,
+        event.markets,
+        parsed,
+      );
+
+      return {
+        id: event.id,
+        externalId: event.externalId,
+        name: event.name,
+        competitionId: event.competitionId,
+        startTime: event.startTime,
+        status: event.status,
+        sport: event.sport,
+        // inplay,
+        competition: event.competition,
+        markets: mainMarkets.map((market) => ({
+          externalId: market.marketId,
+          name: market.marketName,
+          startTime: market.marketStartTime,
+        })),
+      };
+    });
+    return enrichedEvents;
   }
 }
