@@ -1316,9 +1316,15 @@ export class BetService extends BaseService {
       userId: userId,
       status: BetStatusType.Pending,
     };
+    let orderBy: Prisma.BetOrderByWithRelationInput = {
+      placedAt: 'desc',
+    };
     if (filter.betTime === 'PAST') {
       where.status = {
         not: BetStatusType.Pending,
+      };
+      orderBy = {
+        settledAt: 'desc',
       };
     }
 
@@ -1360,9 +1366,7 @@ export class BetService extends BaseService {
       },
       take,
       skip,
-      orderBy: {
-        placedAt: 'desc',
-      },
+      orderBy,
     });
 
     const pagination: Pagination = {
