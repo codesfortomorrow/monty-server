@@ -122,7 +122,6 @@ export class BankerController extends BaseController {
       body.status,
       ctx.user.id,
       ctx.user.type,
-      body.transactionCode,
       body.remark,
     );
   }

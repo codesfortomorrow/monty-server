@@ -499,7 +499,6 @@ export class BankerService extends BaseService {
     status: WalletTransactionStatus,
     bankerId: bigint,
     userType: UserType,
-    transactionCode: string,
     remark?: string,
   ) {
     // try {
