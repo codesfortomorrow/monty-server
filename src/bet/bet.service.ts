@@ -116,9 +116,9 @@ export class BetService extends BaseService {
       if (wallets.length === 0) throw new Error('User wallet not found');
 
       const wallet = wallets.find((w) => w.type === WalletType.Main);
-      const bonusWallet = wallets.find((w) => w.type === WalletType.Bonus);
+      // const bonusWallet = wallets.find((w) => w.type === WalletType.Bonus);
 
-      if (!wallet || !bonusWallet) throw new Error('User wallet not found');
+      if (!wallet) throw new Error('User wallet not found');
 
       if (data.marketType === 'FANCY' && data.fancyPercentage === undefined)
         throw new Error('Percentage is required');
@@ -236,7 +236,7 @@ export class BetService extends BaseService {
         const exposureUpdate = await this.updateBetExposure({
           user,
           wallet,
-          bonusWallet,
+          // bonusWallet,
           sportId,
           eventId: event.id,
           eventExternalId: event.externalId,
@@ -406,7 +406,7 @@ export class BetService extends BaseService {
           return apiRes.data;
         }, 3);
 
-        console.log('Validator result:', result, apiUrl);
+        console.log('Validator result:', JSON.stringify(result), apiUrl);
         updatedOdd = result.updatedOdds;
 
         if (!result.status || result.status == 3 || result.status == 9) {
@@ -972,7 +972,7 @@ export class BetService extends BaseService {
   private updateBetExposure = async (data: {
     user: User;
     wallet: Wallet;
-    bonusWallet: Wallet;
+    // bonusWallet: Wallet;
     sportId: number;
     eventId: bigint;
     eventExternalId: string;
