@@ -463,7 +463,11 @@ export class BankerService extends BaseService {
       where,
       include: {
         bank: true,
-        crypto: true,
+        crypto: {
+          include: {
+            network: true,
+          },
+        },
         digitalPayment: true,
       },
       orderBy: { id: 'desc' },

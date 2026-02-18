@@ -38,7 +38,7 @@ export class ActiveEventProcessor extends BaseProcessor {
       });
       if (updated.count > 0) {
         this.logger.info(`Activated event for eventId ${eventExternalId}`);
-        await this.redis.client.setex(existsKey, 2 * 60 * 60, 1);
+        await this.redis.client.setex(existsKey, 1 * 60 * 60, 1);
       }
     } catch (error) {
       this.logger.error(
