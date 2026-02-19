@@ -1830,6 +1830,14 @@ model UserTurnoverAccount {
   @@map("user_turnover_account")
 }
 
+model WalletTransactionCursor {
+  id                BigInt   @id @default(1)
+  lastTransactionId BigInt   @map("last_transaction_id")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("wallet_transaction_cursor")
+}
+
 model UserWalletStat {
   id BigInt @id @default(autoincrement())
 
