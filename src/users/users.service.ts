@@ -1190,7 +1190,7 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
 
         usr.downlinePl = Number(usr.creditAmount || 0) - usr.totalBalance;
         usr.withdrawalBalance =
-          usr.availableBalance +
+          Number(usr.availableBalance || 0) +
           Number(usr.exposureAmount || 0) -
           usr.lockedAmount;
         usr.downlinePlInPercent =
