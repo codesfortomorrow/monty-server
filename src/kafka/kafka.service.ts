@@ -39,11 +39,11 @@ export type Odds = {
   market: string;
   markets: OddsMarket[];
 };
-type TopicQueue = {
-  messages: any[];
+interface TopicQueue {
+  buffer: Map<string, any>; // 🔥 latest snapshot
   processing: boolean;
   timer?: NodeJS.Timeout;
-};
+}
 
 @Injectable()
 export class KafkaService
@@ -55,13 +55,13 @@ export class KafkaService
   private activeProcessing = 0;
   private isShuttingDown = false;
   private isConnecting = false;
+  private topicQueues: Record<string, TopicQueue> = {};
 
   private readonly CACHE_TTL = 2 * 60 * 60; // 2 hours
   private readonly CACHE_TTL_FANCY = 4 * 60 * 60; // 4 hours
+  private readonly CACHE_TTL_BOOKMAKER = 24 * 60 * 60; // 10 hours
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   private readonly BASE_RECONNECT_DELAY = 1000; // 1 second
-
-  private topicQueues: Record<string, TopicQueue> = {};
 
   constructor(
     private readonly utils: UtilsService,
@@ -83,7 +83,7 @@ export class KafkaService
 
     this.kafka = new Kafka({
       clientId: clientId,
-      brokers: ['103.189.172.165:9092'],
+      brokers: ['103.189.172.165:9092', '103.189.172.165:9093'],
     });
 
     this.consumer = this.kafka.consumer({
@@ -120,34 +120,41 @@ export class KafkaService
     });
   }
   private enqueueMessage(topic: string, payload: any) {
-    //     if(topic.startsWith('hor')){
-    //   console.log(JSON.stringify(payload))
-    // }
     const config = TOPIC_BATCH_CONFIG[topic];
-    if (!config) return;
+    if (!config || !payload) return;
 
     if (!this.topicQueues[topic]) {
       this.topicQueues[topic] = {
-        messages: [],
+        buffer: new Map(),
         processing: false,
       };
     }
 
-    const queue = this.topicQueues[topic];
+    const queue = this.topicQueues[topic]; //  CREATE UNIQUE KEY (event + market)
 
-    if (queue.messages.length >= config.maxQueue) {
-      // this.logger.error(`🚨 Queue overflow | topic=${topic}`);
-      queue.messages.splice(0, config.maxBatch);
+    const market = Array.isArray(payload) ? payload[0] : payload;
+    if (market.timestamp)
+      console.log(Date.now() - market.timestamp, 'delayaaaaaa');
+    const eventId =
+      market?.data?.eventID || market?.eventID || market?.data?.matchId;
+
+    const marketName = market?.marketName;
+
+    if (!eventId || !marketName) {
+      return;
     }
-
-    queue.messages.push(payload);
-
-    if (queue.messages.length >= config.maxBatch) {
-      this.processTopicQueue(topic);
+    const key = `${eventId}:${marketName}`;
+    queue.buffer.set(key, payload);
+    if (queue.buffer.size > config.maxQueue) {
+      this.logger.warn(`Queue overflow ${topic}, clearing`);
+      queue.buffer.clear();
+      queue.processing = false;
       return;
     }
 
-    if (!queue.timer) {
+    if (!queue.processing) {
+      queue.processing = true;
+
       queue.timer = setTimeout(() => {
         this.processTopicQueue(topic);
       }, 50);
@@ -157,31 +164,26 @@ export class KafkaService
   private async processTopicQueue(topic: string) {
     const queue = this.topicQueues[topic];
     const config = TOPIC_BATCH_CONFIG[topic];
-    if (!queue || queue.processing || !config) return;
+    if (!queue || !config) return;
 
-    queue.processing = true;
     clearTimeout(queue.timer);
     queue.timer = undefined;
 
-    while (queue.messages.length > 0) {
-      const batch = queue.messages.splice(0, config.maxBatch);
+    const batch = Array.from(queue.buffer.values());
+    queue.buffer.clear();
 
-      // this.logger.log(
-      //   'info',
-      //   `⚙️ Processing batch | topic=${topic} | size=${batch.length}`,
-      // );
-
-      const CONCURRENCY = 20;
-
-      for (let i = 0; i < batch.length; i += CONCURRENCY) {
-        const slice = batch.slice(i, i + CONCURRENCY);
-        await Promise.all(
-          slice.map((data) => this.handleOddsData(topic, data)),
-        );
+    try {
+      for (const data of batch) {
+        await this.handleOddsData(topic, data);
       }
+    } catch (err) {
+      this.logger.error(`Error processing topic ${topic}`, err);
     }
 
     queue.processing = false;
+    if (queue.buffer.size > 0) {
+      this.enqueueMessage(topic, null);
+    }
   }
 
   private async handleOddsData(topic: string, data: any) {
@@ -260,22 +262,20 @@ export class KafkaService
   // ========================================
   // 2. EXTRA MARKETS
   // ========================================
-  // private async handleExtraMarket(raw: any) {
-  //   const mapped = this.mapper.mapExtraMarketPayload(raw);
-  //   if (!mapped) return;
+  private async handleExtraMarket(raw: any) {
+    const mapped = this.mapper.mapExtraMarketPayload(raw);
+    if (!mapped) return;
 
-  //   const { eventID } = mapped;
-  //   const key = `extra:${eventID}`;
-  //   await this.redis.client.setex(
-  //     key,
-  //     50, // 50 sec
-  //     JSON.stringify(mapped),
-  //   );
+    const { eventID } = mapped;
+    const key = `extra:${eventID}`;
+    await this.redis.client.setex(
+      key,
+      50, // 50 sec
+      JSON.stringify(mapped),
+    );
 
-  //   await this.marketProcessor.checkAndStorePremiumMarket(mapped);
-
-  //   this.logger.debug(`[EXTRA] Stored: ${eventID}`);
-  // }
+    this.logger.debug(`[EXTRA] Stored: ${eventID}`);
+  }
 
   // ========================================
   // 3. OTHER ODDS (Match Odds, Bookmaker, Mini, Toss, etc.)
@@ -284,18 +284,18 @@ export class KafkaService
     const mapped = this.mapper.mapOddsMarketPayload(raw);
     if (!mapped) return;
 
-    const { eventID, data, marketName } = mapped;
-    if (marketName.toLowerCase() === 'bookmaker')
-      console.log('Bookmaker data', JSON.stringify(mapped));
+    const { eventID, data } = mapped;
+    // if (marketName.toLowerCase() === 'bookmaker')
+    // console.log('Bookmaker data', JSON.stringify(mapped));
 
     // Close Event
     if (data?.status?.toLowerCase()?.startsWith('close')) {
       if (targetMarkets.includes(data?.marketName?.toLowerCase()))
-        await this.eventService.checkAndCloseEvent(eventID);
+        this.eventService.checkAndCloseEvent(eventID);
     } else {
       // Active Event
       if (targetMarkets.includes(data?.marketName?.toLowerCase()))
-        await this.eventService.checkAndActiveEvent(eventID);
+        this.eventService.checkAndActiveEvent(eventID);
     }
 
     const existsKey = `market:exists:${eventID}:${data.marketId}`;
@@ -309,13 +309,14 @@ export class KafkaService
       // );
     }
 
-    if (data.marketName?.toLowerCase() === 'bookmaker')
-      console.log('bookmaker data 3', data);
+    // if (data.marketName?.toLowerCase() === 'bookmaker')
+    //   console.log('bookmaker data 3', data);
 
     const ttl =
-      data.marketType?.toLowerCase() === 'bookmaker' ||
-      data.marketName?.toLowerCase() === 'bookmaker'
-        ? this.CACHE_TTL_FANCY
+      (data.marketType?.toLowerCase() === 'bookmaker' ||
+        data.marketName?.toLowerCase() === 'bookmaker') &&
+      !data.marketName?.toLowerCase().startsWith('6 over bookmaker')
+        ? this.CACHE_TTL_BOOKMAKER
         : 60;
     await this.redis.client.setex(
       `odds:${eventID}:${data.marketId}`,
@@ -326,7 +327,7 @@ export class KafkaService
     if (data.marketType?.toLowerCase() === 'bookmaker') {
       await this.redis.client.setex(
         `bookmaker:${eventID}`,
-        this.CACHE_TTL_FANCY,
+        this.CACHE_TTL_BOOKMAKER,
         '1',
       );
     }
