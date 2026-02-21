@@ -1444,6 +1444,7 @@ export class BankerService extends BaseService {
         status: 'Pending',
         userId: isAdmin ? undefined : loggedInUserId,
         adminId: isAdmin ? loggedInUserId : undefined,
+        timezone: options.timezone,
         name: options.fileName ?? 'Deposit/Withdraw Request',
         filters: {
           userType,
@@ -1458,7 +1459,10 @@ export class BankerService extends BaseService {
               ? options.toDate.toISOString()
               : options.toDate,
           isUpi: options.isUpi ?? undefined,
+          paymentMode: options.paymentMode ?? undefined,
           isBank: options.isBank ?? undefined,
+          iscripto: options.isCrypto ?? undefined,
+          iswallet: options.isWallet ?? undefined,
           search: options.search ?? undefined,
         },
       },

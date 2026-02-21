@@ -1,6 +1,7 @@
 import { UserType } from '@Common';
 import {
   AffiliateStatus,
+  ApprovalType,
   BetStatusType,
   BonusApplicantStatus,
   BonusApplicantStatusType,
@@ -144,6 +145,7 @@ export interface CasinoPlayerProfitLossReportParams {
   fromDate?: Date;
   toDate?: Date;
   format: ExportFormat;
+  path: string;
   timezone: string;
 }
 
@@ -158,6 +160,7 @@ export interface CasinoDownlineProfitLossReportParams {
   transactionLimit?: number;
   fromDate?: Date;
   toDate?: Date;
+  path: string;
   format: ExportFormat;
   timezone: string;
 }
@@ -188,6 +191,7 @@ export interface DownlineProfitLossReportParams {
   fromDate?: Date;
   toDate?: Date;
   format: ExportFormat;
+  path: string;
   timezone: string;
 }
 
@@ -262,6 +266,7 @@ export interface InactiveUserReportParams {
   rollId?: number;
   format: ExportFormat;
   timezone: string;
+  path: string;
   searchByUserId?: number;
 }
 export interface ExportAffiliateListParams {
@@ -306,6 +311,7 @@ export interface ExportBonusStatementParams {
   search?: string;
   searchbyuserId?: number;
   searchbyusername?: string;
+  approvalType?: ApprovalType;
   fromDate?: Date;
   toDate?: Date;
   format: ExportFormat;

@@ -1087,6 +1087,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Deposit',
+        timezone: query.timezone,
         filters: {
           userType,
           category: query.category,
@@ -1122,6 +1123,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Withdrawal',
+        timezone: query.timezone,
         filters: {
           userType,
           category: query.category,
@@ -1157,6 +1159,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Logins',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,
@@ -1191,6 +1194,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Signups',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,
@@ -1224,6 +1228,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Active Users',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,
@@ -1259,6 +1264,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Idle Users',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,
