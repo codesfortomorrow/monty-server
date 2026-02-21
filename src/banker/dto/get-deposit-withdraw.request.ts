@@ -73,4 +73,11 @@ export class GetDepositWithdrawQueryDto extends DateFilterWithPaginationRequest 
   @IsOptional()
   @IsBoolean()
   isUpi?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Timezone in Asia/Kolkata format ',
+  })
+  @IsString()
+  @IsOptional()
+  timezone?: string;
 }

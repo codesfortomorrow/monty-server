@@ -972,7 +972,7 @@ export class ReportsService extends BaseService {
         // owner mapping
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
-
+        timezone: query.timezone,
         filters: {
           searchByUserName: query.searchByUserName,
           searchByUserId: query.searchByUserId?.toString(),
@@ -1014,6 +1014,7 @@ export class ReportsService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Profit/Loss by Casino Players',
+        timezone: query.timezone,
         filters: {
           userType,
           searchByUserName: query.searchByUserName,
@@ -1052,11 +1053,11 @@ export class ReportsService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Profit/Loss by Casino Downline',
-
+        timezone: query.timezone,
         filters: {
           userType,
           searchByUserName: query.searchByUserName,
-          searchByUserId: query.searchByUserName,
+          searchByUserId: query.searchByUserId,
           reportType: query.reportType,
           transactionLimit: query.transactionLimit,
           path: path,
@@ -1091,6 +1092,7 @@ export class ReportsService extends BaseService {
         // owner mapping
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
+        timezone: query.timezone,
 
         filters: {
           searchByUsername: query.searchByUsername,
@@ -1130,6 +1132,7 @@ export class ReportsService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Profit/Loss Report by Event',
+        timezone: query.timezone,
         filters: {
           searchByEvent: query.searchByEvent,
           userType,
@@ -1170,6 +1173,7 @@ export class ReportsService extends BaseService {
 
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
+        timezone: query.timezone,
         name: query.fileName ?? 'Profit & Loss Report By Downline',
         filters: {
           userType,

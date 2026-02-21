@@ -688,6 +688,7 @@ export class BonusService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Bonus Statement',
+        timezone: query.timezone,
         filters: {
           userType,
           status: query.status,

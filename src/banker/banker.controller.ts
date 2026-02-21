@@ -211,16 +211,20 @@ export class BankerController extends BaseController {
   //   return this.bankerService.deletepaymentConfig(bankerId);
   // }
 
-  // @ApiBearerAuth()
-  // @UseGuards(JwtAuthGuard)
-  // @Post('export-deposit-withdraw')
-  // async exportAllDepositWithdrawRequests(
-  //   @Req() req: AuthenticatedRequest,
-  //   @Query() query: ExportDepositWithdrawQueryDto,
-  // ) {
-  //   const ctx = this.getContext(req);
-  //   return await this.bankerService.exportDepositWithdraw(ctx.user.id, query);
-  // }
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('export-deposit-withdraw')
+  async exportAllDepositWithdrawRequests(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ExportDepositWithdrawQueryDto,
+  ) {
+    const ctx = this.getContext(req);
+    return await this.bankerService.exportDepositWithdraw(
+      ctx.user.id,
+      ctx.user.type,
+      query,
+    );
+  }
 
   // @ApiBearerAuth()
   // @UseGuards(JwtAuthGuard)
