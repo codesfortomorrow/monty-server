@@ -142,14 +142,14 @@ enum WalletTransactionContext {
 }
 
 enum SportType {
-  Cricket         @map("cricket")
-  Football        @map("football")
-  Tennis          @map("tennis")
-  GreyhoundRacing @map("greyhound_racing")
-  HorseRacing     @map("horse_racing")
-  Basketball      @map("basketball")
-  Soccer          @map("soccer")
-  Other           @map("other")
+  Cricket     @map("cricket")
+  Football    @map("football")
+  Tennis      @map("tennis")
+  Greyhound   @map("greyhound")
+  HorseRacing @map("horse_racing")
+  Basketball  @map("basketball")
+  Soccer      @map("soccer")
+  Other       @map("other")
 
   @@map("sport_type")
 }
@@ -1828,6 +1828,14 @@ model UserTurnoverAccount {
   lockedWinning Decimal @default(0.00) @map("locked_winning") @db.Decimal(14, 2)
 
   @@map("user_turnover_account")
+}
+
+model WalletTransactionCursor {
+  id                BigInt   @id @default(1)
+  lastTransactionId BigInt   @map("last_transaction_id")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("wallet_transaction_cursor")
 }
 
 model UserWalletStat {

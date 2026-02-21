@@ -6,7 +6,7 @@ const sportNameToEnumMap: Record<string, SportType> = {
   Tennis: SportType.Tennis,
   Basketball: SportType.Basketball,
   HorseRacing: SportType.HorseRacing,
-  GreyhoundRacing: SportType.GreyhoundRacing,
+  Greyhound: SportType.Greyhound,
   Soccer: SportType.Soccer,
   Other: SportType.Other,
 };

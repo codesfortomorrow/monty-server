@@ -116,9 +116,9 @@ export class BetService extends BaseService {
       if (wallets.length === 0) throw new Error('User wallet not found');
 
       const wallet = wallets.find((w) => w.type === WalletType.Main);
-      const bonusWallet = wallets.find((w) => w.type === WalletType.Bonus);
+      // const bonusWallet = wallets.find((w) => w.type === WalletType.Bonus);
 
-      if (!wallet || !bonusWallet) throw new Error('User wallet not found');
+      if (!wallet) throw new Error('User wallet not found');
 
       if (data.marketType === 'FANCY' && data.fancyPercentage === undefined)
         throw new Error('Percentage is required');
@@ -213,6 +213,7 @@ export class BetService extends BaseService {
 
       const validation = await this.validateBetPlacement({
         marketType: data.marketType,
+        marketName: data.marketName,
         betOn: data.betOn,
         eventId: event.externalId,
         marketId: data.marketId,
@@ -235,7 +236,7 @@ export class BetService extends BaseService {
         const exposureUpdate = await this.updateBetExposure({
           user,
           wallet,
-          bonusWallet,
+          // bonusWallet,
           sportId,
           eventId: event.id,
           eventExternalId: event.externalId,
@@ -323,6 +324,7 @@ export class BetService extends BaseService {
 
   private async validateBetPlacement(data: {
     marketType: 'NORMAL' | 'FANCY' | 'PREMIUM';
+    marketName: string;
     betOn: 'BACK' | 'LAY';
     eventId: string;
     marketId: string;
@@ -404,7 +406,7 @@ export class BetService extends BaseService {
           return apiRes.data;
         }, 3);
 
-        console.log('Validator result:', result, apiUrl);
+        console.log('Validator result:', JSON.stringify(result), apiUrl);
         updatedOdd = result.updatedOdds;
 
         if (!result.status || result.status == 3 || result.status == 9) {
@@ -425,6 +427,31 @@ export class BetService extends BaseService {
         } else {
           if (data.acceptOddsChange && result.allPrices) {
             const allPrices = result.allPrices || [];
+
+            if (
+              data.position !== undefined &&
+              data.position >= 0 &&
+              data.position < allPrices.length
+            ) {
+              const positionPrice = allPrices[data.position];
+              return {
+                success: true,
+                updatedPrice: Number(positionPrice),
+                message: `Odds changed. Using price from position ${data.position}`,
+              };
+            }
+
+            const fallbackPrice = updatedOdd
+              ? Number(updatedOdd)
+              : Number(allPrices[0]);
+
+            return {
+              success: true,
+              updatedPrice: fallbackPrice,
+              message: `Odds changed. Price updated to ${fallbackPrice}`,
+            };
+          } else if (data.acceptOddsChange) {
+            const allPrices = currentPrice;
 
             if (
               data.position !== undefined &&
@@ -542,6 +569,31 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
+          } else if (data.acceptOddsChange) {
+            const allPrices = currentPrice;
+
+            if (
+              data.position !== undefined &&
+              data.position >= 0 &&
+              data.position < allPrices.length
+            ) {
+              const positionPrice = allPrices[data.position];
+              return {
+                success: true,
+                updatedPrice: Number(positionPrice),
+                message: `Odds changed. Using price from position ${data.position}`,
+              };
+            }
+
+            const fallbackPrice = updatedOdd
+              ? Number(updatedOdd)
+              : Number(allPrices[0]);
+
+            return {
+              success: true,
+              updatedPrice: fallbackPrice,
+              message: `Odds changed. Price updated to ${fallbackPrice}`,
+            };
           } else {
             return {
               success: false,
@@ -616,6 +668,31 @@ export class BetService extends BaseService {
         } else {
           if (data.acceptOddsChange && result.allPrices) {
             const allPrices = result.allPrices || [];
+
+            if (
+              data.position !== undefined &&
+              data.position >= 0 &&
+              data.position < allPrices.length
+            ) {
+              const positionPrice = allPrices[data.position];
+              return {
+                success: true,
+                updatedPrice: Number(positionPrice),
+                message: `Odds changed. Using price from position ${data.position}`,
+              };
+            }
+
+            const fallbackPrice = updatedOdd
+              ? Number(updatedOdd)
+              : Number(allPrices[0]);
+
+            return {
+              success: true,
+              updatedPrice: fallbackPrice,
+              message: `Odds changed. Price updated to ${fallbackPrice}`,
+            };
+          } else if (data.acceptOddsChange) {
+            const allPrices = currentPrice;
 
             if (
               data.position !== undefined &&
@@ -895,7 +972,7 @@ export class BetService extends BaseService {
   private updateBetExposure = async (data: {
     user: User;
     wallet: Wallet;
-    bonusWallet: Wallet;
+    // bonusWallet: Wallet;
     sportId: number;
     eventId: bigint;
     eventExternalId: string;
@@ -1239,9 +1316,15 @@ export class BetService extends BaseService {
       userId: userId,
       status: BetStatusType.Pending,
     };
+    let orderBy: Prisma.BetOrderByWithRelationInput = {
+      placedAt: 'desc',
+    };
     if (filter.betTime === 'PAST') {
       where.status = {
         not: BetStatusType.Pending,
+      };
+      orderBy = {
+        settledAt: 'desc',
       };
     }
 
@@ -1283,9 +1366,7 @@ export class BetService extends BaseService {
       },
       take,
       skip,
-      orderBy: {
-        placedAt: 'desc',
-      },
+      orderBy,
     });
 
     const pagination: Pagination = {
@@ -1565,6 +1646,7 @@ export class BetService extends BaseService {
       };
     }
 
+    console.log('Bet WHere condition', JSON.stringify(where));
     const count = await this.prisma.bet.count({ where });
     const bets = await this.prisma.bet.findMany({
       where,

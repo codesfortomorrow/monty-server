@@ -463,7 +463,11 @@ export class BankerService extends BaseService {
       where,
       include: {
         bank: true,
-        crypto: true,
+        crypto: {
+          include: {
+            network: true,
+          },
+        },
         digitalPayment: true,
       },
       orderBy: { id: 'desc' },
@@ -499,7 +503,6 @@ export class BankerService extends BaseService {
     status: WalletTransactionStatus,
     bankerId: bigint,
     userType: UserType,
-    transactionCode: string,
     remark?: string,
   ) {
     // try {
@@ -561,21 +564,6 @@ export class BankerService extends BaseService {
           throw new Error('Remark is required when rejecting a request.');
         }
       }
-
-      let creator;
-      let creatorMeta;
-      if (userType === UserType.User) {
-        creator = await this.userService.getById(bankerId);
-        creatorMeta = await this.userService.getMetaById(bankerId);
-      } else {
-        creator = await this.prisma.admin.findUnique({
-          where: { id: bankerId },
-          include: { role: true },
-        });
-        creatorMeta = await this.adminService.getMetaById(bankerId);
-      }
-      if (!creatorMeta || creatorMeta.transactionCode !== transactionCode)
-        throw new Error('Wrong transaction code');
 
       const user = await this.userService.getById(request.userId);
       let banker;

@@ -65,6 +65,9 @@ export class EventsService extends BaseService {
           break;
         case 'INACTIVE':
           where.status = StatusType.Inactive;
+          where.startTime = {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          };
           break;
         case 'UPCOMING':
           where.status = {
