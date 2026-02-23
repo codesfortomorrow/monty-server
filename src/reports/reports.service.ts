@@ -1359,7 +1359,19 @@ export class ReportsService extends BaseService {
         ${paginationSql};
       `;
 
-        const eventRows = await this.prisma.$queryRawUnsafe(
+        const eventRows = await this.prisma.$queryRawUnsafe<
+          {
+            eventId: bigint | number | null;
+            eventName: string | null;
+            sport: string | null;
+            totalBets: number | bigint | null;
+            totalProfitLoss: number | null;
+            uplineProfitLoss: number | null;
+            downlineProfitLoss: number | null;
+            totalStake: number | null;
+            lastBetTime: Date | string | null;
+          }[]
+        >(
           dataSql,
           query.searchByEvent || null,
           query.fromDate || null,
@@ -1392,8 +1404,13 @@ export class ReportsService extends BaseService {
 
         const totalItems = Number(countRes?.[0]?.total ?? 0);
 
+        const modified = eventRows.map((e) => ({
+          ...e,
+          totalProfitLoss: (e.totalProfitLoss ?? 0) * -1,
+        }));
+
         return {
-          eventRows,
+          eventRows: modified,
           pagination: {
             currentPage: page,
             limit,
@@ -1444,7 +1461,19 @@ export class ReportsService extends BaseService {
       ${paginationSql};
     `;
 
-      const casinoRows = await this.prisma.$queryRawUnsafe(
+      const casinoRows = await this.prisma.$queryRawUnsafe<
+        {
+          gameId: bigint | number | null;
+          gameName: string | null;
+          category: string | null;
+          gameProviderName: string | null;
+          totalRounds: bigint | number | null;
+          totalProfitLoss: number | null;
+          uplineProfitLoss: number | null;
+          downlineProfitLoss: number | null;
+          lastBetTime: Date | string | null;
+        }[]
+      >(
         casinoSql,
         query.searchByEvent || null,
         query.fromDate || null,
@@ -1478,8 +1507,13 @@ export class ReportsService extends BaseService {
 
       const totalItems = Number(casinoCount?.[0]?.total ?? 0);
 
+      const modified = casinoRows.map((c) => ({
+        ...c,
+        totalProfitLoss: (c.totalProfitLoss ?? 0) * -1,
+      }));
+
       return {
-        eventRows: casinoRows,
+        eventRows: modified,
         pagination: {
           currentPage: page,
           limit,
@@ -1505,10 +1539,10 @@ export class ReportsService extends BaseService {
     let uplinePath: string | null = '0';
     if (userType === UserType.User) {
       uplinePath = await this.userService.getUplinePathById(userId);
-      // const user = await this.userService.getPartnership(BigInt(userId));
-      // if (user) {
-      //   ap = user.partnership;
-      // }
+      const user = await this.userService.getPartnership(BigInt(userId));
+      if (user) {
+        ap = user.partnership;
+      }
     }
     if (!uplinePath) throw new Error('User not found');
 
@@ -1757,11 +1791,16 @@ bpl.upline_pl,
 
     const totalItems = Number(countRes?.[0]?.total ?? 0);
 
+    const modified = markets.map((m) => ({
+      ...m,
+      totalProfitLoss: (m.totalProfitLoss ?? 0) * -1,
+    }));
+
     // -----------------------------
     // 7️⃣ Response
     // -----------------------------
     return {
-      markets,
+      markets: modified,
       pagination: {
         currentPage: page,
         limit,
