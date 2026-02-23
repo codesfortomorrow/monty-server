@@ -1433,7 +1433,7 @@ export class BankerService extends BaseService {
   async exportDepositWithdraw(
     loggedInUserId: bigint,
     userType: UserType,
-    options: GetDepositWithdrawQueryDto,
+    options: ExportDepositWithdrawQueryDto,
   ) {
     const isAdmin = userType === UserType.Admin;
     const exportEntry = await this.prisma.export.create({
