@@ -1713,18 +1713,16 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
     const rawData = result.data as any[];
 
-    const columns: string[] = searchByUserId
-      ? ['S.No', 'Date/Time', 'Login Status', 'IP Address']
-      : [
-          'S.No',
-          'Date/Time',
-          'Login Status',
-          'IP Address',
-          'ISP',
-          'City',
-          'State',
-          'Country',
-        ];
+    const columns: string[] = [
+      'S.No',
+      'Date/Time',
+      'Login Status',
+      'IP Address',
+      'ISP',
+      'City',
+      'State',
+      'Country',
+    ];
 
     const data = rawData.map((row, index) => {
       const mappedRow: Record<string, any> = {};
