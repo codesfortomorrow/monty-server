@@ -89,4 +89,22 @@ export class ExportDepositWithdrawQueryDto {
   @IsEnum(ExportFormat)
   @IsOptional()
   exportFormat?: ExportFormat;
+
+  @ApiPropertyOptional({
+    enum: PaymentMode,
+    example: PaymentMode.Easypaisa,
+  })
+  @IsOptional()
+  @IsEnum(PaymentMode)
+  paymentMode?: PaymentMode;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  isCrypto?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  isUpi?: boolean;
 }
