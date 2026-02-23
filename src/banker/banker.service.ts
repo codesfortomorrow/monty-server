@@ -1627,8 +1627,7 @@ export class BankerService extends BaseService {
 
       Crypto = await this.prisma.crypto.findMany({
         where: {
-          userId: null,
-          adminId: { not: null },
+          userId: uplineId,
           status: StatusType.Active,
           deletedAt: null,
           network: {

@@ -134,6 +134,13 @@ export class SettledBetBatchProcessor
       where: {
         status: { in: [BetStatusType.Won, BetStatusType.Lost] },
         isPlCalculated: false,
+        user: {
+          role: {
+            NOT: {
+              name: 'DEMO',
+            },
+          },
+        },
       },
       take: BATCH_SIZE,
       orderBy: { id: 'asc' },
