@@ -313,6 +313,57 @@ export class ReportsService extends BaseService {
     return map;
   }
 
+  private async getDirectUplineDetails(userIds: bigint[]) {
+    const map = new Map<bigint, Record<string, string>>();
+    for (const userId of userIds) {
+      const redisKey = `upline:direct:${userId}`;
+      const data = await this.redis.client.get(redisKey);
+      if (data) {
+        try {
+          const uplineDetails = JSON.parse(data) as Record<string, string>;
+          map.set(userId, uplineDetails);
+          continue;
+        } catch (error) {
+          this.logger.warn(
+            `Error to parse redis upline data for userId ${userId}, Error: ${error.message}`,
+          );
+        }
+      }
+      const uplinePath = await this.userService.getUplinePathById(userId);
+      if (!uplinePath) continue;
+      const uplineIds = uplinePath.split('.');
+      uplineIds.shift(); // Remove Owner
+      uplineIds.pop(); // Remove Self
+      const ownRole = await this.userService.getRoleByUserId(userId);
+
+      const uplineMap: Record<string, string> = {};
+      for (let i = uplineIds.length - 1; i >= 0; i++) {
+        const uplineId = uplineIds[i];
+        const user = await this.userService.getRoleAndUsernameByUserId(
+          BigInt(uplineId),
+        );
+        if (
+          user.role &&
+          ownRole &&
+          ownRole.name !== user.role.name &&
+          user.username
+        ) {
+          uplineMap.name = user.username;
+          uplineMap.role = user.role.name;
+          break;
+        }
+      }
+
+      await this.redis.client.setex(
+        redisKey,
+        5 * 60,
+        JSON.stringify(uplineMap),
+      );
+      map.set(userId, uplineMap);
+    }
+    return map;
+  }
+
   async getPlayerProfitLoss(
     userId: bigint,
     userType: UserType,
@@ -446,7 +497,7 @@ export class ReportsService extends BaseService {
     );
 
     const userIds = new Set(result.map((profitLoss) => profitLoss.userId));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedProfitLoss = result.map((profitLoss) => {
       const uplineDetails = uplineMap.get(profitLoss.userId);
@@ -847,7 +898,7 @@ export class ReportsService extends BaseService {
     const userIds = new Set(
       casinoProfitLoss.map((profitLoss) => profitLoss.userId),
     );
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedProfitLoss = casinoProfitLoss.map((profitLoss) => {
       const uplineDetails = uplineMap.get(profitLoss.userId);
