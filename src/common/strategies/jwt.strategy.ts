@@ -64,29 +64,29 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_AUTH) {
   async validate(
     payload: JwtPayload & { readonly iat: number; readonly exp: number },
   ): Promise<AuthenticatedUser> {
-    if (payload.type === UserType.Admin) {
-      // const user = await JwtStrategy.prisma.admin.findFirst({
-      //   where: {
-      //     id: payload.sub,
-      //     loginUniqueKey: payload.uniqueKey,
-      //   },
-      // });
-      // if (!user)
-      //   throw new UnauthorizedException(
-      //     'Logged out: Your account was accessed from another device.',
-      //   );
-      return {
-        id: payload.sub,
-        path: payload.path,
-        type: payload.type,
-      };
-    }
-    const user = await JwtStrategy.prisma.user.findFirst({
-      where: {
-        id: payload.sub,
-        loginUniqueKey: payload.uniqueKey,
-      },
-    });
+    // if (payload.type === UserType.Admin) {
+    // const user = await JwtStrategy.prisma.admin.findFirst({
+    //   where: {
+    //     id: payload.sub,
+    //     loginUniqueKey: payload.uniqueKey,
+    //   },
+    // });
+    // if (!user)
+    //   throw new UnauthorizedException(
+    //     'Logged out: Your account was accessed from another device.',
+    //   );
+    //   return {
+    //     id: payload.sub,
+    //     path: payload.path,
+    //     type: payload.type,
+    //   };
+    // }
+    // const user = await JwtStrategy.prisma.user.findFirst({
+    //   where: {
+    //     id: payload.sub,
+    //     loginUniqueKey: payload.uniqueKey,
+    //   },
+    // });
     // if (!user)
     //   throw new UnauthorizedException(
     //     'Logged out: Your account was accessed from another device.',
