@@ -14,7 +14,7 @@ import {
   TopUserRequest,
 } from './dto';
 import { WalletsService } from 'src/wallets/wallets.service';
-import { MarketType } from '@prisma/client';
+import { MarketType, SportType } from '@prisma/client';
 import { OddsService } from 'src/odds/odds.service';
 import { ConfigType } from '@nestjs/config';
 import { casinoConfigFactory } from '@Config';
@@ -48,12 +48,12 @@ export class DashboardService extends BaseService {
 
     const userCounQuery = `
         SELECT
-            COUNT(CASE WHEN r.name = 'WHITELABEL' THEN 1 END) AS "whitelabel",
-            COUNT(CASE WHEN r.name = 'ADMIN' THEN 1 END) AS "admin",
-            COUNT(CASE WHEN r.name = 'SUB ADMIN' THEN 1 END) AS "subAdmin",
-            COUNT(CASE WHEN r.name = 'SUPER MASTER' THEN 1 END) AS "superMaster",
-            COUNT(CASE WHEN r.name = 'MASTER' THEN 1 END) AS "master",
-            COUNT(CASE WHEN r.name = 'USER' THEN 1 END) AS "user"
+        COUNT(CASE WHEN r.name = 'SUPER ADMIN' THEN 1 END) AS "superAdmin",
+        COUNT(CASE WHEN r.name = 'ADMIN' THEN 1 END) AS "admin",
+        COUNT(CASE WHEN r.name = 'SUPER MASTER' THEN 1 END) AS "superMaster",
+        COUNT(CASE WHEN r.name = 'MASTER' THEN 1 END) AS "master",
+        COUNT(CASE WHEN r.name = 'USER' THEN 1 END) AS "user"
+        COUNT(CASE WHEN r.name = 'RESULT MANAGER' THEN 1 END) AS "resultManager",
         FROM "user" u
         JOIN role r ON r.id = u.role_id
         JOIN user_meta um ON um.user_id = u.id
@@ -62,9 +62,9 @@ export class DashboardService extends BaseService {
 
     const userCount = await this.prisma.$queryRawUnsafe<
       {
-        whitelabel: number | bigint | null;
+        resultManager: number | bigint | null;
         admin: number | bigint | null;
-        subAdmin: number | bigint | null;
+        superAdmin: number | bigint | null;
         superMaster: number | bigint | null;
         master: number | bigint | null;
         user: number | bigint | null;
@@ -190,6 +190,14 @@ export class DashboardService extends BaseService {
       uplinePath = await this.userService.getUplinePathById(userId);
     if (!uplinePath) throw new Error('User not found');
 
+    let sportFilter = null;
+    if (query.sport) {
+      sportFilter = query.sport?.toLowerCase();
+      if (query.sport === SportType.HorseRacing) {
+        sportFilter = 'horse_racing';
+      }
+    }
+
     const gameQuery = `
       SELECT
         COUNT(*) AS "betCount",
@@ -221,7 +229,7 @@ export class DashboardService extends BaseService {
       uplinePath,
       query.fromDate || null,
       query.toDate || null,
-      query.sport?.toLowerCase() || null,
+      sportFilter,
     );
 
     return {
@@ -809,6 +817,7 @@ export class DashboardService extends BaseService {
         AND r.name = 'USER'
         AND e.inplay = true
         AND e.status IN ('active', 'upcoming', 'live', 'open')
+        AND e.sport IN ('cricket', 'tennis', 'soccer')
       GROUP BY e.id
     `;
 
