@@ -52,8 +52,8 @@ export class DashboardService extends BaseService {
         COUNT(CASE WHEN r.name = 'ADMIN' THEN 1 END) AS "admin",
         COUNT(CASE WHEN r.name = 'SUPER MASTER' THEN 1 END) AS "superMaster",
         COUNT(CASE WHEN r.name = 'MASTER' THEN 1 END) AS "master",
-        COUNT(CASE WHEN r.name = 'USER' THEN 1 END) AS "user"
-        COUNT(CASE WHEN r.name = 'RESULT MANAGER' THEN 1 END) AS "resultManager",
+        COUNT(CASE WHEN r.name = 'USER' THEN 1 END) AS "user",
+        COUNT(CASE WHEN r.name = 'RESULT MANAGER' THEN 1 END) AS "resultManager"
         FROM "user" u
         JOIN role r ON r.id = u.role_id
         JOIN user_meta um ON um.user_id = u.id
