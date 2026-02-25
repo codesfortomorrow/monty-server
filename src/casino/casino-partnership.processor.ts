@@ -241,6 +241,7 @@ export class SettledCasinoBatchProcessor
             where: { id: existing.id },
             data: {
               uplinePl: Math.round(apAmount),
+              totalPl: forwardUpAmount,
               updatedAt: new Date(),
             },
           });
@@ -272,6 +273,7 @@ export class SettledCasinoBatchProcessor
         },
         update: {
           uplinePl: apAmount,
+          totalPl: forwardUpAmount,
           updatedAt: new Date(),
         },
         create: {
