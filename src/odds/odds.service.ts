@@ -58,14 +58,11 @@ export class OddsService {
     if (!events?.length) return [];
 
     const enrichedEvents = await this.utils.batchable(events, async (event) => {
-      const eventStart = Date.now();
       const eventId = event.externalId;
 
       // ------------------------------------------------
       // 1️⃣ BUILD REDIS KEYS (NO KEYS COMMAND ❌)
       // ------------------------------------------------
-      const keyBuildStart = Date.now();
-
       const marketKeys = event.markets.map(
         (m) => `odds:${eventId}:${m.externalId}`,
       );
@@ -86,14 +83,11 @@ export class OddsService {
       // ------------------------------------------------
       // 2️⃣ REDIS MGET IN BATCHES (40–50) 🔥
       // ------------------------------------------------
-      const redisStart = Date.now();
-
       const BATCH_SIZE = 50;
       const redisValues: (string | null)[] = [];
 
       for (let i = 0; i < allKeys.length; i += BATCH_SIZE) {
         const batch = allKeys.slice(i, i + BATCH_SIZE);
-        const batchStart = Date.now();
 
         const res = await this.redis.client.mget(...batch);
         redisValues.push(...res);
@@ -114,7 +108,6 @@ export class OddsService {
       // ------------------------------------------------
       // 3️⃣ PARSE REDIS DATA
       // ------------------------------------------------
-      const parseStart = Date.now();
       const parsed = new Map<string, any>();
 
       allKeys.forEach((key, idx) => {
@@ -134,8 +127,6 @@ export class OddsService {
       // ------------------------------------------------
       // 4️⃣ MAP MARKETS
       // ------------------------------------------------
-      const mapStart = Date.now();
-
       const mainMarkets: MainMarketData[] = this.mapMainMarket(
         event.externalId,
         event.markets,

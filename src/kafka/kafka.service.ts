@@ -59,7 +59,7 @@ export class KafkaService
 
   private readonly CACHE_TTL = 2 * 60 * 60; // 2 hours
   private readonly CACHE_TTL_FANCY = 4 * 60 * 60; // 4 hours
-  private readonly CACHE_TTL_BOOKMAKER = 24 * 60 * 60; // 10 hours
+  private readonly CACHE_TTL_BOOKMAKER = 24 * 60 * 60; // 24 hours
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   private readonly BASE_RECONNECT_DELAY = 1000; // 1 second
 
@@ -315,7 +315,8 @@ export class KafkaService
     const ttl =
       (data.marketType?.toLowerCase() === 'bookmaker' ||
         data.marketName?.toLowerCase() === 'bookmaker') &&
-      !data.marketName?.toLowerCase().startsWith('6 over bookmaker')
+      !data.marketName?.toLowerCase().startsWith('6 over bookmaker') &&
+      !data.marketName?.toLowerCase().startsWith('toss')
         ? this.CACHE_TTL_BOOKMAKER
         : 60;
     await this.redis.client.setex(
