@@ -168,9 +168,9 @@ export class DashboardService extends BaseService {
 
     return {
       user: Number(userCount?.[0]?.user || 0),
-      whitelabel: Number(userCount?.[0]?.whitelabel || 0),
+      resultManager: Number(userCount?.[0]?.resultManager || 0),
       admin: Number(userCount?.[0]?.admin || 0),
-      subAdmin: Number(userCount?.[0]?.subAdmin || 0),
+      superAdmin: Number(userCount?.[0]?.superAdmin || 0),
       superMaster: Number(userCount?.[0]?.superMaster || 0),
       master: Number(userCount?.[0]?.master || 0),
       newUser: Number(newuserCount?.[0]?.newUser || 0),
