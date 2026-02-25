@@ -309,7 +309,7 @@ export class BetResultProccessor
           if (totalPayout.gte(0)) {
             await this.walletService.addBalance(
               user.userId,
-              totalPayout,
+              totalPayout.toDecimalPlaces(2),
               WalletType.Main,
               true,
               {
@@ -322,7 +322,7 @@ export class BetResultProccessor
           } else {
             await this.walletService.subtractBalance(
               user.userId,
-              totalPayout,
+              totalPayout.toDecimalPlaces(2),
               WalletType.Main,
               true,
               {
@@ -713,7 +713,7 @@ export class BetResultProccessor
     return data.tx.bet.update({
       where: { id: data.bet.id },
       data: {
-        payout: data.payout,
+        payout: data.payout.toDecimalPlaces(2),
         status: data.status,
         settledAt: new Date(),
       },
@@ -830,7 +830,7 @@ export class BetResultProccessor
     if (data.bet.payout.gt(0)) {
       await this.walletService.subtractBalance(
         data.bet.userId,
-        data.bet.payout,
+        data.bet.payout.toDecimalPlaces(2),
         WalletType.Main,
         true,
         {
@@ -844,7 +844,7 @@ export class BetResultProccessor
     if (data.bet.payout.lt(0)) {
       await this.walletService.addBalance(
         data.bet.userId,
-        data.bet.payout.abs(),
+        data.bet.payout.toDecimalPlaces(2).abs(),
         WalletType.Main,
         true,
         {
@@ -859,7 +859,11 @@ export class BetResultProccessor
       where: {
         id: data.bet.id,
       },
-      data: { status: BetStatusType.Rollback, isTurnOverCalculated: false },
+      data: {
+        status: BetStatusType.Rollback,
+        isTurnOverCalculated: false,
+        isPlCalculated: false,
+      },
     });
   }
 

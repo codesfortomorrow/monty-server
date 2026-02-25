@@ -283,6 +283,7 @@ export class SettledBetBatchProcessor
             where: { id: existing.id },
             data: {
               uplinePl: apAmount,
+              totalPl: forwardUpAmount,
               updatedAt: new Date(),
             },
           });
@@ -314,6 +315,7 @@ export class SettledBetBatchProcessor
         },
         update: {
           uplinePl: Math.round(apAmount),
+          totalPl: forwardUpAmount,
           updatedAt: new Date(),
         },
         create: {
