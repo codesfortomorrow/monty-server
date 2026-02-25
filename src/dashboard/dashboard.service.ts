@@ -678,7 +678,7 @@ export class DashboardService extends BaseService {
 
     const loginQuery = `
       SELECT
-        COUNT(DISTINCT CASE WHEN r.name = 'WHITELABEL' THEN u.id END) AS "whitelabel",
+        COUNT(DISTINCT CASE WHEN r.name = 'SUPER ADMIN' THEN u.id END) AS "superAdmin",
         COUNT(DISTINCT CASE WHEN r.name = 'ADMIN' THEN u.id END) AS "admin",
         COUNT(DISTINCT CASE WHEN r.name = 'SUB ADMIN' THEN u.id END) AS "subAdmin",
         COUNT(DISTINCT CASE WHEN r.name = 'SUPER MASTER' THEN u.id END) AS "superMaster",
@@ -694,26 +694,26 @@ export class DashboardService extends BaseService {
         AND a.login_status = 'success';
     `;
 
-    const affiliateLoginQuery = `
-      SELECT
-        COUNT(DISTINCT u.id) AS "affiliate"
-      from activity_log a
-      JOIN affiliate af ON af.user_id = a.user_id
-      JOIN "user" u ON u.id = a.user_id
-      JOIN user_meta um ON um.user_id = u.id
-      WHERE um.upline <@ text2ltree($1::text)
-        AND ($2::timestamptz IS NULL OR a.login_at >= $2::timestamptz)
-        AND ($3::timestamptz IS NULL OR a.login_at <= $3::timestamptz)
-        AND a.login_status = 'success'
-        AND af.request_status = 'approved';
-    `;
+    // const affiliateLoginQuery = `
+    //   SELECT
+    //     COUNT(DISTINCT u.id) AS "affiliate"
+    //   from activity_log a
+    //   JOIN affiliate af ON af.user_id = a.user_id
+    //   JOIN "user" u ON u.id = a.user_id
+    //   JOIN user_meta um ON um.user_id = u.id
+    //   WHERE um.upline <@ text2ltree($1::text)
+    //     AND ($2::timestamptz IS NULL OR a.login_at >= $2::timestamptz)
+    //     AND ($3::timestamptz IS NULL OR a.login_at <= $3::timestamptz)
+    //     AND a.login_status = 'success'
+    //     AND af.request_status = 'approved';
+    // `;
 
     const params = [uplinePath, query.fromDate || null, query.toDate || null];
 
-    const [loginSummary, affiliateLoginSummary] = await Promise.all([
+    const [loginSummary] = await Promise.all([
       this.prisma.$queryRawUnsafe<
         {
-          whitelabel: bigint | number | null;
+          superAdmin: bigint | number | null;
           admin: bigint | number | null;
           subAdmin: bigint | number | null;
           superMaster: bigint | number | null;
@@ -721,21 +721,21 @@ export class DashboardService extends BaseService {
           user: bigint | number | null;
         }[]
       >(loginQuery, ...params),
-      this.prisma.$queryRawUnsafe<
-        {
-          affiliate: bigint | number | null;
-        }[]
-      >(affiliateLoginQuery, ...params),
+      // this.prisma.$queryRawUnsafe<
+      //   {
+      //     affiliate: bigint | number | null;
+      //   }[]
+      // >(affiliateLoginQuery, ...params),
     ]);
 
     return {
-      whitelabel: Number(loginSummary?.[0]?.whitelabel || 0),
+      superAdmin: Number(loginSummary?.[0]?.superAdmin || 0),
       admin: Number(loginSummary?.[0]?.admin || 0),
       subAdmin: Number(loginSummary?.[0]?.subAdmin || 0),
       superMaster: Number(loginSummary?.[0]?.superMaster || 0),
       master: Number(loginSummary?.[0]?.master || 0),
       user: Number(loginSummary?.[0]?.user || 0),
-      affiliate: Number(affiliateLoginSummary?.[0]?.affiliate || 0),
+      // affiliate: Number(affiliateLoginSummary?.[0]?.affiliate || 0),
     };
   }
 
