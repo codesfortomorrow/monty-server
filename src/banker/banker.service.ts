@@ -589,7 +589,7 @@ export class BankerService extends BaseService {
         if (!bankerWallet) {
           throw new Error('Admin wallet not found.');
         }
-        username = 'Admin';
+        username = 'Owner';
       } else {
         banker = await this.userService.getById(bankerId);
         if (!banker) {
@@ -670,10 +670,10 @@ export class BankerService extends BaseService {
                     context: WalletTransactionContext.WithdrawalApproval,
                     entityId: requestId,
                     fromAccount: user.username ?? 'User',
-                    toAccount: username ?? 'Admin',
+                    toAccount: username ?? 'Owner',
                     meta: {
                       fromAccount: user.username ?? 'User',
-                      toAccount: username ?? 'Admin',
+                      toAccount: username ?? 'Owner',
                     },
                     narration: `Money Withdrawal Approved`,
                   },
@@ -689,10 +689,10 @@ export class BankerService extends BaseService {
                     context: WalletTransactionContext.WithdrawalApproval,
                     entityId: requestId,
                     fromAccount: user.username ?? 'User',
-                    toAccount: username ?? 'Admin',
+                    toAccount: username ?? 'Owner',
                     meta: {
                       fromAccount: user.username ?? 'User',
-                      toAccount: username ?? 'Admin',
+                      toAccount: username ?? 'Owner',
                     },
                     narration: `Money Withdrawal Approved`,
                   },
@@ -709,10 +709,10 @@ export class BankerService extends BaseService {
                   context: WalletTransactionContext.Withdrawal,
                   entityId: requestId,
                   fromAccount: user.username ?? 'User',
-                  toAccount: username ?? 'Admin',
+                  toAccount: username ?? 'Owner',
                   meta: {
                     fromAccount: user.username ?? 'User',
-                    toAccount: username ?? 'Admin',
+                    toAccount: username ?? 'Owner',
                   },
                   narration: `Money Withdrawal`,
                 },
@@ -778,10 +778,10 @@ export class BankerService extends BaseService {
                   tx,
                   context: WalletTransactionContext.Deposit,
                   entityId: requestId,
-                  fromAccount: username ?? 'Admin',
+                  fromAccount: username ?? 'Owner',
                   toAccount: user.username ?? 'User',
                   meta: {
-                    fromAccount: username ?? 'Admin',
+                    fromAccount: username ?? 'Owner',
                     toAccount: user.username ?? 'User',
                   },
                   narration: `Money Deposit`,
@@ -797,10 +797,10 @@ export class BankerService extends BaseService {
                     tx,
                     context: WalletTransactionContext.DepositApproval,
                     entityId: requestId,
-                    fromAccount: username ?? 'Admin',
+                    fromAccount: username ?? 'Owner',
                     toAccount: user.username ?? 'User',
                     meta: {
-                      fromAccount: username ?? 'Admin',
+                      fromAccount: username ?? 'Owner',
                       toAccount: user.username ?? 'User',
                     },
                     narration: `Money Deposit Approved`,
@@ -816,10 +816,10 @@ export class BankerService extends BaseService {
                     tx,
                     context: WalletTransactionContext.DepositApproval,
                     entityId: requestId,
-                    fromAccount: username ?? 'Admin',
+                    fromAccount: username ?? 'Owner',
                     toAccount: user.username ?? 'User',
                     meta: {
-                      fromAccount: username ?? 'Admin',
+                      fromAccount: username ?? 'Owner',
                       toAccount: user.username ?? 'User',
                     },
                     narration: `Money Deposit Approved`,
