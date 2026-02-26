@@ -915,6 +915,7 @@ export class UsersService {
           transactionCodeViewed: false,
           referralCode,
           partnership: dto.partnership || 0,
+          createdBy: creator?.role?.name,
           meta: {
             create: {
               passwordSalt: salt,

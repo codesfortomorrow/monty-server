@@ -445,6 +445,7 @@ model User {
   parentPartnership     Int        @default(0) @map("parent_partnership")
   commision             Int        @default(0) @map("commision")
   isSelfRegistered      Boolean    @default(false) @map("is_self_registered")
+  createdBy             String?    @map("created_by")
   isPartnershipEnabled  Boolean    @default(false) @map("is_partnership_enabled")
   passwordChanged       Boolean?   @default(true) @map("password_changed")
   transactionCodeViewed Boolean?   @default(true) @map("transaction_code_viewed")
