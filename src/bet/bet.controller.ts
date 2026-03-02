@@ -90,7 +90,9 @@ export class BetController extends BaseController {
   }
 
   // Downline Bet List
+  @ApiBearerAuth()
   @Get('/downline/:eventId')
+  @UseGuards(JwtAuthGuard)
   async getDownlineBets(
     @Param('eventId', ParseIntPipe) eventId: number,
     @Req() req: AuthenticatedRequest,
