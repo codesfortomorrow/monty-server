@@ -18,7 +18,7 @@ export class CompetitionsController {
   @Post('/event/default/provider')
   async fetchCompetitionAndEventsOfDefaultProvider() {
     await this.competitionProcessor.syncDefaultProvider();
-    await this.competitionProcessor.fetchRaceMarketCompttionAndEvents();
+    await this.competitionProcessor.fetchRaceMarketCompetitionAndEvents();
     return 'Successfully fetched';
   }
 
