@@ -121,14 +121,14 @@ export class SportsPermissionService extends BaseService {
       for (const permission of permissions) {
         if (permission.allowed) {
           if (!allowedPermission.includes(permission.name.toLowerCase())) {
-            return { success: false, message: 'You have not permission' };
+            return { success: false, message: 'You do not have permission' };
           }
         }
       }
       return { success: true, message: '' };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`Error to validate sports permission ${error.message}`);
-      return { success: false, message: 'You have not permission' };
+      return { success: false, message: 'You do not have permission' };
     }
   }
 }

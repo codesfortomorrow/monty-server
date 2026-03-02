@@ -7,7 +7,7 @@ import {
   OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
-import { BetStatusType, GameTypeCategory, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma';
 export interface HierarchyUser {
   id: bigint | null;
@@ -181,27 +181,34 @@ export class UplineExposureBatchProcessor
     const forwardUpAmount = settlementAmount * -1;
     const addAp = 100;
 
+    this.logger.info(`---- Processing Exposure ${exposure.id} ----`);
+    this.logger.info(`UserId: ${userId}`);
+    this.logger.info(`Settlement Amount: ${settlementAmount}`);
+    this.logger.info(`Forward Up Amount: ${forwardUpAmount}`);
+    this.logger.info(`Total Hierarchy Users: ${betUsers.length}`);
+
     for (let k = 0; k < betUsers.length; k++) {
       const user = betUsers[k];
-
-      // // Skip original bettor
-      // if (user.id !== null && user.id === userId) continue;
-
       const level = this.getLevel(user.role);
       let apAmount = 0;
 
-      //  OWNER calculation
+      this.logger.info(
+        `\nProcessing Level ${k} | Role: ${user.role} | ID: ${user.id} | AP: ${user.ap}`,
+      );
+
+      // OWNER calculation
       if (user.role === 'OWNER') {
         if (k > 0 && betUsers[k - 1].role !== 'USER') {
           apAmount = (forwardUpAmount * betUsers[k - 1].ap) / 100;
         } else {
           apAmount = forwardUpAmount;
         }
-      } //  for user
+      }
+      // USER
       else if (this.isUser(level)) {
         apAmount = forwardUpAmount;
       }
-      //  Direct upline of USER
+      // Direct Upline of USER
       else if (this.isDirectUplineOfUser(level)) {
         apAmount = (forwardUpAmount * (addAp - user.ap)) / 100;
       } else {
@@ -213,7 +220,10 @@ export class UplineExposureBatchProcessor
         }
       }
 
+      this.logger.info(`Calculated apAmount: ${apAmount}`);
+
       const isOwner = user.role === 'OWNER';
+
       if (isOwner) {
         const existing = await tx.uplineExposure.findFirst({
           where: {
@@ -224,19 +234,26 @@ export class UplineExposureBatchProcessor
         });
 
         if (existing) {
+          this.logger.warn(
+            `OWNER update | Old uplinePl: ${existing.uplinePl} | New: ${apAmount}`,
+          );
+
           await tx.uplineExposure.update({
             where: { id: existing.id },
             data: {
-              uplinePl: Math.round(apAmount),
+              uplinePl: apAmount,
+              totalPl: forwardUpAmount,
               updatedAt: new Date(),
             },
           });
         } else {
+          this.logger.warn(`OWNER create | uplinePl: ${apAmount}`);
+
           await tx.uplineExposure.create({
             data: {
               exposureId: BigInt(exposure.id),
               uplineId: null,
-              uplinePl: Math.round(apAmount),
+              uplinePl: apAmount,
               userType: 'OWNER',
               totalPl: forwardUpAmount,
               createdAt: new Date(),
@@ -248,6 +265,27 @@ export class UplineExposureBatchProcessor
         continue;
       }
 
+      // Non-owner users
+      const existing = await tx.uplineExposure.findUnique({
+        where: {
+          exposureId_uplineId_userType: {
+            exposureId: BigInt(exposure.id),
+            uplineId: BigInt(user.id!),
+            userType: user.role,
+          },
+        },
+      });
+
+      if (existing) {
+        this.logger.warn(
+          `UPDATE | Role: ${user.role} | ID: ${user.id} | Old: ${existing.uplinePl} | New: ${apAmount}`,
+        );
+      } else {
+        this.logger.warn(
+          `CREATE | Role: ${user.role} | ID: ${user.id} | Value: ${apAmount}`,
+        );
+      }
+
       await tx.uplineExposure.upsert({
         where: {
           exposureId_uplineId_userType: {
@@ -257,13 +295,14 @@ export class UplineExposureBatchProcessor
           },
         },
         update: {
-          uplinePl: Math.round(apAmount),
+          uplinePl: apAmount,
+          totalPl: forwardUpAmount,
           updatedAt: new Date(),
         },
         create: {
           exposureId: BigInt(exposure.id),
           uplineId: BigInt(user.id!),
-          uplinePl: Math.round(apAmount),
+          uplinePl: apAmount,
           userType: user.role,
           totalPl: forwardUpAmount,
           createdAt: new Date(),
@@ -271,6 +310,8 @@ export class UplineExposureBatchProcessor
         },
       });
     }
+
+    this.logger.info(`---- Exposure ${exposure.id} Processing Done ----`);
   }
 
   private getLevel(role: string): number {

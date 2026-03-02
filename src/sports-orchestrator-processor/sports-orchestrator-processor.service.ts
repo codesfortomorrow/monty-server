@@ -202,8 +202,20 @@ export class SportsOrchestratorProcessorService
   @UseFilters(SentryExceptionFilter)
   // @Cron(CronExpression.EVERY_2_HOURS, { name: 'competitions-sync' })
   async syncCompetitions() {
-    await this.competitionsProcessor.fetchCompetitionAndEventsOfDeafultProvider();
-    await this.competitionsProcessor.fetchRaceMarketCompttionAndEvents();
+    try {
+      await this.competitionsProcessor.fetchCompetitionAndEventsOfDeafultProvider();
+    } catch (error: any) {
+      this.logger.error(
+        `Error to fetch competition and events for sports, Error = ${error.message}`,
+      );
+    }
+    try {
+      await this.competitionsProcessor.fetchRaceMarketCompetitionAndEvents();
+    } catch (error: any) {
+      this.logger.error(
+        `Error to fetch competition and events for race, Error = ${error.message}`,
+      );
+    }
     // await this.competitionsProcessor.handleCompetitionSync();
   }
 
@@ -220,8 +232,20 @@ export class SportsOrchestratorProcessorService
   @UseFilters(SentryExceptionFilter)
   // @Cron(CronExpression.EVERY_2_HOURS, { name: 'markets-sync' })
   async syncMarkets() {
-    await this.marketsProcessor.syncMarkets();
-    await this.marketsProcessor.syncRaceMarkets();
+    try {
+      await this.marketsProcessor.syncMarkets();
+    } catch (error: any) {
+      this.logger.error(
+        `Error to fetch markets for sports, Error = ${error.message}`,
+      );
+    }
+    try {
+      await this.marketsProcessor.syncRaceMarkets();
+    } catch (error: any) {
+      this.logger.error(
+        `Error to fetch markets for race, Error = ${error.message}`,
+      );
+    }
   }
 
   @UseFilters(SentryExceptionFilter)

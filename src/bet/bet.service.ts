@@ -1,7 +1,7 @@
 import { BaseService, Pagination, UtilsService } from '@Common';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma';
-import { BetHistoryRequest, BetPlaceRequest } from './dto';
+import { BetHistoryRequest, BetPlaceRequest, DownlineBetsRequest } from './dto';
 import {
   BetStatusType,
   BetType,
@@ -1695,5 +1695,170 @@ export class BetService extends BaseService {
         payout: true,
       },
     });
+  }
+
+  // Downline Bet List
+  async getDownlineBets(
+    eventId: number,
+    userPath: string,
+    query: DownlineBetsRequest,
+  ) {
+    try {
+      const page =
+        query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+      const limit = Number(query.limit || 10);
+      const skip = (page - 1) * limit;
+
+      const sqlQuery = `
+        SELECT
+          b.id,
+          b.user_id AS "userId",
+          b.event_id AS "eventId",
+          b.sport,
+          b.market_id AS "marketId",
+          b.market_name AS "marketName",
+          b.market_type AS "marketType",
+          b.amount AS stake,
+          b.odds,
+          b.bet_on AS "betOn",
+          b.selection,
+          b.selection_id AS "selectionId",
+          b.placed_at AS "placedAt",
+          u.username,
+          um.upline::text AS upline
+        FROM bet b
+        JOIN "user" u ON b.user_id = u.id
+        JOIN user_meta um ON u.id = um.user_id
+        WHERE um.upline <@ text2ltree($1::text)
+          AND ($2::bigint IS NULL OR b.event_id = $2::bigint)
+          AND ($3::text IS NULL OR b.market_id = $3::text)
+        ORDER BY b.placed_at DESC
+        OFFSET $4 LIMIT $5;
+      `;
+
+      const params = [
+        userPath,
+        eventId || null,
+        query.marketId || null,
+        skip,
+        limit,
+      ];
+
+      const countQuery = `
+        SELECT
+          COUNT(*) AS count
+        FROM bet b
+        JOIN "user" u ON b.user_id = u.id
+        JOIN user_meta um ON u.id = um.user_id
+        WHERE um.upline <@ text2ltree($1::text)
+          AND ($2::bigint IS NULL OR b.event_id = $2::bigint)
+          AND ($3::text IS NULL OR b.market_id = $3::text)
+      `;
+
+      const countParams = [userPath, eventId || null, query.marketId || null];
+
+      const [bets, count] = await Promise.all([
+        this.prisma.$queryRawUnsafe<
+          {
+            id: bigint | number | null;
+            userId: bigint;
+            eventId: bigint | number | null;
+            sport: string | null;
+            marketId: string | null;
+            marketName: string | null;
+            marketType: string | null;
+            stake: number | null;
+            odds: number | null;
+            betOn: string | null;
+            selection: string | null;
+            selectionId: string | null;
+            username: string | null;
+            upline: string | null;
+            placedAt: Date | string | null;
+          }[]
+        >(sqlQuery, ...params),
+
+        this.prisma.$queryRawUnsafe<
+          {
+            count: bigint | number | null;
+          }[]
+        >(countQuery, ...countParams),
+      ]);
+
+      const userIds = new Set(bets.map((bet) => bet.userId));
+      const uplineMap = await this.getUplineDetails([...userIds]);
+
+      const mappedBet = bets.map((bet) => {
+        const uplineDetails = uplineMap.get(bet.userId);
+        return {
+          ...bet,
+          uplineDetails,
+        };
+      });
+
+      const total = Number(count?.[0]?.count ?? 0);
+
+      const pagination: Pagination = {
+        currentPage: page,
+        limit,
+        totalItems: total,
+        totalPage: Math.ceil(total / limit),
+      };
+
+      return { bets: mappedBet, pagination };
+    } catch (error: any) {
+      this.logger.error(
+        `Error to generate downline bet list. Error: ${error.message}`,
+      );
+      throw new Error('Internal server error');
+    }
+  }
+
+  private async getUplineDetails(userIds: bigint[]) {
+    const map = new Map<bigint, Record<string, string>>();
+    for (const userId of userIds) {
+      const redisKey = `upline:${userId}`;
+      const data = await this.redis.client.get(redisKey);
+      if (data) {
+        try {
+          const uplineDetails = JSON.parse(data) as Record<string, string>;
+          map.set(userId, uplineDetails);
+          continue;
+        } catch (error) {
+          this.logger.warn(
+            `Error to parse redis upline data for userId ${userId}, Error: ${error.message}`,
+          );
+        }
+      }
+      const uplinePath = await this.userService.getUplinePathById(userId);
+      if (!uplinePath) continue;
+      const uplineIds = uplinePath.split('.');
+      uplineIds.shift(); // Remove Owner
+      uplineIds.pop(); // Remove Self
+      const ownRole = await this.userService.getRoleByUserId(userId);
+
+      const uplineMap: Record<string, string> = {};
+      for (const uplineId of uplineIds) {
+        const user = await this.userService.getRoleAndUsernameByUserId(
+          BigInt(uplineId),
+        );
+        if (
+          user.role &&
+          ownRole &&
+          ownRole.name !== user.role.name &&
+          user.username
+        ) {
+          uplineMap[user.role.name] = user.username;
+        }
+      }
+
+      await this.redis.client.setex(
+        redisKey,
+        5 * 60,
+        JSON.stringify(uplineMap),
+      );
+      map.set(userId, uplineMap);
+    }
+    return map;
   }
 }

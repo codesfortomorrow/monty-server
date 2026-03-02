@@ -463,7 +463,7 @@ export class ExposureService extends BaseService {
 
     const uplineCondition = isAdmin
       ? Prisma.sql`ue.user_type = 'OWNER'`
-      : Prisma.sql`ue.upline_id = ${uplineId}`;
+      : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
 
     const result = await this.prisma.$queryRaw<
       {
@@ -644,7 +644,7 @@ ORDER BY last_placed_at DESC;
     const isAdmin = userType === UserType.Admin;
     const uplineCondition = isAdmin
       ? Prisma.sql`ue.user_type = 'OWNER'`
-      : Prisma.sql`ue.upline_id = ${uplineId}`;
+      : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
 
     try {
       const result = await this.prisma.$queryRaw<
@@ -770,10 +770,10 @@ ORDER BY e.market_external_id;
     userType: UserType,
   ) {
     const isAdmin = userType === UserType.Admin;
-
+    console.log(query, 'uplineId', uplineId, userType);
     const uplineCondition = isAdmin
       ? Prisma.sql`ue.user_type = 'OWNER'`
-      : Prisma.sql`ue.upline_id = ${uplineId}`;
+      : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
 
     // 🔹 1. Resolve upline path
     let uplinePath: string | null = '0';
@@ -783,6 +783,7 @@ ORDER BY e.market_external_id;
     } else if (userType === UserType.User) {
       uplinePath = await this.userService.getUplinePathById(uplineId);
     }
+    console.log(uplinePath, 'uplinePath');
 
     if (!uplinePath) throw new Error('User not found');
 
@@ -794,13 +795,15 @@ ORDER BY e.market_external_id;
       if (role) userRole = role.name;
     } else if (userType === UserType.User) {
       const role = await this.userService.getRoleByUserId(uplineId);
+      console.log(role, 'role');
       if (role) userRole = role.name;
     }
+    console.log(userRole, 'userRole');
 
     // 🔹 3. Report depth condition (Prisma.sql ONLY)
     let reportDepthQuery = Prisma.sql``;
 
-    if (userRole === 'MASTER' || userRole === 'SUPER MASTER') {
+    if (userRole === 'MASTER') {
       reportDepthQuery = Prisma.sql`
       AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
     `;
@@ -923,7 +926,7 @@ ORDER BY e.market_external_id;
     }
 
     // 🔹 6. DIRECT / MASTER
-    if (query.reportType === ReportType.DIRECT || userRole === 'MASTER') {
+    if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
       const rows = await this.prisma.$queryRaw<any[]>(baseQuery);
       return { data: this.groupByUser(rows), uplines: uplineData };
     }
