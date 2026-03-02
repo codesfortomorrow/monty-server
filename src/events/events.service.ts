@@ -4,7 +4,7 @@ import { RedisService } from 'src/redis';
 import { Event, Prisma, StatusType } from '@prisma/client';
 import { EventRequest, EventStatusChangeRequest } from './dto';
 import { ConfigType } from '@nestjs/config';
-import { sportConfigFactory } from '@Config';
+import { scorecardConfigFactory, sportConfigFactory } from '@Config';
 import { BaseService, Pagination, UtilsService } from '@Common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom, timeout } from 'rxjs';
@@ -12,6 +12,8 @@ import { getSportEnum, getSportId } from 'src/utils/sports';
 import dayjs from 'dayjs';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ScorecardFn, ScorecardResponse, TvFn } from './events.type';
+import { SportsProviderService } from 'src/sports-provider/sports-provider.service';
 
 @Injectable()
 export class EventsService extends BaseService {
@@ -22,8 +24,11 @@ export class EventsService extends BaseService {
     private readonly prisma: PrismaService,
     private readonly utils: UtilsService,
     private readonly redis: RedisService,
+    private readonly sportsProviderService: SportsProviderService,
     @Inject(sportConfigFactory.KEY)
     private readonly sportConfig: ConfigType<typeof sportConfigFactory>,
+    @Inject(scorecardConfigFactory.KEY)
+    private readonly scorecardConfig: ConfigType<typeof scorecardConfigFactory>,
     @InjectQueue('close-event')
     private readonly closeEventQueue: Queue,
     @InjectQueue('active-event')
@@ -227,20 +232,90 @@ export class EventsService extends BaseService {
     return { pagianatedEvent, pagination };
   }
 
-  async getScorecard(eventId: number) {
-    const redisKey = `scorecard:${eventId}`;
-    const data = await this.redis.client.get(redisKey);
-    if (data) {
-      const parsed = JSON.parse(data || '{}');
-      if (parsed.data && parsed.data?.score_url) return parsed;
-    }
+  // async getScorecard(eventId: number) {
+  //   const redisKey = `scorecard:${eventId}`;
+  //   const data = await this.redis.client.get(redisKey);
+  //   if (data) {
+  //     const parsed = JSON.parse(data || '{}');
+  //     if (parsed.data && parsed.data?.score_url) return parsed;
+  //   }
 
+  //   const event = await this.prisma.event.findUnique({
+  //     where: { id: eventId },
+  //   });
+  //   if (!event) throw new Error('Event not found');
+  //   if (event.providerId || !event.inplay)
+  //     throw new Error('Scorecard not available for this match');
+
+  //   const url = `${this.sportConfig.sportBaseUrl}/event/scorecards?matchId=${event.externalId}`;
+
+  //   try {
+  //     const response = await this.utils.rerunnable(async () => {
+  //       const res = await firstValueFrom(
+  //         this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+  //       );
+  //       return res.data;
+  //     }, 3);
+  //     if (!response) {
+  //       this.logger.warn(`⚠️ No scorecard data found for ${event.name}`);
+  //       return null;
+  //     }
+
+  //     let liveTv;
+  //     console.log(event.providerId, event.inplay);
+  //     const sports = this.sportConfig.sports;
+  //     const sportId = getSportId(sports, event.sport);
+  //     if (event.providerId || !event.inplay) liveTv = null;
+  //     // else liveTv = `https://video.starrexch.me/?eventid=${event.externalId}`;
+  //     else
+  //       liveTv = `https://e765432.diamondcricketid.com/dtv.php?id=${event.externalId}&sportid=${sportId}`;
+  //     response._eventInfo.liveStreamUrl = liveTv;
+
+  //     await this.redis.client.setex(
+  //       redisKey,
+  //       2 * 24 * 60 * 60,
+  //       JSON.stringify(response),
+  //     );
+  //     return response;
+  //   } catch (error) {
+  //     this.logger.error(
+  //       `Failed to get scorecard data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
+  //     );
+  //     return null;
+  //   }
+  // }
+
+  async getScorecard(eventId: number) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
     if (!event) throw new Error('Event not found');
-    if (event.providerId || !event.inplay)
-      throw new Error('Scorecard not available for this match');
+
+    const scorecardProvider = this.scorecardConfig.activeScorecardProvider;
+    const tvProvider = this.scorecardConfig.activeTvProvider;
+
+    const getScorecard = this.getScorecardStrategy(scorecardProvider);
+    const getTv = this.getTvStrategy(tvProvider);
+
+    const scorecardUrl = await getScorecard(event);
+
+    const liveTvUrl = await getTv(event);
+
+    return {
+      scorecardUrl,
+      liveTvUrl,
+    };
+  }
+
+  satScorecard: ScorecardFn = async (event) => {
+    const redisKey = `scorecard:${event.id}`;
+    const data = await this.redis.client.get(redisKey);
+    if (data) {
+      const parsed: ScorecardResponse = JSON.parse(data || '{}');
+      if (parsed.scorecardUrl) return parsed.scorecardUrl;
+    }
+    if (event.providerId || !event.inplay) return null;
+    // throw new Error('Scorecard not available for this match');
 
     const url = `${this.sportConfig.sportBaseUrl}/event/scorecards?matchId=${event.externalId}`;
 
@@ -256,29 +331,137 @@ export class EventsService extends BaseService {
         return null;
       }
 
-      let liveTv;
-      console.log(event.providerId, event.inplay);
-      const sports = this.sportConfig.sports;
-      const sportId = getSportId(sports, event.sport);
-      if (event.providerId || !event.inplay) liveTv = null;
-      // else liveTv = `https://video.starrexch.me/?eventid=${event.externalId}`;
-      else
-        liveTv = `https://e765432.diamondcricketid.com/dtv.php?id=${event.externalId}&sportid=${sportId}`;
-      response._eventInfo.liveStreamUrl = liveTv;
-
       await this.redis.client.setex(
         redisKey,
         2 * 24 * 60 * 60,
-        JSON.stringify(response),
+        JSON.stringify({
+          liveTvUrl: response._eventInfo.liveStreamUrl,
+          scorecardUrl: response?.data?.score_url,
+        }),
       );
-      return response;
-    } catch (error) {
+
+      return response?.data?.score_url ?? null;
+    } catch (error: any) {
       this.logger.error(
         `Failed to get scorecard data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
       );
       return null;
     }
-  }
+  };
+
+  satLiveTv: TvFn = async (event) => {
+    const redisKey = `scorecard:${event.id}`;
+    const data = await this.redis.client.get(redisKey);
+    if (data) {
+      const parsed: ScorecardResponse = JSON.parse(data || '{}');
+      if (parsed.liveTvUrl) return parsed.liveTvUrl;
+    }
+    if (event.providerId || !event.inplay) return null;
+    // throw new Error('Scorecard not available for this match');
+
+    const url = `${this.sportConfig.sportBaseUrl}/event/scorecards?matchId=${event.externalId}`;
+
+    try {
+      const response = await this.utils.rerunnable(async () => {
+        const res = await firstValueFrom(
+          this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+        );
+        return res.data;
+      }, 3);
+      if (!response) {
+        this.logger.warn(`⚠️ No scorecard data found for ${event.name}`);
+        return null;
+      }
+
+      await this.redis.client.setex(
+        redisKey,
+        2 * 24 * 60 * 60,
+        JSON.stringify({
+          liveTvUrl: response._eventInfo.liveStreamUrl,
+          scorecardUrl: response?.data?.score_url,
+        }),
+      );
+
+      return response?._eventInfo?.liveStreamUrl ?? null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get Live data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
+      );
+      return null;
+    }
+  };
+
+  raviScorecard: ScorecardFn = async (event) => {
+    let sportRadarId = null;
+    const provider =
+      await this.sportsProviderService.getProviderByProviderName('SportRadar');
+    if (event.providerId == provider.id) {
+      const idBreakdown = event.externalId.split(':');
+      if (idBreakdown.length > 0)
+        sportRadarId = idBreakdown[idBreakdown.length - 1];
+    }
+    if (event.providerId == null) {
+      const res = await this.prisma.betfairSportsRadarEvents.findFirst({
+        where: { betfairEventId: event.id },
+        include: {
+          sportsRadarEvent: true,
+        },
+      });
+      if (res && res.sportsRadarEvent) {
+        const idBreakdown = res.sportsRadarEvent.externalId.split(':');
+        if (idBreakdown.length > 0)
+          sportRadarId = idBreakdown[idBreakdown.length - 1];
+      }
+    }
+
+    if (!sportRadarId) {
+      const url = `${this.sportConfig.sportBaseUrl}/event/sr-eventid-by-bf-eventid/${event.externalId}`;
+      try {
+        const response = await this.utils.rerunnable(async () => {
+          const res = await firstValueFrom(
+            this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+          );
+          return res.data;
+        }, 3);
+        if (!response) {
+          this.logger.warn(`⚠️ No Sport Radar id found for ${event.name}`);
+          return null;
+        }
+        const idBreakdown = response?.secondaryEventId?.split(':');
+        if (idBreakdown && idBreakdown.length > 0)
+          sportRadarId = idBreakdown[idBreakdown.length - 1];
+      } catch (error: any) {
+        this.logger.error(
+          `Error to get betfair event to sportradar event id, Error = ${error.message}`,
+        );
+      }
+    }
+
+    if (!sportRadarId) return null;
+    const raviScorecardBaseUrl = this.scorecardConfig.raviScorecardUrl;
+    return `${raviScorecardBaseUrl}/${sportRadarId}`;
+  };
+
+  raviTv: TvFn = async (event) => {
+    const raviTvBaseUrl = this.scorecardConfig.raviTvUrl;
+    return `${raviTvBaseUrl}?eventid=${event.externalId}`;
+  };
+
+  scorecardStrategies: Record<string, ScorecardFn> = {
+    SAT: this.satScorecard,
+    RAVI: this.raviScorecard,
+  };
+
+  tvStrategies: Record<string, TvFn> = {
+    SAT: this.satLiveTv,
+    RAVI: this.raviTv,
+  };
+
+  getScorecardStrategy = (provider: string): ScorecardFn =>
+    this.scorecardStrategies[provider] ?? (async () => null);
+
+  getTvStrategy = (provider: string): TvFn =>
+    this.tvStrategies[provider] ?? (async () => null);
 
   async closedEvent(eventExternalId: string, sport: string) {
     try {
