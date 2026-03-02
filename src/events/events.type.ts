@@ -1,3 +1,5 @@
+import { Event } from '@prisma/client';
+
 export interface EventResponse {
   eventId: string;
   eventName: string;
@@ -24,3 +26,15 @@ export interface CloseEventResponse {
   // createdAt: string;
   // updatedAt: string;
 }
+
+export interface ScorecardResponse {
+  liveTvUrl: string | null;
+  scorecardUrl: string | null;
+}
+
+export type ScorecardFn = (event: Event) => Promise<string | null>;
+
+export type TvFn = (
+  event: Event,
+  scorecardApiResponse?: any,
+) => Promise<string | null>;

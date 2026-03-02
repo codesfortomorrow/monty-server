@@ -89,4 +89,12 @@ export class SportsProviderService {
 
     return this.prisma.provider.delete({ where: { id } });
   }
+
+  async getProviderByProviderName(name: string) {
+    const provider = await this.prisma.provider.findFirst({
+      where: { name },
+    });
+    if (!provider) throw new Error('Provider not found');
+    return provider;
+  }
 }
