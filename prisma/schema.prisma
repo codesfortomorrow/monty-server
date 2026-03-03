@@ -1960,9 +1960,9 @@ model UplineExposure {
   id         BigInt   @id @default(autoincrement()) @map("id")
   exposureId BigInt   @map("exposure_id")
   uplineId   BigInt?  @map("upline_id")
-  uplinePl   Decimal  @map("upline_pl")
+  uplinePl   Decimal  @map("upline_pl") @db.Decimal(15, 2)
   userType   String   @map("user_type")
-  totalPl    Decimal  @map("total_pl")
+  totalPl    Decimal  @map("total_pl") @db.Decimal(15, 2)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
