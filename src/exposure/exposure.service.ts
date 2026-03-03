@@ -870,7 +870,7 @@ ORDER BY e.market_external_id;
         AND ($2::bigint IS NULL OR e.event_id = $2::bigint)
         AND ($3::text IS NULL OR e.market_external_id = $3::text)
         AND e.status::text = 'active'
-        AND ($4::text IS NULL OR u.username ILIKE '%' || $4:text || '%')
+        AND ($4::text IS NULL OR u.username ILIKE '%' || $4::text || '%')
 
       GROUP BY
         um.upline,
