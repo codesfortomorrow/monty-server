@@ -133,7 +133,7 @@ export class ExposureController extends BaseController {
     @Req() req: AuthenticatedRequest,
   ) {
     const ctx = this.getContext(req);
-    const { data, uplines } =
+    const { rows, pagination } =
       await this.exposureService.GetDownlineWiseBreakdown(
         dto,
         dto.uplineId ? BigInt(dto.uplineId) : ctx.user.id,
@@ -143,8 +143,9 @@ export class ExposureController extends BaseController {
     return {
       success: true,
       message: 'Userwise exposure breakdown fetched successfully',
-      downlines: data,
-      uplines,
+      downlines: rows,
+      pagination,
+      // uplines,
     };
   }
 }
