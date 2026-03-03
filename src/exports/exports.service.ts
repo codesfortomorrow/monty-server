@@ -696,7 +696,9 @@ export class ExportsService extends BaseService implements OnModuleInit {
       'Status',
       'Bet Taken',
       'Bet Settled',
+      'Sport',
       'Event',
+      'Selection',
       'Market',
       'Type',
       'Odds',
@@ -756,9 +758,16 @@ export class ExportsService extends BaseService implements OnModuleInit {
               : '-';
             break;
 
+          case 'Sport':
+            mappedRow[col] = row.sport ?? '-';
+            break;
+
           case 'Event':
-            mappedRow[col] =
-              `${row.sportrow ?? '-'} / ${row.eventName ?? '-'} / ${row.selection ?? '-'}`;
+            mappedRow[col] = `${row.eventName ?? '-'} `;
+            break;
+
+          case 'Selection':
+            mappedRow[col] = row.selection ?? '-';
             break;
 
           case 'Market':
@@ -1081,7 +1090,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = upline['MASTER'] ?? '-';
+            mappedRow[col] = upline['name'] ?? '-';
             break;
 
           case 'User P/L':
@@ -1205,7 +1214,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = upline['MASTER'] ?? '-';
+            mappedRow[col] = upline['name'] ?? '-';
             break;
 
           default:
@@ -1860,14 +1869,12 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? 'MA';
+            mappedRow[col] = row.uplineDetails?.name ?? 'MA';
             break;
 
           case 'Parent':
             mappedRow[col] =
-              row.uplineDetails?.MASTER ??
-              row.uplineDetails?.['SUPER MASTER'] ??
-              '-';
+              row.uplineDetails?.name ?? row.uplineDetails?.['name'] ?? '-';
             break;
 
           case 'User Name':
@@ -1977,7 +1984,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-';
+            mappedRow[col] = row.uplineDetails?.name ?? '-';
             break;
 
           case 'User Name':
@@ -2077,7 +2084,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-';
+            mappedRow[col] = row.uplineDetails?.name ?? '-';
             break;
 
           // case 'Parent':
@@ -2179,7 +2186,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-'; // Always MASTER
+            mappedRow[col] = row.uplineDetails?.name ?? '-'; // Always MASTER
             break;
 
           case 'User Name':
@@ -2273,7 +2280,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-'; // Always MASTER if present
+            mappedRow[col] = row.uplineDetails?.name ?? '-'; // Always MASTER if present
             break;
 
           case 'User Name':
@@ -2383,7 +2390,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-'; // Always MASTER
+            mappedRow[col] = row.uplineDetails?.name ?? '-'; // Always MASTER
             break;
 
           case 'User Name':
@@ -2497,7 +2504,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-';
+            mappedRow[col] = row.uplineDetails?.name ?? '-';
             break;
 
           case 'Username':
