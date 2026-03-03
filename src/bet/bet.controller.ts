@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
   Req,
@@ -9,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { BetService } from './bet.service';
-import { BetHistoryRequest, BetPlaceRequest } from './dto';
+import { BetHistoryRequest, BetPlaceRequest, DownlineBetsRequest } from './dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   AuthenticatedRequest,
@@ -84,6 +86,29 @@ export class BetController extends BaseController {
       pagination,
       filteredProfitLoss,
       totalProfitLossAllSports,
+    };
+  }
+
+  // Downline Bet List
+  @ApiBearerAuth()
+  @Get('/downline/:eventId')
+  @UseGuards(JwtAuthGuard)
+  async getDownlineBets(
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Req() req: AuthenticatedRequest,
+    @Query() query: DownlineBetsRequest,
+  ) {
+    const ctx = this.getContext(req);
+    const { bets, pagination } = await this.betService.getDownlineBets(
+      eventId,
+      ctx.user.path,
+      query,
+    );
+    return {
+      success: true,
+      message: 'Bets fetched successfully',
+      bets,
+      pagination,
     };
   }
 }

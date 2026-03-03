@@ -7,12 +7,8 @@ import { ConfigType } from '@nestjs/config';
 // import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PrismaService } from 'src/prisma';
-import {
-  ICompetition,
-  RemoteResponse,
-  RemoteSeries,
-} from './competitions.type';
-import { Provider, ProviderType, SportType, StatusType } from '@prisma/client';
+import { RemoteResponse, RemoteSeries } from './competitions.type';
+import { SportType, StatusType } from '@prisma/client';
 import { getSportEnum } from 'src/utils/sports';
 import { AlertService } from 'src/alert/alert.service';
 
@@ -46,10 +42,10 @@ export class CompetitionsProcessor extends BaseService {
     this.logger.info('✅ Sports Data Processor completed successfully.');
   }
 
-  async fetchRaceMarketCompttionAndEvents() {
+  async fetchRaceMarketCompetitionAndEvents() {
     if (!this.utils.isMaster()) return;
     this.logger.info('🏁 Race Competition sync started');
-    await this.syncRaceMarketCompttionAndEvents();
+    await this.syncRaceMarketCompetitionAndEvents();
     this.logger.info('✅  Race  Competition sync finished');
   }
 
@@ -75,7 +71,7 @@ export class CompetitionsProcessor extends BaseService {
       },
     );
   }
-  async syncRaceMarketCompttionAndEvents() {
+  async syncRaceMarketCompetitionAndEvents() {
     const baseUrl = this.sportConfig.sportBaseUrl;
     const sports = this.sportConfig.sports;
 
@@ -119,7 +115,7 @@ export class CompetitionsProcessor extends BaseService {
         );
         return res.data;
       }, 3);
-    } catch (error) {
+    } catch (error: any) {
       // Call Alert Service
       this.alertService.notifyApiFailure({
         url,
@@ -161,7 +157,7 @@ export class CompetitionsProcessor extends BaseService {
         );
         return res.data;
       }, 3);
-    } catch (error) {
+    } catch (error: any) {
       // Call Alert Service
       this.alertService.notifyApiFailure({
         url,
@@ -258,7 +254,7 @@ export class CompetitionsProcessor extends BaseService {
       this.logger.info(
         `Synced ${matches.length} Events (Sprot = ${sportName}) for competition ${competition.externalId}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Error to upsert competition & event. error: ${error.message}`,
       );

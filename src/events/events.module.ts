@@ -8,6 +8,7 @@ import { RedisModule } from 'src/redis';
 import { QueueModule } from 'src/queue';
 import { CloseEventProcessor } from './close-event.processor';
 import { ActiveEventProcessor } from './active-event.processor';
+import { SportsProviderModule } from 'src/sports-provider/sports-provider.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ActiveEventProcessor } from './active-event.processor';
     PrismaModule,
     HttpModule,
     RedisModule,
+    SportsProviderModule,
   ],
   controllers: [EventsController],
   providers: [

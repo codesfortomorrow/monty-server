@@ -20,6 +20,7 @@ import {
   MultipleEventStatusChangeRequest,
 } from './dto';
 import { SentryExceptionFilter } from '@Common';
+import { CacheTTL } from '@nestjs/cache-manager';
 
 @ApiTags('Events')
 @UseFilters(SentryExceptionFilter)
@@ -58,14 +59,15 @@ export class EventsController {
   }
 
   @Get('/scorecard/:eventId')
+  @CacheTTL(2 * 60 * 1000) // 2 min
   async getScorecard(@Param('eventId', ParseIntPipe) eventId: number) {
-    const { response: scorecard, liveTv } =
+    const { scorecardUrl, liveTvUrl } =
       await this.eventsService.getScorecard(eventId);
     return {
       success: true,
       message: 'Scorecard fetched successfully',
-      scorecard,
-      liveTv,
+      scorecardUrl,
+      liveTvUrl,
     };
   }
 
