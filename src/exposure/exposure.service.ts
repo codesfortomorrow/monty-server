@@ -773,11 +773,11 @@ ORDER BY e.market_external_id;
     const limit = Number(query.limit ?? 10);
     const skip = (page - 1) * limit;
 
-    const isAdmin = userType === UserType.Admin;
+    // const isAdmin = userType === UserType.Admin;
     console.log(query, 'uplineId', uplineId, userType);
-    const uplineCondition = isAdmin
-      ? Prisma.sql`ue.user_type = 'OWNER'`
-      : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
+    // const uplineCondition = isAdmin
+    //   ? Prisma.sql`ue.user_type = 'OWNER'`
+    //   : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
 
     // 🔹 1. Resolve upline path
     let uplinePath: string | null = '0';
@@ -842,7 +842,7 @@ ORDER BY e.market_external_id;
     // }
 
     // 🔹 4. MAIN QUERY (SAFE)
-    const baseQuery = Prisma.sql`
+    const baseQuery = `
     SELECT
         um.upline::text AS "directPath",
         u.username,
@@ -865,12 +865,12 @@ ORDER BY e.market_external_id;
         ON m.external_id = e.market_external_id
         AND m.event_id = e.event_id
 
-      WHERE um.upline <@ text2ltree(${uplinePath})
+      WHERE um.upline <@ text2ltree($1::text)
         AND r.name != 'DEMO'
-        AND e.event_id = ${query.eventId}
-        AND e.market_external_id = ${query.marketExtenralId}
+        AND ($2::bigint IS NULL OR e.event_id = $2::bigint)
+        AND ($3::text IS NULL OR e.market_external_id = $3::text)
         AND e.status::text = 'active'
-        AND ($1::text IS NULL OR u.username ILIKE '%' || $1 || '%')
+        AND ($4::text IS NULL OR u.username ILIKE '%' || $4:text || '%')
 
       GROUP BY
         um.upline,
@@ -882,7 +882,7 @@ ORDER BY e.market_external_id;
       ORDER BY "lastUpdatedAT" 
   `;
 
-    const sqlQuery = Prisma.sql`
+    const sqlQuery = `
       WITH base AS (${baseQuery})
       SELECT
         b."directPath" AS "directPath",
@@ -907,10 +907,10 @@ ORDER BY e.market_external_id;
         b.username,
         b."userId",
         b.role
-      OFFSET $2::bigint LIMIT $3::bigint
+      OFFSET $5::bigint LIMIT $6::bigint
     `;
 
-    const countQuery = Prisma.sql`
+    const countQuery = `
         WITH base AS (${baseQuery})
         SELECT
           COUNT(DISTINCT(b."userId")) AS "count"
@@ -952,8 +952,22 @@ ORDER BY e.market_external_id;
     // 🔹 6. DIRECT / MASTER
     // if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
 
+    const params = [
+      uplinePath,
+      query.eventId || null,
+      query.marketExtenralId || null,
+      query.search || null,
+      skip,
+      limit,
+    ];
+    const countParams = [
+      uplinePath,
+      query.eventId || null,
+      query.marketExtenralId || null,
+      query.search || null,
+    ];
     const [rows, count] = await Promise.all([
-      this.prisma.$queryRaw<
+      this.prisma.$queryRawUnsafe<
         {
           directPath: string | null;
           username: string | null;
@@ -962,12 +976,12 @@ ORDER BY e.market_external_id;
           totalExposure: number | null;
           uplinePl: number | null;
         }[]
-      >(sqlQuery, query.search || null, skip, limit),
-      this.prisma.$queryRaw<
+      >(sqlQuery, ...params),
+      this.prisma.$queryRawUnsafe<
         {
           count: bigint | number | null;
         }[]
-      >(countQuery, query.search || null),
+      >(countQuery, ...countParams),
     ]);
 
     const total = Number(count?.[0]?.count || 0);
