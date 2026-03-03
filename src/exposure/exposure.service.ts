@@ -907,7 +907,7 @@ ORDER BY e.market_external_id;
         b.username,
         b."userId",
         b.role
-      OFFSET $2 LIMIT $3
+      OFFSET $2::bigint LIMIT $3::bigint
     `;
 
     const countQuery = Prisma.sql`
@@ -967,7 +967,7 @@ ORDER BY e.market_external_id;
         {
           count: bigint | number | null;
         }[]
-      >(countQuery, query.search || null, skip, limit),
+      >(countQuery, query.search || null),
     ]);
 
     const total = Number(count?.[0]?.count || 0);
