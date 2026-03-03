@@ -18,7 +18,7 @@ import {
 import { PrismaService } from 'src/prisma';
 import { RedisService } from 'src/redis';
 import { ExtraMarket } from 'src/market-mapper/market.type';
-import { BaseService, UserType } from '@Common';
+import { BaseService, Pagination, UserType } from '@Common';
 import { MarketService } from 'src/market/market.service';
 import { sportConfigFactory } from '@Config';
 import { ConfigType } from '@nestjs/config';
@@ -769,6 +769,10 @@ ORDER BY e.market_external_id;
     uplineId: bigint,
     userType: UserType,
   ) {
+    const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+    const limit = Number(query.limit ?? 10);
+    const skip = (page - 1) * limit;
+
     const isAdmin = userType === UserType.Admin;
     console.log(query, 'uplineId', uplineId, userType);
     const uplineCondition = isAdmin
@@ -840,94 +844,140 @@ ORDER BY e.market_external_id;
     // 🔹 4. MAIN QUERY (SAFE)
     const baseQuery = Prisma.sql`
     SELECT
-      um.upline::text AS "directPath",
-      u.username,
-      u.id AS "userId",
-      r.name AS "role",
-      e.selection_id AS "selectionId",
-      MAX(runner.runner_name) AS "selectionName",
-
-      SUM(ue.total_pl)::decimal(16,2) AS "totalExposure",
-
-      SUM(
-        CASE
-          WHEN ${uplinePath} = '0' THEN ue.upline_pl
-          ELSE ue.upline_pl
-        END
-      )::decimal(16,2) AS "uplinePl"
-
-    FROM upline_exposure ue
-    JOIN exposure e ON e.id = ue.exposure_id
-    JOIN "user" u ON u.id = e.user_id
-    JOIN user_meta um ON um.user_id = u.id
-    JOIN role r ON r.id = u.role_id
-
-    LEFT JOIN market m
-      ON m.external_id = e.market_external_id
-      AND m.event_id = e.event_id
-
-    LEFT JOIN LATERAL (
-      SELECT runner_elem->>'runnerName' AS runner_name
-      FROM jsonb_array_elements(m.runner::jsonb) AS runner_elem
-      WHERE runner_elem->>'selectionId' = e.selection_id
-      LIMIT 1
-    ) runner ON true
-
-    WHERE um.upline <@ text2ltree(${uplinePath})
-      AND r.name != 'DEMO'
-      AND e.event_id = ${query.eventId}
-      AND e.market_external_id = ${query.marketExtenralId}
-      AND e.status::text = 'active'
-      AND ${uplineCondition}
-
-    GROUP BY
-      um.upline,
-      u.username,
-      u.id,
-      r.name,
-      e.selection_id
-
-    ORDER BY
-      u.username,
-      e.selection_id
-  `;
-
-    // 🔹 5. Build uplines
-    const uplineIds = uplinePath.split('.');
-    uplineIds.shift();
-
-    const uplineData: any[] = [
-      { id: '', path: '0', username: '', role: 'OWNER' },
-    ];
-
-    for (const uid of uplineIds) {
-      const res = await this.prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT
-        u.id,
+        um.upline::text AS "directPath",
         u.username,
-        um.upline::text AS path,
-        r.name AS role
-      FROM "user" u
+        u.id AS "userId",
+        r.name AS "role",
+        e.selection_id AS "selectionId",
+
+        SUM(ue.total_pl)::decimal(15,2) AS "totalExposure",
+
+        SUM(ue.upline_pl)::decimal(15,2) AS "uplinePl",
+        MAX(ue.updated_at) AS "lastUpdatedAT"
+
+      FROM upline_exposure ue
+      JOIN exposure e ON e.id = ue.exposure_id
+      JOIN "user" u ON u.id = ue.upline_id
       JOIN user_meta um ON um.user_id = u.id
       JOIN role r ON r.id = u.role_id
-      WHERE u.id = ${BigInt(uid)}
-        AND r.name != 'DEMO'
-    `);
 
-      if (res.length) {
-        uplineData.push({
-          id: res[0].id.toString(),
-          username: res[0].username,
-          uplinePath: res[0].path,
-          role: res[0].role,
-        });
-      }
-    }
+      LEFT JOIN market m
+        ON m.external_id = e.market_external_id
+        AND m.event_id = e.event_id
+
+      WHERE um.upline <@ text2ltree(${uplinePath})
+        AND r.name != 'DEMO'
+        AND e.event_id = ${query.eventId}
+        AND e.market_external_id = ${query.marketExtenralId}
+        AND e.status::text = 'active'
+        AND ($1::text IS NULL OR u.username ILIKE '%' || $1 || '%')
+
+      GROUP BY
+        um.upline,
+        u.username,
+        u.id,
+        r.name,
+        e.selection_id
+
+      ORDER BY "lastUpdatedAT" 
+  `;
+
+    const sqlQuery = Prisma.sql`
+      WITH base AS (${baseQuery})
+      SELECT
+        b."directPath" AS "directPath",
+        b.username,
+        b."userId",
+        b.role,
+        (
+          CASE
+            WHEN b.role = 'USER' THEN MIN(b."totalExposure") * -1
+            ELSE MIN(b."totalExposure")
+          END
+        ) AS "totalExposure",
+        (
+          CASE
+            WHEN b.role = 'USER' THEN MIN(b."uplinePl") * -1
+            ELSE MIN(b."uplinePl")
+          END
+        ) AS "uplinePl"
+      FROM base b
+      GROUP BY
+        b."directPath",
+        b.username,
+        b."userId",
+        b.role
+      OFFSET $2 LIMIT $3
+    `;
+
+    const countQuery = Prisma.sql`
+        WITH base AS (${baseQuery})
+        SELECT
+          COUNT(DISTINCT(b."userId")) AS "count"
+        FROM base b
+    `;
+
+    // 🔹 5. Build uplines
+    // const uplineIds = uplinePath.split('.');
+    // uplineIds.shift();
+
+    // const uplineData: any[] = [
+    //   { id: '', path: '0', username: '', role: 'OWNER' },
+    // ];
+
+    // for (const uid of uplineIds) {
+    //   const res = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+    //   SELECT
+    //     u.id,
+    //     u.username,
+    //     um.upline::text AS path,
+    //     r.name AS role
+    //   FROM "user" u
+    //   JOIN user_meta um ON um.user_id = u.id
+    //   JOIN role r ON r.id = u.role_id
+    //   WHERE u.id = ${BigInt(uid)}
+    //     AND r.name != 'DEMO'
+    // `);
+
+    //   if (res.length) {
+    //     uplineData.push({
+    //       id: res[0].id.toString(),
+    //       username: res[0].username,
+    //       uplinePath: res[0].path,
+    //       role: res[0].role,
+    //     });
+    //   }
+    // }
 
     // 🔹 6. DIRECT / MASTER
     // if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
-    const rows = await this.prisma.$queryRaw<any[]>(baseQuery);
-    return { data: this.groupByUser(rows), uplines: uplineData };
+
+    const [rows, count] = await Promise.all([
+      this.prisma.$queryRaw<
+        {
+          directPath: string | null;
+          username: string | null;
+          userId: bigint | number | string | null;
+          role: string | null;
+          totalExposure: number | null;
+          uplinePl: number | null;
+        }[]
+      >(sqlQuery, query.search || null, skip, limit),
+      this.prisma.$queryRaw<
+        {
+          count: bigint | number | null;
+        }[]
+      >(countQuery, query.search || null, skip, limit),
+    ]);
+
+    const total = Number(count?.[0]?.count || 0);
+    const pagination: Pagination = {
+      currentPage: page,
+      limit,
+      totalItems: total,
+      totalPage: Math.ceil(total / limit),
+    };
+    return { rows, pagination };
     // }
 
     // 🔹 7. HIERARCHY
