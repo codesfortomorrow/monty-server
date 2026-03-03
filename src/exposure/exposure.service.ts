@@ -801,41 +801,41 @@ ORDER BY e.market_external_id;
     console.log(userRole, 'userRole');
 
     // 🔹 3. Report depth condition (Prisma.sql ONLY)
-    let reportDepthQuery = Prisma.sql``;
+    // let reportDepthQuery = Prisma.sql``;
 
-    if (userRole === 'MASTER') {
-      reportDepthQuery = Prisma.sql`
-      AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-    `;
-    } else if (query.reportType === ReportType.DIRECT) {
-      reportDepthQuery = Prisma.sql`
-      AND (
-        nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-        OR EXISTS (
-          SELECT 1
-          FROM user_meta pum
-          JOIN "user" pu ON pu.id = pum.user_id
-          JOIN role pr ON pr.id = pu.role_id
-          WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
-            AND pr.name = 'USER'
-        )
-      )
-    `;
-    } else {
-      reportDepthQuery = Prisma.sql`
-      AND NOT (
-        nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-        OR EXISTS (
-          SELECT 1
-          FROM user_meta pum
-          JOIN "user" pu ON pu.id = pum.user_id
-          JOIN role pr ON pr.id = pu.role_id
-          WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
-            AND pr.name = 'USER'
-        )
-      )
-    `;
-    }
+    // if (userRole === 'MASTER') {
+    //   reportDepthQuery = Prisma.sql`
+    //   AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+    // `;
+    // } else if (query.reportType === ReportType.DIRECT) {
+    //   reportDepthQuery = Prisma.sql`
+    //   AND (
+    //     nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+    //     OR EXISTS (
+    //       SELECT 1
+    //       FROM user_meta pum
+    //       JOIN "user" pu ON pu.id = pum.user_id
+    //       JOIN role pr ON pr.id = pu.role_id
+    //       WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
+    //         AND pr.name = 'USER'
+    //     )
+    //   )
+    // `;
+    // } else {
+    //   reportDepthQuery = Prisma.sql`
+    //   AND NOT (
+    //     nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+    //     OR EXISTS (
+    //       SELECT 1
+    //       FROM user_meta pum
+    //       JOIN "user" pu ON pu.id = pum.user_id
+    //       JOIN role pr ON pr.id = pu.role_id
+    //       WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
+    //         AND pr.name = 'USER'
+    //     )
+    //   )
+    // `;
+    // }
 
     // 🔹 4. MAIN QUERY (SAFE)
     const baseQuery = Prisma.sql`
@@ -874,7 +874,6 @@ ORDER BY e.market_external_id;
     ) runner ON true
 
     WHERE um.upline <@ text2ltree(${uplinePath})
-      ${reportDepthQuery}
       AND r.name != 'DEMO'
       AND e.event_id = ${query.eventId}
       AND e.market_external_id = ${query.marketExtenralId}
@@ -926,51 +925,51 @@ ORDER BY e.market_external_id;
     }
 
     // 🔹 6. DIRECT / MASTER
-    if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
-      const rows = await this.prisma.$queryRaw<any[]>(baseQuery);
-      return { data: this.groupByUser(rows), uplines: uplineData };
-    }
+    // if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
+    const rows = await this.prisma.$queryRaw<any[]>(baseQuery);
+    return { data: this.groupByUser(rows), uplines: uplineData };
+    // }
 
     // 🔹 7. HIERARCHY
-    const downlines = await this.prisma.$queryRaw<any[]>(Prisma.sql`
-    SELECT
-      u.id AS "userId",
-      u.username,
-      um.upline::text AS "directPath",
-      r.name AS role
-    FROM "user" u
-    JOIN user_meta um ON um.user_id = u.id
-    JOIN role r ON r.id = u.role_id
-    WHERE um.upline <@ text2ltree(${uplinePath})
-      AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-      AND r.name != 'DEMO'
-  `);
+    //   const downlines = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+    //   SELECT
+    //     u.id AS "userId",
+    //     u.username,
+    //     um.upline::text AS "directPath",
+    //     r.name AS role
+    //   FROM "user" u
+    //   JOIN user_meta um ON um.user_id = u.id
+    //   JOIN role r ON r.id = u.role_id
+    //   WHERE um.upline <@ text2ltree(${uplinePath})
+    //     AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+    //     AND r.name != 'DEMO'
+    // `);
 
-    for (const user of downlines) {
-      const rows = await this.prisma.$queryRaw<any[]>(Prisma.sql`
-    WITH base AS (${baseQuery})
-    SELECT
-      "selectionId",
-      "selectionName",
-      SUM("totalExposure")::decimal(16,2) AS "totalExposure",
-      SUM("uplinePl")::decimal(16,2) AS "uplinePl"
-    FROM base
-    WHERE text2ltree("directPath") <@ text2ltree(${user.directPath})
-    GROUP BY "selectionId", "selectionName"
-  `);
+    //   for (const user of downlines) {
+    //     const rows = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+    //   WITH base AS (${baseQuery})
+    //   SELECT
+    //     "selectionId",
+    //     "selectionName",
+    //     SUM("totalExposure")::decimal(16,2) AS "totalExposure",
+    //     SUM("uplinePl")::decimal(16,2) AS "uplinePl"
+    //   FROM base
+    //   WHERE text2ltree("directPath") <@ text2ltree(${user.directPath})
+    //   GROUP BY "selectionId", "selectionName"
+    // `);
 
-      user.selections = rows.map((r) => ({
-        selectionId: r.selectionId,
-        selectionName: r.selectionName ?? r.selectionId,
-        exposure: Number(r.totalExposure),
-        uplinePl: Number(r.uplinePl),
-      }));
-    }
+    //     user.selections = rows.map((r) => ({
+    //       selectionId: r.selectionId,
+    //       selectionName: r.selectionName ?? r.selectionId,
+    //       exposure: Number(r.totalExposure),
+    //       uplinePl: Number(r.uplinePl),
+    //     }));
+    //   }
 
-    return {
-      data: downlines.filter((d) => d.selections?.length),
-      uplines: uplineData,
-    };
+    //   return {
+    //     data: downlines.filter((d) => d.selections?.length),
+    //     uplines: uplineData,
+    //   };
   }
   private groupByUser(
     data: {
