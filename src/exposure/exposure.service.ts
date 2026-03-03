@@ -764,20 +764,288 @@ ORDER BY e.market_external_id;
     }
   }
 
+  // async GetDownlineWiseBreakdown(
+  //   query: UserWiseBreakDownRequest,
+  //   uplineId: bigint,
+  //   userType: UserType,
+  // ) {
+  //   const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+  //   const limit = Number(query.limit ?? 10);
+  //   const skip = (page - 1) * limit;
+
+  //   // const isAdmin = userType === UserType.Admin;
+  //   console.log(query, 'uplineId', uplineId, userType);
+  //   // const uplineCondition = isAdmin
+  //   //   ? Prisma.sql`ue.user_type = 'OWNER'`
+  //   //   : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
+
+  //   // 🔹 1. Resolve upline path
+  //   let uplinePath: string | null = '0';
+
+  //   if (query.userId) {
+  //     uplinePath = await this.userService.getUplinePathById(query.userId);
+  //   } else if (userType === UserType.User) {
+  //     uplinePath = await this.userService.getUplinePathById(uplineId);
+  //   }
+  //   console.log(uplinePath, 'uplinePath');
+
+  //   if (!uplinePath) throw new Error('User not found');
+
+  //   // 🔹 2. Resolve role
+  //   let userRole = 'OWNER';
+
+  //   if (query.userId) {
+  //     const role = await this.userService.getRoleByUserId(query.userId);
+  //     if (role) userRole = role.name;
+  //   } else if (userType === UserType.User) {
+  //     const role = await this.userService.getRoleByUserId(uplineId);
+  //     console.log(role, 'role');
+  //     if (role) userRole = role.name;
+  //   }
+  //   console.log(userRole, 'userRole');
+
+  //   // 🔹 3. Report depth condition (Prisma.sql ONLY)
+  //   // let reportDepthQuery = Prisma.sql``;
+
+  //   // if (userRole === 'MASTER') {
+  //   //   reportDepthQuery = Prisma.sql`
+  //   //   AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+  //   // `;
+  //   // } else if (query.reportType === ReportType.DIRECT) {
+  //   //   reportDepthQuery = Prisma.sql`
+  //   //   AND (
+  //   //     nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+  //   //     OR EXISTS (
+  //   //       SELECT 1
+  //   //       FROM user_meta pum
+  //   //       JOIN "user" pu ON pu.id = pum.user_id
+  //   //       JOIN role pr ON pr.id = pu.role_id
+  //   //       WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
+  //   //         AND pr.name = 'USER'
+  //   //     )
+  //   //   )
+  //   // `;
+  //   // } else {
+  //   //   reportDepthQuery = Prisma.sql`
+  //   //   AND NOT (
+  //   //     nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+  //   //     OR EXISTS (
+  //   //       SELECT 1
+  //   //       FROM user_meta pum
+  //   //       JOIN "user" pu ON pu.id = pum.user_id
+  //   //       JOIN role pr ON pr.id = pu.role_id
+  //   //       WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
+  //   //         AND pr.name = 'USER'
+  //   //     )
+  //   //   )
+  //   // `;
+  //   // }
+
+  //   // 🔹 4. MAIN QUERY (SAFE)
+  //   const baseQuery = `
+  //   SELECT
+  //       um.upline::text AS "directPath",
+  //       u.username,
+  //       u.id AS "userId",
+  //       r.name AS "role",
+  //       e.selection_id AS "selectionId",
+
+  //       SUM(ue.total_pl)::decimal(15,2) AS "totalExposure",
+
+  //       SUM(ue.upline_pl)::decimal(15,2) AS "uplinePl",
+  //       MAX(ue.updated_at) AS "lastUpdatedAT"
+
+  //     FROM upline_exposure ue
+  //     JOIN exposure e ON e.id = ue.exposure_id
+  //     JOIN "user" u ON u.id = ue.upline_id
+  //     JOIN user_meta um ON um.user_id = u.id
+  //     JOIN role r ON r.id = u.role_id
+
+  //     LEFT JOIN market m
+  //       ON m.external_id = e.market_external_id
+  //       AND m.event_id = e.event_id
+
+  //     WHERE um.upline <@ text2ltree($1::text)
+  //       AND r.name != 'DEMO'
+  //       AND ($2::bigint IS NULL OR e.event_id = $2::bigint)
+  //       AND ($3::text IS NULL OR e.market_external_id = $3::text)
+  //       AND e.status::text = 'active'
+  //       AND ($4::text IS NULL OR u.username ILIKE '%' || $4::text || '%')
+
+  //     GROUP BY
+  //       um.upline,
+  //       u.username,
+  //       u.id,
+  //       r.name,
+  //       e.selection_id
+
+  //     ORDER BY "lastUpdatedAT"
+  // `;
+
+  //   const sqlQuery = `
+  //     WITH base AS (${baseQuery})
+  //     SELECT
+  //       b."directPath" AS "directPath",
+  //       b.username,
+  //       b."userId",
+  //       b.role,
+  //       (
+  //         CASE
+  //           WHEN b.role = 'USER' THEN MIN(b."totalExposure") * -1
+  //           ELSE MIN(b."totalExposure")
+  //         END
+  //       ) AS "totalExposure",
+  //       (
+  //         CASE
+  //           WHEN b.role = 'USER' THEN MIN(b."uplinePl") * -1
+  //           ELSE MIN(b."uplinePl")
+  //         END
+  //       ) AS "uplinePl"
+  //     FROM base b
+  //     GROUP BY
+  //       b."directPath",
+  //       b.username,
+  //       b."userId",
+  //       b.role
+  //     OFFSET $5::bigint LIMIT $6::bigint
+  //   `;
+
+  //   const countQuery = `
+  //       WITH base AS (${baseQuery})
+  //       SELECT
+  //         COUNT(DISTINCT(b."userId")) AS "count"
+  //       FROM base b
+  //   `;
+
+  //   // 🔹 5. Build uplines
+  //   // const uplineIds = uplinePath.split('.');
+  //   // uplineIds.shift();
+
+  //   // const uplineData: any[] = [
+  //   //   { id: '', path: '0', username: '', role: 'OWNER' },
+  //   // ];
+
+  //   // for (const uid of uplineIds) {
+  //   //   const res = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+  //   //   SELECT
+  //   //     u.id,
+  //   //     u.username,
+  //   //     um.upline::text AS path,
+  //   //     r.name AS role
+  //   //   FROM "user" u
+  //   //   JOIN user_meta um ON um.user_id = u.id
+  //   //   JOIN role r ON r.id = u.role_id
+  //   //   WHERE u.id = ${BigInt(uid)}
+  //   //     AND r.name != 'DEMO'
+  //   // `);
+
+  //   //   if (res.length) {
+  //   //     uplineData.push({
+  //   //       id: res[0].id.toString(),
+  //   //       username: res[0].username,
+  //   //       uplinePath: res[0].path,
+  //   //       role: res[0].role,
+  //   //     });
+  //   //   }
+  //   // }
+
+  //   // 🔹 6. DIRECT / MASTER
+  //   // if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
+
+  //   const params = [
+  //     uplinePath,
+  //     query.eventId || null,
+  //     query.marketExtenralId || null,
+  //     query.search || null,
+  //     skip,
+  //     limit,
+  //   ];
+  //   const countParams = [
+  //     uplinePath,
+  //     query.eventId || null,
+  //     query.marketExtenralId || null,
+  //     query.search || null,
+  //   ];
+  //   const [rows, count] = await Promise.all([
+  //     this.prisma.$queryRawUnsafe<
+  //       {
+  //         directPath: string | null;
+  //         username: string | null;
+  //         userId: bigint | number | string | null;
+  //         role: string | null;
+  //         totalExposure: number | null;
+  //         uplinePl: number | null;
+  //       }[]
+  //     >(sqlQuery, ...params),
+  //     this.prisma.$queryRawUnsafe<
+  //       {
+  //         count: bigint | number | null;
+  //       }[]
+  //     >(countQuery, ...countParams),
+  //   ]);
+
+  //   const total = Number(count?.[0]?.count || 0);
+  //   const pagination: Pagination = {
+  //     currentPage: page,
+  //     limit,
+  //     totalItems: total,
+  //     totalPage: Math.ceil(total / limit),
+  //   };
+  //   return { rows, pagination };
+  //   // }
+
+  //   // 🔹 7. HIERARCHY
+  //   //   const downlines = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+  //   //   SELECT
+  //   //     u.id AS "userId",
+  //   //     u.username,
+  //   //     um.upline::text AS "directPath",
+  //   //     r.name AS role
+  //   //   FROM "user" u
+  //   //   JOIN user_meta um ON um.user_id = u.id
+  //   //   JOIN role r ON r.id = u.role_id
+  //   //   WHERE um.upline <@ text2ltree(${uplinePath})
+  //   //     AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+  //   //     AND r.name != 'DEMO'
+  //   // `);
+
+  //   //   for (const user of downlines) {
+  //   //     const rows = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+  //   //   WITH base AS (${baseQuery})
+  //   //   SELECT
+  //   //     "selectionId",
+  //   //     "selectionName",
+  //   //     SUM("totalExposure")::decimal(16,2) AS "totalExposure",
+  //   //     SUM("uplinePl")::decimal(16,2) AS "uplinePl"
+  //   //   FROM base
+  //   //   WHERE text2ltree("directPath") <@ text2ltree(${user.directPath})
+  //   //   GROUP BY "selectionId", "selectionName"
+  //   // `);
+
+  //   //     user.selections = rows.map((r) => ({
+  //   //       selectionId: r.selectionId,
+  //   //       selectionName: r.selectionName ?? r.selectionId,
+  //   //       exposure: Number(r.totalExposure),
+  //   //       uplinePl: Number(r.uplinePl),
+  //   //     }));
+  //   //   }
+
+  //   //   return {
+  //   //     data: downlines.filter((d) => d.selections?.length),
+  //   //     uplines: uplineData,
+  //   //   };
+  // }
+
   async GetDownlineWiseBreakdown(
     query: UserWiseBreakDownRequest,
     uplineId: bigint,
     userType: UserType,
   ) {
-    const page = query.page && Number(query.page) > 0 ? Number(query.page) : 1;
-    const limit = Number(query.limit ?? 10);
-    const skip = (page - 1) * limit;
-
-    // const isAdmin = userType === UserType.Admin;
+    const isAdmin = userType === UserType.Admin;
     console.log(query, 'uplineId', uplineId, userType);
-    // const uplineCondition = isAdmin
-    //   ? Prisma.sql`ue.user_type = 'OWNER'`
-    //   : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
+    const uplineCondition = isAdmin
+      ? Prisma.sql`ue.user_type = 'OWNER'`
+      : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
 
     // 🔹 1. Resolve upline path
     let uplinePath: string | null = '0';
@@ -805,236 +1073,178 @@ ORDER BY e.market_external_id;
     console.log(userRole, 'userRole');
 
     // 🔹 3. Report depth condition (Prisma.sql ONLY)
-    // let reportDepthQuery = Prisma.sql``;
+    let reportDepthQuery = Prisma.sql``;
 
-    // if (userRole === 'MASTER') {
-    //   reportDepthQuery = Prisma.sql`
-    //   AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-    // `;
-    // } else if (query.reportType === ReportType.DIRECT) {
-    //   reportDepthQuery = Prisma.sql`
-    //   AND (
-    //     nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-    //     OR EXISTS (
-    //       SELECT 1
-    //       FROM user_meta pum
-    //       JOIN "user" pu ON pu.id = pum.user_id
-    //       JOIN role pr ON pr.id = pu.role_id
-    //       WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
-    //         AND pr.name = 'USER'
-    //     )
-    //   )
-    // `;
-    // } else {
-    //   reportDepthQuery = Prisma.sql`
-    //   AND NOT (
-    //     nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-    //     OR EXISTS (
-    //       SELECT 1
-    //       FROM user_meta pum
-    //       JOIN "user" pu ON pu.id = pum.user_id
-    //       JOIN role pr ON pr.id = pu.role_id
-    //       WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
-    //         AND pr.name = 'USER'
-    //     )
-    //   )
-    // `;
-    // }
+    if (userRole === 'MASTER') {
+      reportDepthQuery = Prisma.sql`
+      AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+    `;
+    } else if (query.reportType === ReportType.DIRECT) {
+      reportDepthQuery = Prisma.sql`
+      AND (
+        nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+        OR EXISTS (
+          SELECT 1
+          FROM user_meta pum
+          JOIN "user" pu ON pu.id = pum.user_id
+          JOIN role pr ON pr.id = pu.role_id
+          WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
+            AND pr.name = 'USER'
+        )
+      )
+    `;
+    } else {
+      reportDepthQuery = Prisma.sql`
+      AND NOT (
+        nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+        OR EXISTS (
+          SELECT 1
+          FROM user_meta pum
+          JOIN "user" pu ON pu.id = pum.user_id
+          JOIN role pr ON pr.id = pu.role_id
+          WHERE pum.upline = subpath(um.upline, 0, nlevel(um.upline) - 1)
+            AND pr.name = 'USER'
+        )
+      )
+    `;
+    }
 
     // 🔹 4. MAIN QUERY (SAFE)
-    const baseQuery = `
+    const baseQuery = Prisma.sql`
     SELECT
-        um.upline::text AS "directPath",
-        u.username,
-        u.id AS "userId",
-        r.name AS "role",
-        e.selection_id AS "selectionId",
+      um.upline::text AS "directPath",
+      u.username,
+      u.id AS "userId",
+      r.name AS "role",
+      e.selection_id AS "selectionId",
+      MAX(runner.runner_name) AS "selectionName",
 
-        SUM(ue.total_pl)::decimal(15,2) AS "totalExposure",
+      SUM(ue.total_pl)::decimal(16,2) AS "totalExposure",
 
-        SUM(ue.upline_pl)::decimal(15,2) AS "uplinePl",
-        MAX(ue.updated_at) AS "lastUpdatedAT"
+      SUM(
+        CASE
+          WHEN ${uplinePath} = '0' THEN ue.upline_pl
+          ELSE ue.upline_pl
+        END
+      )::decimal(16,2) AS "uplinePl"
 
-      FROM upline_exposure ue
-      JOIN exposure e ON e.id = ue.exposure_id
-      JOIN "user" u ON u.id = ue.upline_id
-      JOIN user_meta um ON um.user_id = u.id
-      JOIN role r ON r.id = u.role_id
+    FROM upline_exposure ue
+    JOIN exposure e ON e.id = ue.exposure_id
+    JOIN "user" u ON u.id = e.user_id
+    JOIN user_meta um ON um.user_id = u.id
+    JOIN role r ON r.id = u.role_id
 
-      LEFT JOIN market m
-        ON m.external_id = e.market_external_id
-        AND m.event_id = e.event_id
+    LEFT JOIN market m
+      ON m.external_id = e.market_external_id
+      AND m.event_id = e.event_id
 
-      WHERE um.upline <@ text2ltree($1::text)
-        AND r.name != 'DEMO'
-        AND ($2::bigint IS NULL OR e.event_id = $2::bigint)
-        AND ($3::text IS NULL OR e.market_external_id = $3::text)
-        AND e.status::text = 'active'
-        AND ($4::text IS NULL OR u.username ILIKE '%' || $4::text || '%')
+    LEFT JOIN LATERAL (
+      SELECT runner_elem->>'runnerName' AS runner_name
+      FROM jsonb_array_elements(m.runner::jsonb) AS runner_elem
+      WHERE runner_elem->>'selectionId' = e.selection_id
+      LIMIT 1
+    ) runner ON true
 
-      GROUP BY
-        um.upline,
-        u.username,
-        u.id,
-        r.name,
-        e.selection_id
+    WHERE um.upline <@ text2ltree(${uplinePath})
+      ${reportDepthQuery}
+      AND r.name != 'DEMO'
+      AND e.event_id = ${query.eventId}
+      AND e.market_external_id = ${query.marketExtenralId}
+      AND e.status::text = 'active'
+      AND ${uplineCondition}
 
-      ORDER BY "lastUpdatedAT" 
+    GROUP BY
+      um.upline,
+      u.username,
+      u.id,
+      r.name,
+      e.selection_id
+
+    ORDER BY
+      u.username,
+      e.selection_id
   `;
 
-    const sqlQuery = `
-      WITH base AS (${baseQuery})
-      SELECT
-        b."directPath" AS "directPath",
-        b.username,
-        b."userId",
-        b.role,
-        (
-          CASE
-            WHEN b.role = 'USER' THEN MIN(b."totalExposure") * -1
-            ELSE MIN(b."totalExposure")
-          END
-        ) AS "totalExposure",
-        (
-          CASE
-            WHEN b.role = 'USER' THEN MIN(b."uplinePl") * -1
-            ELSE MIN(b."uplinePl")
-          END
-        ) AS "uplinePl"
-      FROM base b
-      GROUP BY
-        b."directPath",
-        b.username,
-        b."userId",
-        b.role
-      OFFSET $5::bigint LIMIT $6::bigint
-    `;
-
-    const countQuery = `
-        WITH base AS (${baseQuery})
-        SELECT
-          COUNT(DISTINCT(b."userId")) AS "count"
-        FROM base b
-    `;
-
     // 🔹 5. Build uplines
-    // const uplineIds = uplinePath.split('.');
-    // uplineIds.shift();
+    const uplineIds = uplinePath.split('.');
+    uplineIds.shift();
 
-    // const uplineData: any[] = [
-    //   { id: '', path: '0', username: '', role: 'OWNER' },
-    // ];
+    const uplineData: any[] = [
+      { id: '', path: '0', username: '', role: 'OWNER' },
+    ];
 
-    // for (const uid of uplineIds) {
-    //   const res = await this.prisma.$queryRaw<any[]>(Prisma.sql`
-    //   SELECT
-    //     u.id,
-    //     u.username,
-    //     um.upline::text AS path,
-    //     r.name AS role
-    //   FROM "user" u
-    //   JOIN user_meta um ON um.user_id = u.id
-    //   JOIN role r ON r.id = u.role_id
-    //   WHERE u.id = ${BigInt(uid)}
-    //     AND r.name != 'DEMO'
-    // `);
+    for (const uid of uplineIds) {
+      const res = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+      SELECT
+        u.id,
+        u.username,
+        um.upline::text AS path,
+        r.name AS role
+      FROM "user" u
+      JOIN user_meta um ON um.user_id = u.id
+      JOIN role r ON r.id = u.role_id
+      WHERE u.id = ${BigInt(uid)}
+        AND r.name != 'DEMO'
+    `);
 
-    //   if (res.length) {
-    //     uplineData.push({
-    //       id: res[0].id.toString(),
-    //       username: res[0].username,
-    //       uplinePath: res[0].path,
-    //       role: res[0].role,
-    //     });
-    //   }
-    // }
+      if (res.length) {
+        uplineData.push({
+          id: res[0].id.toString(),
+          username: res[0].username,
+          uplinePath: res[0].path,
+          role: res[0].role,
+        });
+      }
+    }
 
     // 🔹 6. DIRECT / MASTER
-    // if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
-
-    const params = [
-      uplinePath,
-      query.eventId || null,
-      query.marketExtenralId || null,
-      query.search || null,
-      skip,
-      limit,
-    ];
-    const countParams = [
-      uplinePath,
-      query.eventId || null,
-      query.marketExtenralId || null,
-      query.search || null,
-    ];
-    const [rows, count] = await Promise.all([
-      this.prisma.$queryRawUnsafe<
-        {
-          directPath: string | null;
-          username: string | null;
-          userId: bigint | number | string | null;
-          role: string | null;
-          totalExposure: number | null;
-          uplinePl: number | null;
-        }[]
-      >(sqlQuery, ...params),
-      this.prisma.$queryRawUnsafe<
-        {
-          count: bigint | number | null;
-        }[]
-      >(countQuery, ...countParams),
-    ]);
-
-    const total = Number(count?.[0]?.count || 0);
-    const pagination: Pagination = {
-      currentPage: page,
-      limit,
-      totalItems: total,
-      totalPage: Math.ceil(total / limit),
-    };
-    return { rows, pagination };
-    // }
+    if (userRole === 'MASTER' || query.reportType === ReportType.DIRECT) {
+      const rows = await this.prisma.$queryRaw<any[]>(baseQuery);
+      return { data: this.groupByUser(rows), uplines: uplineData };
+    }
 
     // 🔹 7. HIERARCHY
-    //   const downlines = await this.prisma.$queryRaw<any[]>(Prisma.sql`
-    //   SELECT
-    //     u.id AS "userId",
-    //     u.username,
-    //     um.upline::text AS "directPath",
-    //     r.name AS role
-    //   FROM "user" u
-    //   JOIN user_meta um ON um.user_id = u.id
-    //   JOIN role r ON r.id = u.role_id
-    //   WHERE um.upline <@ text2ltree(${uplinePath})
-    //     AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
-    //     AND r.name != 'DEMO'
-    // `);
+    const downlines = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+    SELECT
+      u.id AS "userId",
+      u.username,
+      um.upline::text AS "directPath",
+      r.name AS role
+    FROM "user" u
+    JOIN user_meta um ON um.user_id = u.id
+    JOIN role r ON r.id = u.role_id
+    WHERE um.upline <@ text2ltree(${uplinePath})
+      AND nlevel(um.upline) = nlevel(text2ltree(${uplinePath})) + 1
+      AND r.name != 'DEMO'
+  `);
 
-    //   for (const user of downlines) {
-    //     const rows = await this.prisma.$queryRaw<any[]>(Prisma.sql`
-    //   WITH base AS (${baseQuery})
-    //   SELECT
-    //     "selectionId",
-    //     "selectionName",
-    //     SUM("totalExposure")::decimal(16,2) AS "totalExposure",
-    //     SUM("uplinePl")::decimal(16,2) AS "uplinePl"
-    //   FROM base
-    //   WHERE text2ltree("directPath") <@ text2ltree(${user.directPath})
-    //   GROUP BY "selectionId", "selectionName"
-    // `);
+    for (const user of downlines) {
+      const rows = await this.prisma.$queryRaw<any[]>(Prisma.sql`
+    WITH base AS (${baseQuery})
+    SELECT
+      "selectionId",
+      "selectionName",
+      SUM("totalExposure")::decimal(16,2) AS "totalExposure",
+      SUM("uplinePl")::decimal(16,2) AS "uplinePl"
+    FROM base
+    WHERE text2ltree("directPath") <@ text2ltree(${user.directPath})
+    GROUP BY "selectionId", "selectionName"
+  `);
 
-    //     user.selections = rows.map((r) => ({
-    //       selectionId: r.selectionId,
-    //       selectionName: r.selectionName ?? r.selectionId,
-    //       exposure: Number(r.totalExposure),
-    //       uplinePl: Number(r.uplinePl),
-    //     }));
-    //   }
+      user.selections = rows.map((r) => ({
+        selectionId: r.selectionId,
+        selectionName: r.selectionName ?? r.selectionId,
+        exposure: Number(r.totalExposure),
+        uplinePl: Number(r.uplinePl),
+      }));
+    }
 
-    //   return {
-    //     data: downlines.filter((d) => d.selections?.length),
-    //     uplines: uplineData,
-    //   };
+    return {
+      data: downlines.filter((d) => d.selections?.length),
+      uplines: uplineData,
+    };
   }
+
   private groupByUser(
     data: {
       directPath: string | null;
