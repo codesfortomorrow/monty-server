@@ -76,6 +76,7 @@ export class LocalStrategy extends PassportStrategy(Strategy, LOCAL_AUTH) {
         loginStatus: LoginStatus.Success,
         ip,
         userType: user.type,
+        device,
       });
     } else {
       if (userId) {
@@ -84,29 +85,10 @@ export class LocalStrategy extends PassportStrategy(Strategy, LOCAL_AUTH) {
           userId: userId.id,
           userType: userType,
           ip,
+          device,
         });
       }
     }
-    // const ip = this.getIp(req);
-    // if (user) {
-    //   await this.activityService.loginActivity({
-    //     userId: user.id,
-    //     loginStatus: LoginStatus.Success,
-    //     ip,
-    //     userType: user.type,
-    //     device,
-    //   });
-    // } else {
-    //   if (userId) {
-    //     await this.activityService.loginActivity({
-    //       loginStatus: LoginStatus.Failed,
-    //       userId: userId.id,
-    //       userType: userType,
-    //       ip,
-    //       device,
-    //     });
-    //   }
-    // }
     if (user) return user;
     if (user === false) throw new UnauthorizedException('Incorrect password');
 
