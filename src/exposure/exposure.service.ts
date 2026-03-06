@@ -525,14 +525,16 @@ WITH base AS (
     SELECT
       event_id,
       selection_id,
+      market_id,
       MAX(selection) AS selection,
       MAX(market_name) AS market_name,
       MAX(placed_at) AS last_placed_at
     FROM bet
-    GROUP BY event_id, selection_id
+    GROUP BY event_id, market_id, selection_id
   ) b
     ON b.event_id = e.event_id
    AND b.selection_id = e.selection_id
+   AND e.market_external_id = b.market_id
 
   LEFT JOIN LATERAL (
       SELECT 
