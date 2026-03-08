@@ -99,6 +99,6 @@ export class UserWalletsController extends BaseController {
     @Body() dto: AmountTransferDto,
   ) {
     const ctx = this.getContext(req);
-    return this.walletsService.amountTransfer(ctx.user.id, dto);
+    return this.walletsService.amountTransfer(ctx.user.id, ctx.user.type, dto);
   }
 }
