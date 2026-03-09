@@ -298,7 +298,12 @@ export class SportsOrchestratorProcessorService
       // this.DUPLICATE_EVENT_KEY,
       this.MARKET_KEY,
     );
-    this.initSportSync();
+    await this.initSportSync();
+
+    const activeKeys = 'event:active:*';
+    const closedKeys = 'event:closed:*';
+    await this.redis.deleteKeysByPattern(activeKeys);
+    await this.redis.deleteKeysByPattern(closedKeys);
 
     return 'Sport sync triggered manually';
   }

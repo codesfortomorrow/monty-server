@@ -230,7 +230,7 @@ export class CompetitionsProcessor extends BaseService {
               update: {
                 startTime: new Date(m.event.openDate),
                 sport: getSportEnum(sportName),
-                status: status,
+                // status: status,
                 updatedAt: new Date(),
               },
               create: {
