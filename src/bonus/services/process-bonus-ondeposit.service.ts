@@ -136,6 +136,7 @@ export class BonusDepositProcessor
       },
     });
 
+    console.log('line 140 : ', walletTxn);
     if (!walletTxn) {
       this.logger.debug(`Txn ${txnId} already processed or not found`);
       return;
@@ -146,7 +147,7 @@ export class BonusDepositProcessor
 
     try {
       // entityId is stored as string in wallet_transactions, parse it to number
-      depositId = parseInt(walletTxn.entityId!, 10);
+      depositId = Number(walletTxn.entityId);
 
       if (isNaN(depositId)) {
         this.logger.error(
@@ -171,7 +172,7 @@ export class BonusDepositProcessor
         amount: true,
       },
     });
-
+    console.log('line 176 : ', depositRecord);
     if (!depositRecord) {
       this.logger.error(
         `❌ Deposit record not found for depositId: ${depositId} (from txnId: ${txnId})`,

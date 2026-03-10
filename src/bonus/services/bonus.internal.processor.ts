@@ -21,6 +21,7 @@ import {
   Frequency,
   Prisma,
   Referral,
+  ReferralType,
   ReleaseType,
   StatusType,
   TriggerEvent,
@@ -228,9 +229,12 @@ export class BonusProcessor
 
   public async emitReferralEvent(userId: number, referralCode: string) {
     try {
+      console.log('line 232', userId);
       if (!userId || isNaN(userId)) return;
 
       const isValidUser = await this.validateUser(userId);
+
+      console.log('line 237', isValidUser);
       if (!isValidUser) return;
 
       // ✅ Find referrer by referral code
@@ -239,6 +243,7 @@ export class BonusProcessor
           referralCode,
         },
       });
+      console.log('line 244 ');
 
       if (!referrer) return;
 
@@ -248,7 +253,7 @@ export class BonusProcessor
           refereeId: BigInt(userId),
         },
       });
-
+      console.log('line 254 ');
       if (existingReferral) return;
 
       // ✅ Create referral (BigInt-safe)
@@ -260,12 +265,15 @@ export class BonusProcessor
           referredThrough: referralCode,
         },
       });
+      console.log('line 266 ');
 
       // ✅ Fetch referral bonuses
       const bonuses = await this.checkAvailableBonus(
         BonusCategory.ReferralBonus,
         userId,
       );
+
+      console.log('line 271 : ', bonuses);
 
       if (!bonuses.length) return;
 
@@ -356,25 +364,40 @@ export class BonusProcessor
 
       GROUP BY b.id
 
-      HAVING
-        (
-          b.max_applicants IS NULL
-          OR COUNT(DISTINCT blc.user_id) < b.max_applicants
-        )
-        AND (
-          b.max_per_user IS NULL
-          OR b.max_per_user = 0
-          OR COALESCE(
-              SUM(
-                CASE
-                  WHEN blc.user_id = ${BigInt(userId)}
-                  THEN blc.claim_count
-                  ELSE 0
-                END
-              ),
-              0
-            ) < b.max_per_user
-        )
+     HAVING
+  (
+    b.max_applicants IS NULL
+    OR
+    (
+      /* If user already claimed, skip applicant limit */
+      COALESCE(
+        SUM(
+          CASE
+            WHEN blc.user_id = ${BigInt(userId)}
+            THEN blc.claim_count
+            ELSE 0
+          END
+        ),
+        0
+      ) > 0
+      OR COUNT(DISTINCT blc.user_id) < b.max_applicants
+    )
+  )
+  AND (
+    b.max_per_user IS NULL
+    OR b.max_per_user = 0
+    OR COALESCE(
+        SUM(
+          CASE
+            WHEN blc.user_id = ${BigInt(userId)}
+            THEN blc.claim_count
+            ELSE 0
+          END
+        ),
+        0
+      ) < b.max_per_user
+  )
+
     `,
     );
 
@@ -385,8 +408,9 @@ export class BonusProcessor
     console.log('line 337 bonus: ', bonus);
     if (!bonus.maxBonusAmount) return 0;
     console.log('line 339 : ');
-    if (bonus.releaseType == ReleaseType.FIXED.toLowerCase())
+    if (bonus.releaseType == ReleaseType.FIXED.toLowerCase()) {
       return bonus.maxBonusAmount;
+    }
     console.log('line 341 : ', bonus.maxBonusAmount);
     console.log('line 342  :', bonus.percentage);
     console.log('line 343  :', deposit);
@@ -427,19 +451,23 @@ export class BonusProcessor
     return 0;
   }
 
-  private calculateTurnover(bonus: Bonus, deposit?: number) {
-    console.log('deposit  : 385 :', deposit);
-    const awardAmount = this.calculateAwardAmount(bonus, deposit);
+  private calculateTurnover(
+    bonus: Bonus,
+    deposit?: number,
+    awardedAmount?: number,
+  ) {
     const multiplier = bonus.multiplier ?? 1;
-    if (bonus.turnoverFormula == TurnoverFormula.BONUS_MULTIPLIER.toLowerCase())
-      return awardAmount * multiplier;
-
+    if (
+      bonus.turnoverFormula ===
+      TurnoverFormula.BONUS_MULTIPLIER.toLocaleLowerCase()
+    )
+      return awardedAmount! * multiplier;
     if (
       deposit &&
-      bonus.turnoverFormula ==
-        TurnoverFormula.DEPOSIT_PLUS_BONUS_MULTIPLIER.toLowerCase()
+      bonus.turnoverFormula ===
+        TurnoverFormula.DEPOSIT_PLUS_BONUS_MULTIPLIER.toLocaleLowerCase()
     )
-      return (deposit + awardAmount) * multiplier;
+      return (deposit + awardedAmount!) * multiplier;
     return 0;
   }
 
@@ -447,14 +475,14 @@ export class BonusProcessor
     bonus: Bonus,
     userId: number,
   ): Promise<boolean> {
-    if (bonus.frequency == Frequency.EVERY.toLowerCase()) return true;
+    if (bonus.frequency === Frequency.EVERY.toLocaleLowerCase()) return true;
 
+    // Define start & end date ranges based on frequency
     const now = new Date();
-    let startDate: Date;
-    let endDate: Date;
-
+    let startDate: Date, endDate: Date;
+    console.log('bonus.frequency line-469 : ', bonus.frequency);
     switch (bonus.frequency) {
-      case Frequency.DAILY: {
+      case Frequency.DAILY.toLocaleLowerCase(): {
         startDate = new Date(
           now.getFullYear(),
           now.getMonth(),
@@ -470,15 +498,13 @@ export class BonusProcessor
           23,
           59,
           59,
-          999,
         );
         break;
       }
 
-      case Frequency.WEEKLY: {
+      case Frequency.WEEKLY.toLocaleLowerCase(): {
         const currentDay = now.getDay(); // 0 (Sun) - 6 (Sat)
-        const diffToMonday = (currentDay + 6) % 7;
-
+        const diffToMonday = (currentDay + 6) % 7; // shift week start to Monday
         startDate = new Date(now);
         startDate.setDate(now.getDate() - diffToMonday);
         startDate.setHours(0, 0, 0, 0);
@@ -489,7 +515,7 @@ export class BonusProcessor
         break;
       }
 
-      case Frequency.MONTHLY: {
+      case Frequency.MONTHLY.toLocaleLowerCase(): {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
         endDate = new Date(
           now.getFullYear(),
@@ -498,7 +524,6 @@ export class BonusProcessor
           23,
           59,
           59,
-          999,
         );
         break;
       }
@@ -506,6 +531,8 @@ export class BonusProcessor
       default:
         return true;
     }
+
+    console.log(startDate, ' line 522 : ', endDate);
 
     const alreadyClaimed = await this.prisma.bonusApplicant.findFirst({
       where: {
@@ -625,35 +652,30 @@ export class BonusProcessor
   }
 
   private validateBet(bonus: Bonus, gameId: number, bet?: Bet): boolean {
-    // Only validate for specific game types
-    if (![1, 2, 4].includes(gameId)) return true;
+    if (![1, 2, 4, 7, 4339].includes(gameId)) return true;
 
-    // Bet must exist for these games
     if (!bet) return false;
 
     const minOdd = bonus.minOdd ?? Number.NEGATIVE_INFINITY;
     const maxOdd = bonus.maxOdd ?? Number.POSITIVE_INFINITY;
 
-    // BACK bets
-    if (bonus.betType == BetType.Back) {
-      return (
-        bet.betOn == BetType.Back &&
-        bet.amount >= Decimal(minOdd) &&
-        bet.amount <= Decimal(maxOdd)
-      );
+    const odds = Number(bet.odds); // ✅ use odds not amount
+
+    console.log('---------------');
+    console.log('minOdd : ', minOdd);
+    console.log('maxOdd : ', maxOdd);
+    console.log('odds : ', odds);
+    console.log('bet.betOn : ', bet.betOn);
+
+    if (bonus.betType === BetType.Back) {
+      return bet.betOn === BetType.Back && odds >= minOdd && odds <= maxOdd;
     }
 
-    // LAY bets
-    if (bonus.betType == BetType.Lay) {
-      return (
-        bet.betOn == BetType.Lay &&
-        bet.amount >= Decimal(minOdd) &&
-        bet.amount <= Decimal(maxOdd)
-      );
+    if (bonus.betType === BetType.Lay) {
+      return bet.betOn === BetType.Lay && odds >= minOdd && odds <= maxOdd;
     }
 
-    // Any bet type
-    return bet.amount >= Decimal(minOdd) && bet.amount <= Decimal(maxOdd);
+    return odds >= minOdd && odds <= maxOdd;
   }
 
   private async validateReferral(
@@ -661,7 +683,8 @@ export class BonusProcessor
     referral: Referral,
   ): Promise<boolean> {
     // Signup-based referral → always valid
-    if (bonus.referralType == 'SIGNUP') return true;
+    if (bonus.referralType == ReferralType.SIGNUP.toLocaleLowerCase())
+      return true;
 
     // Deposit-based referral → must have FTD
     if (!referral.firstTimeDepositDone || !referral.firstTimeDepositId) {
@@ -681,13 +704,11 @@ export class BonusProcessor
 
     // Validate minimum deposit amount
     if (
-      bonus.minDepositAmount !== null &&
-      bonus.minDepositAmount !== undefined &&
-      deposit.amount >= Decimal(bonus.minDepositAmount)
-    ) {
+      deposit &&
+      bonus.minDepositAmount &&
+      bonus.minDepositAmount <= Number(deposit.amount)
+    )
       return true;
-    }
-
     return false;
   }
 
@@ -728,7 +749,7 @@ export class BonusProcessor
         role: true,
       },
     });
-
+    console.log('line 754 : ', user);
     if (!user) return false;
 
     return user.role?.name == 'USER';
@@ -751,7 +772,7 @@ export class BonusProcessor
     if (!deposit) return;
 
     // Ensure deposit amount is accurate
-    const depositAmountFromDb = new Prisma.Decimal(deposit.amount).toNumber();
+    const depositAmountFromDb = Number(deposit.amount);
 
     if (depositAmount !== depositAmountFromDb) {
       depositAmount = depositAmountFromDb;
@@ -759,7 +780,11 @@ export class BonusProcessor
     console.log('deposit amount', depositAmount);
 
     for (const bonus of bonuses) {
-      if (bonus.minDepositAmount && bonus.minDepositAmount > depositAmount) {
+      if (
+        bonus.minDepositAmount !== null &&
+        bonus.minDepositAmount !== undefined &&
+        depositAmount < bonus.minDepositAmount
+      ) {
         continue;
       }
 
@@ -782,7 +807,7 @@ export class BonusProcessor
     if (!deposit) return;
 
     // Convert Prisma Decimal → number
-    const dbAmount = deposit.amount.toNumber();
+    const dbAmount = Number(deposit.amount);
 
     // Ensure deposit amount is accurate
     if (depositAmount !== dbAmount) {
@@ -791,14 +816,18 @@ export class BonusProcessor
 
     for (const bonus of bonuses) {
       // Minimum deposit validation
-      if (bonus.minDepositAmount && bonus.minDepositAmount > depositAmount) {
+      if (
+        bonus.minDepositAmount != null &&
+        depositAmount < bonus.minDepositAmount
+      ) {
         continue;
       }
 
       // Frequency validation
       const isValid = await this.validateFrequency(bonus, userId);
+      console.log('line 809 : ', isValid);
       if (!isValid) continue;
-
+      console.log('line 811 : ');
       // Process bonus
       this.processDepositBonus(bonus, userId, depositAmount, deposit);
     }
@@ -811,7 +840,10 @@ export class BonusProcessor
   ) {
     try {
       for (const bonus of bonuses) {
+        console.log('referral.type : ', bonus.referralType);
         const isValid = await this.validateReferral(bonus, referral);
+
+        console.log('referral line 827 : ', isValid);
         if (!isValid) continue;
 
         await this.prisma.$transaction(async (tx) => {
@@ -834,9 +866,15 @@ export class BonusProcessor
             bonus,
             depositAmount,
           );
-
+          console.log(
+            'line 851 bonus.bonusEligibleRole : ',
+            bonus.bonusEligibleRole,
+          );
           // Award referee only
-          if (bonus.bonusEligibleRole == BonusEligibleRole.REFEREE) {
+          if (
+            bonus.bonusEligibleRole ==
+            BonusEligibleRole.REFEREE.toLocaleLowerCase()
+          ) {
             await this.processReferralBonus(
               bonus,
               referral,
@@ -849,7 +887,10 @@ export class BonusProcessor
           }
 
           // Award referrer only
-          if (bonus.bonusEligibleRole == BonusEligibleRole.REFERRER) {
+          if (
+            bonus.bonusEligibleRole ==
+            BonusEligibleRole.REFERRER.toLocaleLowerCase()
+          ) {
             await this.processReferralBonus(
               bonus,
               referral,
@@ -860,7 +901,7 @@ export class BonusProcessor
             );
             return;
           }
-
+          console.log('line 899 : ');
           // Award both
           await this.processReferralBonus(
             bonus,
@@ -898,7 +939,11 @@ export class BonusProcessor
       await this.prisma.$transaction(async (tx) => {
         console.log('line 781 : ', bonus);
         const awardedAmount = this.calculateAwardAmount(bonus, depositAmount);
-        const turnoverRequired = this.calculateTurnover(bonus, depositAmount);
+        const turnoverRequired = this.calculateTurnover(
+          bonus,
+          depositAmount,
+          awardedAmount,
+        );
         console.log('turnoverRequired : ', turnoverRequired);
         console.log('awardedAmount : ', awardedAmount);
 
@@ -1009,7 +1054,11 @@ export class BonusProcessor
             bonusId: bonus.id,
             triggerEvent: TriggerEvent.DEPOSIT,
             awardedAmount,
-            turnoverRequired: this.calculateTurnover(bonus, depositAmount),
+            turnoverRequired: this.calculateTurnover(
+              bonus,
+              depositAmount,
+              awardedAmount,
+            ),
             turnoverCompleted: 0,
             awardedAt: new Date(),
             expireAt: new Date(
@@ -1104,6 +1153,7 @@ export class BonusProcessor
     tx: Prisma.TransactionClient,
     depositAmount?: number,
   ) {
+    console.log('line 1147 :');
     // 1. Create BonusApplicant
     const applicant = await tx.bonusApplicant.create({
       data: {
@@ -1111,7 +1161,11 @@ export class BonusProcessor
         bonusId: bonus.id,
         triggerEvent: TriggerEvent.REFERRAL,
         awardedAmount,
-        turnoverRequired: this.calculateTurnover(bonus, depositAmount),
+        turnoverRequired: this.calculateTurnover(
+          bonus,
+          depositAmount,
+          awardedAmount,
+        ),
         turnoverCompleted: 0,
         awardedAt: new Date(),
         expireAt: new Date(
@@ -1122,6 +1176,8 @@ export class BonusProcessor
         depositId: referral.firstTimeDepositId ?? undefined,
       },
     });
+
+    console.log('applicant 1167:', applicant.turnoverRequired);
 
     // 2. Create installments if bonus is installment-based
     if (bonus.installments && bonus.installments > 1) {
@@ -1157,7 +1213,6 @@ export class BonusProcessor
       },
     });
 
-    // 4. Add to wallet
     await this.walletService.addBalance(
       userId,
       new Decimal(awardedAmount),
@@ -1166,7 +1221,9 @@ export class BonusProcessor
       {
         tx,
         context: WalletTransactionContext.Bonus,
-        entityId: BigInt(referral.firstTimeDepositId!),
+        entityId: referral.firstTimeDepositId
+          ? BigInt(referral.firstTimeDepositId)
+          : undefined,
         narration: 'Referral Bonus credited',
       },
     );
@@ -1199,28 +1256,58 @@ export class BonusProcessor
     bet?: Bet,
     casino?: CasinoRoundHistory,
   ) {
-    for (const applicant of applicants) {
+    if (!amount || Number(amount) <= 0) return;
+
+    // ✅ Always process oldest first
+    const sortedApplicants = [...applicants].sort(
+      (a, b) => Number(a.id) - Number(b.id),
+    );
+
+    let remainingAmount = Number(amount);
+    let approvedApplicant: BonusApplicant | null = null;
+
+    for (const applicant of sortedApplicants) {
+      if (remainingAmount <= 0) break;
+
       const bonus = await this.prisma.bonus.findUnique({
         where: { id: applicant.bonusId },
       });
-      const isValidGame = await this.validateGameCategory(
-        bonus as Bonus,
-        gameId,
-      );
-      const isValidBet = this.validateBet(bonus as Bonus, gameId, bet);
+      if (!bonus) continue;
+
+      const isValidGame = await this.validateGameCategory(bonus, gameId);
+      const isValidBet = this.validateBet(bonus, gameId, bet);
       const isValid = await this.validateExpiry(applicant);
-      console.log('line 1212 : ');
-      // if (!isValidGame || !isValidBet || !isValid) continue;
-      console.log('line 1214 : ');
+
+      if (!isValidGame || !isValidBet || !isValid) continue;
 
       await this.prisma.$transaction(async (tx) => {
-        // 1. Increment turnoverCompleted
-        const updatedApplicant = await tx.bonusApplicant.update({
+        const freshApplicant = await tx.bonusApplicant.findUnique({
           where: { id: applicant.id },
-          data: { turnoverCompleted: { increment: Number(amount) } },
         });
 
-        // 2. Mark bet/casino as turnover calculated
+        if (!freshApplicant) return;
+
+        const remainingTurnover =
+          Number(freshApplicant.turnoverRequired) -
+          Number(freshApplicant.turnoverCompleted);
+
+        if (remainingTurnover <= 0) return;
+
+        // ✅ Apply only required turnover, not full bet blindly
+        const applyAmount = Math.min(remainingAmount, remainingTurnover);
+
+        const updatedApplicant = await tx.bonusApplicant.update({
+          where: { id: applicant.id },
+          data: {
+            turnoverCompleted: {
+              increment: applyAmount,
+            },
+          },
+        });
+
+        remainingAmount -= applyAmount;
+
+        // ✅ Mark bet/casino once turnover applied
         if (bet) {
           await tx.bet.update({
             where: { id: bet.id },
@@ -1241,19 +1328,25 @@ export class BonusProcessor
           timesClaimed,
           timesRejected,
         } = updatedApplicant;
+
         if (!turnoverCompleted || !turnoverRequired) return;
 
-        const status =
-          bonus?.approvalType == ApprovalType.AUTO
-            ? BonusApplicantStatus.APPROVED
-            : BonusApplicantStatus.COMPLETED;
-        const approveAt =
-          bonus?.approvalType == ApprovalType.AUTO ? new Date() : undefined;
+        const isCompleted =
+          Number(turnoverCompleted) >= Number(turnoverRequired);
 
-        // 3. Handle installments
-        if (bonus?.installments && bonus.installments > 1) {
+        const isAuto = bonus.approvalType === ApprovalType.AUTO;
+
+        const status = isAuto
+          ? BonusApplicantStatus.APPROVED
+          : BonusApplicantStatus.COMPLETED;
+
+        const approveAt = isAuto ? new Date() : undefined;
+
+        // ================= INSTALLMENT LOGIC (UNCHANGED) =================
+        if (bonus.installments && bonus.installments > 1) {
           const completeInstallment = Math.floor(
-            turnoverCompleted / (turnoverRequired / bonus.installments),
+            Number(turnoverCompleted) /
+              (Number(turnoverRequired) / bonus.installments),
           );
 
           const installments = await tx.bonusInstallment.findMany({
@@ -1275,8 +1368,8 @@ export class BonusProcessor
             }
           }
 
-          if (completeInstallment >= bonus.installments) {
-            await tx.bonusApplicant.update({
+          if (isCompleted) {
+            const finalApplicant = await tx.bonusApplicant.update({
               where: { id: updatedApplicant.id },
               data: {
                 status,
@@ -1284,14 +1377,18 @@ export class BonusProcessor
                 turnoverCompleted: turnoverRequired,
               },
             });
+
+            if (isAuto) approvedApplicant = finalApplicant;
           } else {
             await tx.bonusApplicant.update({
               where: { id: updatedApplicant.id },
               data: { status: BonusApplicantStatus.ACTIVE },
             });
           }
-        } else if (turnoverCompleted >= turnoverRequired) {
-          await tx.bonusApplicant.update({
+        }
+        // ================= NON-INSTALLMENT =================
+        else if (isCompleted) {
+          const finalApplicant = await tx.bonusApplicant.update({
             where: { id: updatedApplicant.id },
             data: {
               status,
@@ -1299,16 +1396,18 @@ export class BonusProcessor
               turnoverCompleted: turnoverRequired,
             },
           });
+
+          if (isAuto) approvedApplicant = finalApplicant;
         }
       });
 
-      // 4. Call processApprovedBonus outside transaction
-      const refreshedApplicant = await this.prisma.bonusApplicant.findUnique({
-        where: { id: applicant.id },
-      });
-      if (refreshedApplicant?.status == BonusApplicantStatus.APPROVED) {
-        await this.processApprovedBonus(refreshedApplicant);
-      }
+      // ✅ Only ONE applicant should consume this bet ideally
+      if (remainingAmount <= 0) break;
+    }
+
+    // ✅ Call approval service ONLY for AUTO
+    if (approvedApplicant) {
+      await this.processApprovedBonus(approvedApplicant);
     }
   }
 
@@ -1572,6 +1671,7 @@ export class BonusProcessor
   public async processRejectBonus(
     bonusApplicant: BonusApplicant,
     installment?: BonusInstallment,
+    reason?: string,
   ) {
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -1612,6 +1712,7 @@ export class BonusProcessor
               {
                 tx,
                 context: WalletTransactionContext.Bonus,
+                narration: reason,
               },
             );
 
@@ -1634,6 +1735,7 @@ export class BonusProcessor
             {
               tx,
               context: WalletTransactionContext.Bonus,
+              narration: reason,
             },
           );
 
@@ -1757,14 +1859,22 @@ export class BonusProcessor
           createdAt: { gte: applicant.awardedAt },
           status: { in: [BetStatusType.Won, BetStatusType.Lost] },
         },
+        include: {
+          casinoGame: {
+            select: {
+              id: true,
+              externalId: true,
+            },
+          },
+        },
         orderBy: { createdAt: 'asc' },
       });
 
       for (const casino of casinos) {
-        if (!casino.gameId) continue;
+        if (!casino.casinoGame) continue;
         await this.emitTurnOverEvent(
           applicant.userId,
-          casino.gameId,
+          Number(casino.casinoGame.externalId),
           casino.totalBets,
           undefined,
           casino,

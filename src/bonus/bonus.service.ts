@@ -286,25 +286,25 @@ export class BonusService {
         approvedApplicantCount = await tx.bonusApplicant.count({
           where: {
             bonusId: bonus.id,
-            installments: {
-              some: {
-                status: {
-                  in: [
-                    BonusApplicantStatus.APPROVED,
-                    BonusApplicantStatus.CLAIMED,
-                  ],
-                },
-              },
-            },
+            // installments: {
+            //   some: {
+            //     status: {
+            //       in: [
+            //         BonusApplicantStatus.APPROVED,
+            //         BonusApplicantStatus.CLAIMED,
+            //       ],
+            //     },
+            //   },
+            // },
           },
         });
       } else {
         approvedApplicantCount = await tx.bonusApplicant.count({
           where: {
             bonusId: bonus.id,
-            status: {
-              in: [BonusApplicantStatus.APPROVED, BonusApplicantStatus.CLAIMED],
-            },
+            // status: {
+            //   in: [BonusApplicantStatus.APPROVED, BonusApplicantStatus.CLAIMED],
+            // },
           },
         });
       }
@@ -565,10 +565,12 @@ export class BonusService {
     if (!applicant) {
       throw new Error('Bonus Applicant not found');
     }
+    console.log('applicant.status : ', applicant.status);
 
     if (
       applicant.status !== BonusApplicantStatus.ACTIVE &&
-      applicant.status !== BonusApplicantStatus.COMPLETED
+      applicant.status !== BonusApplicantStatus.COMPLETED &&
+      applicant.status !== BonusApplicantStatus.APPROVED
     ) {
       throw new Error('Invalid Applicant');
     }
@@ -634,7 +636,10 @@ export class BonusService {
       }
 
       /* ───────────── NON-INSTALLMENT FLOW ───────────── */
-      if (applicant.status !== BonusApplicantStatus.COMPLETED) {
+      if (
+        applicant.status !== BonusApplicantStatus.COMPLETED &&
+        applicant.status !== BonusApplicantStatus.APPROVED
+      ) {
         throw new Error('Invalid Applicant');
       }
 
@@ -666,6 +671,7 @@ export class BonusService {
       await this.bonusProcessor.processRejectBonus(
         result.bonusApplicant,
         result.installment,
+        reason,
       );
     }
 
@@ -696,6 +702,7 @@ export class BonusService {
           releaseType: query.releaseType,
           search: query.search,
           searchbyuserId: query.userId,
+          approvalType: query.approvalType,
           searchbyusername: query.username,
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
