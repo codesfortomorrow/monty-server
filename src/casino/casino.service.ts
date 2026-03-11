@@ -655,7 +655,7 @@ export class CasinoService extends BaseService {
       throw new Error('You do not have permission to access the casino.');
 
     // Calculate updated balance
-    const exposureAmount = 0; // if you have separate exposure model, fetch it here
+    const exposureAmount = Number(wallet.exposureAmount); // if you have separate exposure model, fetch it here
 
     const updatedBalance = Math.round(
       Number(wallet.amount) +

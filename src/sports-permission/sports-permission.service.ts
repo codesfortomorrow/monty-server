@@ -29,9 +29,13 @@ export class SportsPermissionService extends BaseService {
       // permission.transactionCode,
     );
     if (!isValid.success) throw new Error(isValid.message);
+
+    const uplinePath = await this.userService.getUplinePathById(user.id);
+    if (!uplinePath) throw new Error('User not found');
+
     const { downlineUsers } = await this.userService.getSubUsers(
       Number(user.id),
-      '0', // todo: add path(upline path) if required
+      uplinePath,
       {},
     );
     return await this.prisma.$transaction(async (tx) => {
