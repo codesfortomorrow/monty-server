@@ -1312,7 +1312,7 @@ export class WalletsService {
             // ❌ Sender insufficient balance
             if (senderBalance.lt(absAmount)) {
               throw new Error(
-                `Settlement failed. Insufficient sender balance to settle user ${user.id}`,
+                `Settlement failed. Insufficient sender balance to settle user ${user.username}`,
               );
             }
 
@@ -1409,7 +1409,7 @@ export class WalletsService {
             // ❌ User insufficient balance
             if (currentBalance.lt(absAmount)) {
               throw new Error(
-                `Settlement failed. User ${user.id} has insufficient balance`,
+                `Settlement failed. User ${user.username} has insufficient balance`,
               );
             }
 
