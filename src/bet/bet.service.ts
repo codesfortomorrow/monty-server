@@ -1271,6 +1271,7 @@ export class BetService extends BaseService {
         update: {
           amount,
           updatedAt: new Date(),
+          isUplineExposureCalculated: false,
         },
         create: {
           eventId,
@@ -1280,6 +1281,7 @@ export class BetService extends BaseService {
           userId,
           selectionId,
           amount,
+          isUplineExposureCalculated: false,
           status: StatusType.Active,
         },
       });
