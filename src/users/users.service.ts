@@ -1130,6 +1130,11 @@ WHERE um.upline <@ text2ltree($1::text)
   AND ($7::text IS NULL OR u.username ILIKE '%' || $7 || '%')
   AND ($8::text IS NULL OR u.status = ($8::text)::user_status)
 
+  AND (
+    $9::boolean IS NULL
+    OR u.is_self_registered = false::boolean
+  )
+
 ORDER BY u.created_at DESC
 ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
 `,
@@ -1156,6 +1161,11 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
           AND ($6::timestamptz IS NULL OR ${toDateColumn} <= $6)
           AND ($7::text IS NULL OR u.username ILIKE '%' || $7 || '%')
           AND ($8::text IS NULL OR u.status = ($8::text)::user_status)
+
+          AND (
+            $9::boolean IS NULL
+            OR u.is_self_registered = false::boolean
+          )
       `,
       basePath,
       userId,
@@ -1165,6 +1175,7 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
       toDate,
       search,
       statusFilter,
+      settlement,
     );
 
     let extraBalanceInfo = null;
