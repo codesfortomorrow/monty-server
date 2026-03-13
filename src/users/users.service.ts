@@ -1038,7 +1038,7 @@ export class UsersService {
       ? 'u.change_status_at'
       : 'u.created_at';
 
-    const settlement = query.settlement ?? false;
+    const settlement = query.settlement ?? null;
 
     const params: any[] = [
       basePath, // $1

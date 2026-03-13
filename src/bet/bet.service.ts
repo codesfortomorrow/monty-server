@@ -450,32 +450,34 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
-          } else if (data.acceptOddsChange) {
-            const allPrices = currentPrice;
+          }
+          // else if (data.acceptOddsChange) {
+          //   const allPrices = currentPrice;
 
-            if (
-              data.position !== undefined &&
-              data.position >= 0 &&
-              data.position < allPrices.length
-            ) {
-              const positionPrice = allPrices[data.position];
-              return {
-                success: true,
-                updatedPrice: Number(positionPrice),
-                message: `Odds changed. Using price from position ${data.position}`,
-              };
-            }
+          //   if (
+          //     data.position !== undefined &&
+          //     data.position >= 0 &&
+          //     data.position < allPrices.length
+          //   ) {
+          //     const positionPrice = allPrices[data.position];
+          //     return {
+          //       success: true,
+          //       updatedPrice: Number(positionPrice),
+          //       message: `Odds changed. Using price from position ${data.position}`,
+          //     };
+          //   }
 
-            const fallbackPrice = updatedOdd
-              ? Number(updatedOdd)
-              : Number(allPrices[0]);
+          //   const fallbackPrice = updatedOdd
+          //     ? Number(updatedOdd)
+          //     : Number(allPrices[0]);
 
-            return {
-              success: true,
-              updatedPrice: fallbackPrice,
-              message: `Odds changed. Price updated to ${fallbackPrice}`,
-            };
-          } else {
+          //   return {
+          //     success: true,
+          //     updatedPrice: fallbackPrice,
+          //     message: `Odds changed. Price updated to ${fallbackPrice}`,
+          //   };
+          // }
+          else {
             return {
               success: false,
               message: 'Oops! Bet not allowed due to market price change',
@@ -569,32 +571,34 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
-          } else if (data.acceptOddsChange) {
-            const allPrices = currentPrice;
+          }
+          // else if (data.acceptOddsChange) {
+          //   const allPrices = currentPrice;
 
-            if (
-              data.position !== undefined &&
-              data.position >= 0 &&
-              data.position < allPrices.length
-            ) {
-              const positionPrice = allPrices[data.position];
-              return {
-                success: true,
-                updatedPrice: Number(positionPrice),
-                message: `Odds changed. Using price from position ${data.position}`,
-              };
-            }
+          //   if (
+          //     data.position !== undefined &&
+          //     data.position >= 0 &&
+          //     data.position < allPrices.length
+          //   ) {
+          //     const positionPrice = allPrices[data.position];
+          //     return {
+          //       success: true,
+          //       updatedPrice: Number(positionPrice),
+          //       message: `Odds changed. Using price from position ${data.position}`,
+          //     };
+          //   }
 
-            const fallbackPrice = updatedOdd
-              ? Number(updatedOdd)
-              : Number(allPrices[0]);
+          //   const fallbackPrice = updatedOdd
+          //     ? Number(updatedOdd)
+          //     : Number(allPrices[0]);
 
-            return {
-              success: true,
-              updatedPrice: fallbackPrice,
-              message: `Odds changed. Price updated to ${fallbackPrice}`,
-            };
-          } else {
+          //   return {
+          //     success: true,
+          //     updatedPrice: fallbackPrice,
+          //     message: `Odds changed. Price updated to ${fallbackPrice}`,
+          //   };
+          // }
+          else {
             return {
               success: false,
               message: 'Oops! Bet not allowed due to market price change',
@@ -691,32 +695,34 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
-          } else if (data.acceptOddsChange) {
-            const allPrices = currentPrice;
+          }
+          // else if (data.acceptOddsChange) {
+          //   const allPrices = currentPrice;
 
-            if (
-              data.position !== undefined &&
-              data.position >= 0 &&
-              data.position < allPrices.length
-            ) {
-              const positionPrice = allPrices[data.position];
-              return {
-                success: true,
-                updatedPrice: Number(positionPrice),
-                message: `Odds changed. Using price from position ${data.position}`,
-              };
-            }
+          //   if (
+          //     data.position !== undefined &&
+          //     data.position >= 0 &&
+          //     data.position < allPrices.length
+          //   ) {
+          //     const positionPrice = allPrices[data.position];
+          //     return {
+          //       success: true,
+          //       updatedPrice: Number(positionPrice),
+          //       message: `Odds changed. Using price from position ${data.position}`,
+          //     };
+          //   }
 
-            const fallbackPrice = updatedOdd
-              ? Number(updatedOdd)
-              : Number(allPrices[0]);
+          //   const fallbackPrice = updatedOdd
+          //     ? Number(updatedOdd)
+          //     : Number(allPrices[0]);
 
-            return {
-              success: true,
-              updatedPrice: fallbackPrice,
-              message: `Odds changed. Price updated to ${fallbackPrice}`,
-            };
-          } else {
+          //   return {
+          //     success: true,
+          //     updatedPrice: fallbackPrice,
+          //     message: `Odds changed. Price updated to ${fallbackPrice}`,
+          //   };
+          // }
+          else {
             return {
               success: false,
               message: 'Oops! Bet not allowed due to market price change',
