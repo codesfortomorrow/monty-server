@@ -1555,7 +1555,7 @@ export class BonusProcessor
             },
           );
 
-          const updatedMainWallet = await this.walletService.addBalance(
+          await this.walletService.addBalance(
             bonusApplicant.userId,
             new Prisma.Decimal(bonusApplicant.awardedAmount),
             WalletType.Main,
@@ -1563,31 +1563,33 @@ export class BonusProcessor
             {
               tx,
               context: WalletTransactionContext.Bonus,
-              narration: 'Bonus credited to main wallet',
+              narration: `You received a ${bonus.category} bonus of ${bonusApplicant.awardedAmount}.`,
+              fromAccount: 'BONUS_WALLET',
+              toAccount: 'MAIN_WALLET',
             },
           );
 
-          console.log('line 1468 : ----------------');
-          await tx.walletTransactions.create({
-            data: {
-              walletId: updatedMainWallet.id, // MAIN wallet ID
-              amount: new Prisma.Decimal(bonusApplicant.awardedAmount),
-              availableBalance: updatedMainWallet.amount,
-              type: 'Credit',
-              entityId: bonusApplicant.id.toString(),
-              context: WalletTransactionContext.Bonus,
-              narration: `You received a ${bonus.category} bonus of ${bonusApplicant.awardedAmount}.`,
-              remark: `Bonus claimed`,
-              nonce: Date.now(), // must be unique per wallet
-              status: 'Confirmed',
-              timestamp: new Date(),
-              currencyId: updatedMainWallet.currencyId,
-              fromAccount: 'BONUS_WALLET',
-              toAccount: 'MAIN_WALLET',
-              isBonusProcessed: true,
-            },
-          });
-          console.log('line 1488 : ----------------');
+          // console.log('line 1468 : ----------------');
+          // await tx.walletTransactions.create({
+          //   data: {
+          //     walletId: updatedMainWallet.id, // MAIN wallet ID
+          //     amount: new Prisma.Decimal(bonusApplicant.awardedAmount),
+          //     availableBalance: updatedMainWallet.amount,
+          //     type: 'Credit',
+          //     entityId: bonusApplicant.id.toString(),
+          //     context: WalletTransactionContext.Bonus,
+          //     narration: `You received a ${bonus.category} bonus of ${bonusApplicant.awardedAmount}.`,
+          //     remark: `Bonus claimed`,
+          //     nonce: Date.now(), // must be unique per wallet
+          //     status: 'Confirmed',
+          //     timestamp: new Date(),
+          //     currencyId: updatedMainWallet.currencyId,
+          //     fromAccount: 'BONUS_WALLET',
+          //     toAccount: 'MAIN_WALLET',
+          //     isBonusProcessed: true,
+          //   },
+          // });
+          // console.log('line 1488 : ----------------');
 
           await tx.bonusAuditLog.create({
             data: {
