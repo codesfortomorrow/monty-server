@@ -74,7 +74,7 @@ export class TurnoverService
     try {
       this.logger.info('BonusProcessor cycle started');
       await this.turnoverResolver();
-      await this.processCasinoTransactionHisotry();
+      // await this.processCasinoTransactionHisotry();
       this.logger.info('BonusProcessor cycle finished');
     } catch (error) {
       Sentry.captureException(error);

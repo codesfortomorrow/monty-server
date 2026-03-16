@@ -1,4 +1,4 @@
-import { BaseProcessor, BaseService, UtilsService } from '@Common';
+import { BaseService, UtilsService } from '@Common';
 import {
   Injectable,
   OnApplicationBootstrap,
@@ -15,7 +15,6 @@ import {
   BonusCategory,
   BonusEligibleRole,
   BonusInstallment,
-  BonusStatus,
   CasinoRoundHistory,
   DepositWithdrawRequest,
   Frequency,
@@ -23,14 +22,12 @@ import {
   Referral,
   ReferralType,
   ReleaseType,
-  StatusType,
   TriggerEvent,
   TurnoverFormula,
   WalletTransactionContext,
   WalletType,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { Job } from 'bullmq';
 import { sportConfigFactory } from 'src/configs/sport.config';
 import { PrismaService } from 'src/prisma';
 import { getSportId } from 'src/utils/sports';
@@ -127,7 +124,7 @@ export class BonusProcessor
   public async emitDepositEvent(
     userId: number,
     depositAmount: Decimal,
-    depositId: number,
+    depositId: number | null,
     ftd = false,
   ) {
     if (!userId || isNaN(userId)) return;
@@ -136,25 +133,25 @@ export class BonusProcessor
     if (!isValidUser) return;
 
     // ✅ CRITICAL FIX: Validate that the deposit record exists
-    const deposit = await this.prisma.depositWithdrawRequest.findUnique({
-      where: { id: depositId },
-    });
+    // const deposit = await this.prisma.depositWithdrawRequest.findUnique({
+    //   where: { id: depositId },
+    // });
 
-    if (!deposit) {
-      console.error(`❌ Deposit record not found for depositId: ${depositId}`);
-      return;
-    }
+    // if (!deposit) {
+    //   console.error(`❌ Deposit record not found for depositId: ${depositId}`);
+    //   return;
+    // }
 
-    // ✅ CRITICAL FIX: Ensure userId matches the deposit record
-    if (Number(deposit.userId) !== userId) {
-      console.error(
-        `❌ User ID mismatch: expected ${userId}, got ${deposit.userId} for depositId: ${depositId}`,
-      );
-      return;
-    }
+    // // ✅ CRITICAL FIX: Ensure userId matches the deposit record
+    // if (Number(deposit.userId) !== userId) {
+    //   console.error(
+    //     `❌ User ID mismatch: expected ${userId}, got ${deposit.userId} for depositId: ${depositId}`,
+    //   );
+    //   return;
+    // }
 
     // ✅ Use the actual deposit amount from the database
-    const actualDepositAmount = deposit.amount.toNumber();
+    const actualDepositAmount = Number(depositAmount);
 
     console.log('✅ Listen deposit event', {
       userId,
@@ -760,24 +757,27 @@ export class BonusProcessor
     bonuses: Bonus[],
     userId: number,
     depositAmount: number,
-    depositId: number,
+    depositId: number | null,
   ) {
-    const deposit = await this.prisma.depositWithdrawRequest.findUnique({
-      where: {
-        id: depositId,
-      },
-    });
+    let deposit: DepositWithdrawRequest | null = null;
+    if (depositId) {
+      deposit = await this.prisma.depositWithdrawRequest.findUnique({
+        where: {
+          id: depositId,
+        },
+      });
 
-    console.log('Inside handler deposit', deposit);
-    if (!deposit) return;
+      console.log('Inside handler deposit', deposit);
+      if (!deposit) return;
 
-    // Ensure deposit amount is accurate
-    const depositAmountFromDb = Number(deposit.amount);
+      // Ensure deposit amount is accurate
+      const depositAmountFromDb = Number(deposit.amount);
 
-    if (depositAmount !== depositAmountFromDb) {
-      depositAmount = depositAmountFromDb;
+      if (depositAmount !== depositAmountFromDb) {
+        depositAmount = depositAmountFromDb;
+      }
+      console.log('deposit amount', depositAmount);
     }
-    console.log('deposit amount', depositAmount);
 
     for (const bonus of bonuses) {
       if (
@@ -798,22 +798,24 @@ export class BonusProcessor
     bonuses: Bonus[],
     userId: number,
     depositAmount: number,
-    depositId: number,
+    depositId: number | null,
   ) {
-    const deposit = await this.prisma.depositWithdrawRequest.findUnique({
-      where: { id: depositId },
-    });
+    let deposit: DepositWithdrawRequest | null = null;
+    if (depositId) {
+      deposit = await this.prisma.depositWithdrawRequest.findUnique({
+        where: { id: depositId },
+      });
 
-    if (!deposit) return;
+      if (!deposit) return;
 
-    // Convert Prisma Decimal → number
-    const dbAmount = Number(deposit.amount);
+      // Convert Prisma Decimal → number
+      const dbAmount = Number(deposit.amount);
 
-    // Ensure deposit amount is accurate
-    if (depositAmount !== dbAmount) {
-      depositAmount = dbAmount;
+      // Ensure deposit amount is accurate
+      if (depositAmount !== dbAmount) {
+        depositAmount = dbAmount;
+      }
     }
-
     for (const bonus of bonuses) {
       // Minimum deposit validation
       if (
@@ -932,7 +934,7 @@ export class BonusProcessor
     bonus: Bonus,
     userId: number,
     depositAmount: number,
-    deposit: DepositWithdrawRequest,
+    deposit: DepositWithdrawRequest | null,
   ) {
     try {
       console.log('line 776 : ');
@@ -961,7 +963,7 @@ export class BonusProcessor
             ),
             timesClaimed: 0,
             status: BonusApplicantStatus.PENDING,
-            depositId: deposit.id,
+            depositId: deposit ? deposit.id : null,
           },
         });
 
@@ -1017,7 +1019,7 @@ export class BonusProcessor
           {
             tx, // Prisma transaction client from $transaction
             context: WalletTransactionContext.JoiningBonus, // your custom context
-            entityId: deposit.id, // optional, reference deposit
+            entityId: deposit ? deposit.id : undefined, // optional, reference deposit
             narration: 'Joining Bonus credited', // optional narration
           },
         );
@@ -1040,7 +1042,7 @@ export class BonusProcessor
     bonus: Bonus,
     userId: number,
     depositAmount: number,
-    deposit: DepositWithdrawRequest,
+    deposit: DepositWithdrawRequest | null,
   ) {
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -1066,7 +1068,7 @@ export class BonusProcessor
             ),
             timesClaimed: 0,
             status: BonusApplicantStatus.PENDING,
-            depositId: deposit.id,
+            depositId: deposit ? deposit.id : null,
           },
         });
 
@@ -1115,7 +1117,7 @@ export class BonusProcessor
           {
             tx,
             context: WalletTransactionContext.Bonus,
-            entityId: deposit.id,
+            entityId: deposit ? deposit.id : undefined,
             narration: 'Deposit Bonus credited',
           },
         );
@@ -1453,7 +1455,7 @@ export class BonusProcessor
             });
 
             // Wallet operations
-            const updatedBonusWallet = await this.walletService.subtractBalance(
+            await this.walletService.subtractBalance(
               bonusApplicant.userId,
               new Prisma.Decimal(installment.amount),
               WalletType.Bonus, // use enum instead of string
@@ -1543,7 +1545,7 @@ export class BonusProcessor
             data: { status: BonusApplicantStatus.CLAIMED },
           });
 
-          const updatedBonusWallet = await this.walletService.subtractBalance(
+          await this.walletService.subtractBalance(
             bonusApplicant.userId,
             new Prisma.Decimal(bonusApplicant.awardedAmount),
             WalletType.Bonus,
@@ -1630,6 +1632,7 @@ export class BonusProcessor
                 {
                   tx,
                   context: WalletTransactionContext.Bonus,
+                  narration: 'Bonus installment Expired',
                 },
               );
 
@@ -1653,6 +1656,7 @@ export class BonusProcessor
             {
               tx,
               context: WalletTransactionContext.Bonus,
+              narration: 'Bonus Expired',
             },
           );
 
