@@ -155,6 +155,12 @@ export class OddsProcessor
     // 2️⃣ Map odds from Redis
     const enriched = await this.oddsService.mapEventsWithOdds(events);
 
+    // Reset all previously inplay events to false (optional)
+    await this.prisma.event.updateMany({
+      where: { inplay: true },
+      data: { inplay: false },
+    });
+
     // 3️⃣ Extract inplay event IDs (those having at least one market inplay)
     const inplayEventIds = enriched
       .filter((e) => {
@@ -165,12 +171,6 @@ export class OddsProcessor
     if (!inplayEventIds.length) {
       return { updated: 0, message: 'No inplay events found' };
     }
-
-    // Reset all previously inplay events to false (optional)
-    await this.prisma.event.updateMany({
-      where: { inplay: true },
-      data: { inplay: false },
-    });
 
     // 4️⃣ Update those events’ inplay flag in DB in parallel (batchable)
     const BATCH_SIZE = 10; // adjust for DB throughput
