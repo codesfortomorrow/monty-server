@@ -453,6 +453,7 @@ export class WalletTransactionsService {
             OR: [
               { context: WalletTransactionContext.SystemDeposit },
               { context: WalletTransactionContext.Deposit },
+              { context: WalletTransactionContext.CryptoDeposit },
             ],
           },
           {
