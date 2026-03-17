@@ -262,6 +262,17 @@ export class BonusService {
       throw new Error('Bonus not found');
     }
 
+    if (status === BonusStatus.Active) {
+      const alreadyActivated = await this.prisma.bonus.findFirst({
+        where: {
+          category: bonus.category,
+          status: BonusStatus.Active,
+        },
+      });
+      if (alreadyActivated)
+        throw new Error('Same category bonus already activated');
+    }
+
     return this.prisma.bonus.update({
       where: { id },
       data: { status },
