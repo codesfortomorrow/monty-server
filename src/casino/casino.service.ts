@@ -8,7 +8,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import {
   BetStatusType,
-  ExportFormat,
   ExportType,
   Prisma,
   ProviderType,
@@ -63,6 +62,7 @@ export class CasinoService extends BaseService {
     userId: string;
     roundId: string;
     amount: number;
+    exchangeRate: number;
     // currency: string;
     gameId: number;
     // created: string;
@@ -108,6 +108,7 @@ export class CasinoService extends BaseService {
             gameName: data.gameName,
             totalBets: 0,
             totalWins: 0,
+            exchangeRate: data.exchangeRate,
             completed: false,
             status: BetStatusType.Pending,
           },
@@ -117,11 +118,12 @@ export class CasinoService extends BaseService {
       // 🧾 Transaction logic (DEBIT / CREDIT / COMPLETE LOSS)
       if (data.txnType === 'DEBIT') {
         // 🧮 Update total bets
-        const result = await tx.casinoRoundHistory.update({
+        await tx.casinoRoundHistory.update({
           where: { roundId: data.roundId },
           data: {
             totalBets: { increment: Number(data.amount) },
             completed,
+            exchangeRate: data.exchangeRate,
             status: completed ? BetStatusType.Lost : BetStatusType.Pending,
           },
         });
@@ -138,6 +140,7 @@ export class CasinoService extends BaseService {
             totalWins: { increment: Number(data.amount) },
             status,
             completed,
+            exchangeRate: data.exchangeRate,
             isPlCalculated: false,
           },
         });
@@ -268,7 +271,7 @@ export class CasinoService extends BaseService {
             },
           });
           successCount++;
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Failed to sync game ${casinoGame.id}:`, error.message);
           skipCount++;
         }
@@ -281,7 +284,7 @@ export class CasinoService extends BaseService {
         filtered: allGames.length - games.length,
         message: `Casino games synced successfully. ${successCount} synced, ${skipCount} skipped, ${allGames.length - games.length} filtered out`,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.log('Error to sync casino games', error.message);
       return {
         success: false,
@@ -630,12 +633,7 @@ export class CasinoService extends BaseService {
       WalletType.Main,
     );
 
-    const bonusWallet = await this.walletService.getByUserId(
-      userId,
-      WalletType.Bonus,
-    );
-
-    if (!user || !wallet || !bonusWallet) {
+    if (!user || !wallet) {
       return {
         success: false,
         status: 'ACCOUNT_BLOCKED',
@@ -658,11 +656,13 @@ export class CasinoService extends BaseService {
     const exposureAmount = Number(wallet.exposureAmount); // if you have separate exposure model, fetch it here
 
     const updatedBalance = Math.round(
-      Number(wallet.amount) +
-        Number(bonusWallet.amount) -
+      Number(wallet.amount) -
         Math.abs(exposureAmount) -
         Math.abs(Number(wallet.lockedAmount)),
     );
+
+    const exchangeRate = this.casinoConfig.exchangeRate;
+    const palyableBalance = Number((updatedBalance / exchangeRate).toFixed(2));
 
     // Fetch casino game
     const casino = await this.prisma.casinoGame.findUnique({
@@ -686,7 +686,7 @@ export class CasinoService extends BaseService {
       platform,
       clientIp: ip,
       currency: this.currencyConfig.currencyCode ?? 'BDT',
-      balance: updatedBalance,
+      balance: palyableBalance,
       redirectUrl: this.casinoConfig.redirectUrl,
     };
 
@@ -721,7 +721,7 @@ export class CasinoService extends BaseService {
         message: 'ok',
         url: response.data.url,
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error to create casino session: ${error.message}`);
       return {
         success: false,
@@ -754,14 +754,20 @@ export class CasinoService extends BaseService {
       };
     }
 
-    let updatedBalance = 0;
-    updatedBalance = Math.round(
+    const updatedBalance = Math.round(
       Number(userWallet.amount) -
         Math.abs(Number(userWallet.exposureAmount)) -
         Math.abs(Number(userWallet.lockedAmount)),
     );
 
-    return { success: true, updatedBalance, status: 'OP_SUCCESS' };
+    const exchangeRate = this.casinoConfig.exchangeRate;
+    const palyableBalance = Number((updatedBalance / exchangeRate).toFixed(2));
+
+    return {
+      success: true,
+      updatedBalance: palyableBalance,
+      status: 'OP_SUCCESS',
+    };
   }
 
   async handleDebitCallback(
@@ -827,12 +833,16 @@ export class CasinoService extends BaseService {
           Math.abs(Number(userWallet.exposureAmount)) -
           Number(Number(userWallet.lockedAmount));
 
-        if (userBalance < debitAmount) throw new Error('OP_INSUFFICIENT_FUNDS');
+        const exchangeRate = this.casinoConfig.exchangeRate;
+        const deductAmount = Number((debitAmount * exchangeRate).toFixed(2));
+
+        if (userBalance < deductAmount)
+          throw new Error('OP_INSUFFICIENT_FUNDS');
 
         // 5️⃣ Subtract from wallet
         const updatedWallet = await this.walletService.subtractBalance(
           userId,
-          new Decimal(debitAmount),
+          new Decimal(deductAmount),
           WalletType.Main,
           true,
           {
@@ -850,13 +860,18 @@ export class CasinoService extends BaseService {
           Math.abs(Number(updatedWallet.exposureAmount)) -
           Number(updatedWallet.lockedAmount);
 
+        const palyableBalance = Number(
+          (updatedUserBalance / exchangeRate).toFixed(2),
+        );
+
         // // 7️⃣ Record transaction history
         await this.transaction({
           txnType: 'DEBIT',
           txnId: transactionId,
           userId: String(userId),
           roundId,
-          amount: debitAmount,
+          amount: deductAmount,
+          exchangeRate,
           gameId: casinoGame.id,
           completed: false,
           gameName: casinoGame.name,
@@ -871,7 +886,8 @@ export class CasinoService extends BaseService {
             userId: userId,
             providerTransactionId: transactionId,
             providerRoundId: roundId,
-            amount: debitAmount,
+            amount: deductAmount,
+            exchangeRate,
             debitTxnId: reqId,
             type: WalletTransactionType.Debit,
             gameCode: casinoGame.code,
@@ -883,7 +899,7 @@ export class CasinoService extends BaseService {
 
         return {
           success: true,
-          balance: updatedUserBalance,
+          balance: palyableBalance,
           status: 'OP_SUCCESS',
         };
       });
@@ -993,10 +1009,12 @@ export class CasinoService extends BaseService {
         // 3️⃣ Add balance
         this.logger.debug(`➕ Adding balance: ${creditAmount}`);
         let updatedWallet;
-        if (creditAmount > 0) {
+        const exchangeRate = this.casinoConfig.exchangeRate;
+        const addAmount = Number((creditAmount * exchangeRate).toFixed(2));
+        if (addAmount > 0) {
           updatedWallet = await this.walletService.addBalance(
             userId,
-            new Decimal(creditAmount),
+            new Decimal(addAmount),
             WalletType.Main,
             true,
             {
@@ -1022,6 +1040,10 @@ export class CasinoService extends BaseService {
           Math.abs(Number(updatedWallet.exposureAmount)) -
           Number(updatedWallet.lockedAmount);
 
+        const palyableBalance = Number(
+          (updatedUserBalance / exchangeRate).toFixed(2),
+        );
+
         this.logger.debug(
           `💳 Updated user balance calculated: ${updatedUserBalance}`,
         );
@@ -1032,7 +1054,8 @@ export class CasinoService extends BaseService {
           txnId: transactionId,
           userId: String(userId),
           roundId,
-          amount: creditAmount,
+          amount: addAmount,
+          exchangeRate,
           gameId: casinoGame.id,
           completed: false,
           gameName: casinoGame.name,
@@ -1048,7 +1071,8 @@ export class CasinoService extends BaseService {
             providerTransactionId: transactionId,
             providerRoundId: roundId,
             amount: existingTxn.amount,
-            payout: creditAmount,
+            payout: addAmount,
+            exchangeRate,
             creditTxnId: reqId,
             type: WalletTransactionType.Credit,
             gameCode: casinoGame.code,
@@ -1059,7 +1083,7 @@ export class CasinoService extends BaseService {
         });
 
         this.logger.info('✅ Credit transaction committed successfully');
-        return { success: true, updatedUserBalance };
+        return { success: true, updatedUserBalance: palyableBalance };
       });
     } catch (error: any) {
       this.logger.error('❌ Error in handleCreditCallback:', error);
@@ -1145,11 +1169,14 @@ export class CasinoService extends BaseService {
         return { success: false, status: 'OP_DUPLICATE_TRANSACTION' };
       }
 
+      const exchangeRate = this.casinoConfig.exchangeRate;
+      const amount = Number((rollbackAmount * exchangeRate).toFixed(2));
+
       return await this.prisma.$transaction(async (tx) => {
         // 5️⃣ Add refund amount back to balance
         const updatedWallet = await this.walletService.addBalance(
           BigInt(userId),
-          new Decimal(rollbackAmount),
+          new Decimal(amount),
           WalletType.Main,
           true,
           {
@@ -1172,6 +1199,10 @@ export class CasinoService extends BaseService {
           Math.abs(Number(updatedWallet.exposureAmount)) -
           Number(updatedWallet.lockedAmount);
 
+        const palyableBalance = Number(
+          (updatedUserBalance / exchangeRate).toFixed(2),
+        );
+
         // 7️⃣ Record rollback transaction
         await tx.casinoTransaction.create({
           data: {
@@ -1179,7 +1210,8 @@ export class CasinoService extends BaseService {
             userId: userId,
             providerTransactionId: transactionId,
             providerRoundId: roundId,
-            amount: rollbackAmount,
+            amount: amount,
+            exchangeRate,
             rollbackTxnId: reqId,
             type: WalletTransactionType.Credit,
             remark: rollbackReason,
@@ -1194,7 +1226,7 @@ export class CasinoService extends BaseService {
         this.logger.info(
           `✅ Rollback processed successfully for: ${transactionId}`,
         );
-        return { success: true, updatedUserBalance };
+        return { success: true, updatedUserBalance: palyableBalance };
       });
     } catch (error: any) {
       this.logger.error('❌ Error in casinoRollbackRequest:', error);

@@ -106,7 +106,7 @@ export class UsersService {
     return (
       (await this.prisma.user.count({
         where: {
-          username,
+          username: username.toLowerCase(),
           NOT: {
             id: excludeUserId,
           },
@@ -161,7 +161,7 @@ export class UsersService {
   async getByUsername(username: string): Promise<User | null> {
     return await this.prisma.user.findUnique({
       where: {
-        username: username,
+        username: username.toLowerCase(),
       },
     });
   }
@@ -331,7 +331,7 @@ export class UsersService {
           firstname: data.firstname,
           lastname: data.lastname,
           ...(data.email && { email: data.email.toLowerCase() }),
-          ...(data.username && { username: data.username }),
+          ...(data.username && { username: data.username.toLowerCase() }),
           dialCode: data.dialCode,
           mobile: data.mobile,
           profileImage: data.profileImage,
@@ -882,7 +882,7 @@ export class UsersService {
     );
     if (dto.username) {
       const exists = await this.prisma.user.findFirst({
-        where: { username: dto.username },
+        where: { username: dto.username.toLowerCase() },
       });
       if (exists) throw new Error('Username already exist');
     }
@@ -907,7 +907,7 @@ export class UsersService {
           firstname: dto.firstname,
           lastname: dto.lastname,
           // email: dto.email,
-          username: dto.username,
+          username: dto.username?.toLowerCase(),
           mobile: dto.mobile,
           roleId: dto.roleId,
           status: creatorStatus ?? UserStatus.Active,

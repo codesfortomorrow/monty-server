@@ -1102,6 +1102,7 @@ model CasinoTransaction {
   amount                Decimal                @default(0) @map("amount") @db.Decimal(15, 2)
   payout                Decimal                @default(0) @map("payout") @db.Decimal(15, 2)
   status                BetStatusType          @map("status")
+  exchangeRate          Decimal                @default(1.00) @map("exchange_rate") @db.Decimal(15, 2)
   debitTxnId            String?                @map("debit_txn_id")
   creditTxnId           String?                @map("credit_txn_id")
   rollbackTxnId         String?                @map("rollback_txn_id")
@@ -1119,19 +1120,20 @@ model CasinoTransaction {
 }
 
 model CasinoRoundHistory {
-  id          Int           @id @default(autoincrement())
-  gameId      Int           @map("game_id")
-  gameName    String?       @map("game_name")
-  roundId     String        @unique @map("round_id")
-  txnId       String        @unique @map("txn_id")
-  userId      BigInt        @map("user_id")
-  status      BetStatusType @default(Pending) @map("status")
-  totalBets   Decimal       @default(0.00) @map("total_bets") @db.Decimal(15, 2)
-  totalWins   Decimal       @default(0.00) @map("total_wins") @db.Decimal(15, 2)
-  totalLosses Decimal       @default(0.00) @map("total_losses") @db.Decimal(15, 2)
-  completed   Boolean       @default(false)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id           Int           @id @default(autoincrement())
+  gameId       Int           @map("game_id")
+  gameName     String?       @map("game_name")
+  roundId      String        @unique @map("round_id")
+  txnId        String        @unique @map("txn_id")
+  userId       BigInt        @map("user_id")
+  status       BetStatusType @default(Pending) @map("status")
+  exchangeRate Decimal       @default(1.00) @map("exchange_rate") @db.Decimal(15, 2)
+  totalBets    Decimal       @default(0.00) @map("total_bets") @db.Decimal(15, 2)
+  totalWins    Decimal       @default(0.00) @map("total_wins") @db.Decimal(15, 2)
+  totalLosses  Decimal       @default(0.00) @map("total_losses") @db.Decimal(15, 2)
+  completed    Boolean       @default(false)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   isTurnOverCalculated Boolean @default(false) @map("is_turnover_calculated")
   isPlCalculated       Boolean @default(false) @map("is_pl_calculated")

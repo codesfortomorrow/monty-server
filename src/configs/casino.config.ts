@@ -6,4 +6,5 @@ export const casinoConfigFactory = registerAs('casino', () => ({
   gapSignature: process.env.GAP_SIGNATURE,
   operatorId: process.env.GAP_OPERATOR_ID,
   redirectUrl: process.env.USER_WEB_URL,
+  exchangeRate: Number(process.env.EXCHANGE_RATE || 1),
 }));
