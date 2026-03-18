@@ -15,7 +15,12 @@ import { PrismaService } from 'src/prisma';
 import { RedisService } from 'src/redis';
 import { UsersService } from 'src/users';
 import { CasinoBetReportsRequest } from './dto/casino-bet-reports.request';
-import { ExportFormat, ExportStatus, ExportType } from '@prisma/client';
+import {
+  ExportFormat,
+  ExportStatus,
+  ExportType,
+  SportType,
+} from '@prisma/client';
 
 @Injectable()
 export class ReportsService extends BaseService {
@@ -134,6 +139,10 @@ export class ReportsService extends BaseService {
           ORDER BY b.placed_at DESC
           ${reportLimit};
       `;
+
+      let sport = null;
+      if (query.sport) sport = query.sport?.toLowerCase();
+      if (query.sport === SportType.HorseRacing) sport = 'horse_racing';
       const params = [
         query.search || null,
         query.searchByUserName || null,
@@ -146,7 +155,7 @@ export class ReportsService extends BaseService {
         query.marketId || null,
         query.market || null,
         query.status?.toLowerCase() || null,
-        query.sport?.toLowerCase() || null,
+        sport,
         query.searchByUserId || null,
         skip,
         limit,
@@ -229,7 +238,7 @@ export class ReportsService extends BaseService {
         query.marketId || null,
         query.market || null,
         query.status?.toLowerCase() || null,
-        query.sport?.toLowerCase() || null,
+        sport,
         query.searchByUserId || null,
       ];
 
@@ -432,6 +441,10 @@ export class ReportsService extends BaseService {
       )`;
     }
 
+    let sportFilter = null;
+    if (sport) sportFilter = sport?.toLowerCase();
+    if (sport === SportType.HorseRacing) sportFilter = 'horse_racing';
+
     const sql = `
         WITH base_bets AS (
           SELECT 
@@ -489,7 +502,7 @@ export class ReportsService extends BaseService {
       fromDate || null, // $3: startDate
       toDate || null, // $4: endDate
       searchByUsername || null, // $5: search by username
-      sport?.toLowerCase() || null, // $6: sport filter
+      sportFilter, // $6: sport filter
       searchByUserId || null, // $7: search by user id
       transactionLimit || null, // $8: transaction limit per user
       limit, // $9: pagination limit
@@ -532,7 +545,7 @@ export class ReportsService extends BaseService {
       uplinePath,
       fromDate || null,
       toDate || null,
-      sport?.toLowerCase() || null,
+      sportFilter,
       userId,
       searchByUsername || null,
       searchByUserId || null,
@@ -1370,7 +1383,9 @@ export class ReportsService extends BaseService {
       const skip = (page - 1) * limit;
 
       const paginationSql = isExport ? `` : `OFFSET ${skip} LIMIT ${limit}`;
-
+      let sport = null;
+      if (query.sport) sport = query.sport?.toLowerCase();
+      if (query.sport === SportType.HorseRacing) sport = 'horse_racing';
       /* ============================================================
        🟢 SPORTS
     ============================================================ */
@@ -1431,7 +1446,7 @@ export class ReportsService extends BaseService {
           query.searchByEvent || null,
           query.fromDate || null,
           query.toDate || null,
-          query.sport?.toLowerCase() || null,
+          sport,
         );
 
         /* ---------- COUNT ---------- */
@@ -1454,7 +1469,7 @@ export class ReportsService extends BaseService {
           query.searchByEvent || null,
           query.fromDate || null,
           query.toDate || null,
-          query.sport?.toLowerCase() || null,
+          sport,
         );
 
         const totalItems = Number(countRes?.[0]?.total ?? 0);
@@ -1725,6 +1740,9 @@ export class ReportsService extends BaseService {
 
     const fromDateSafe = normalizeDate(query?.fromDate);
     const toDateSafe = normalizeDate(query?.toDate);
+    let sportFilter = null;
+    if (sport) sportFilter = sport?.toLowerCase();
+    if (sport === SportType.HorseRacing) sportFilter = 'horse_racing';
 
     // -----------------------------
     // 4️⃣ Market-wise PL SQL
@@ -1795,7 +1813,7 @@ bpl.upline_pl,
       searchByMarket, // $2
       fromDateSafe, // $3 ✅ Date | null
       toDateSafe, // $4 ✅ Date | null
-      sport?.toLowerCase(), // $5
+      sportFilter, // $5
       transactionLimit, // $6
       skip, // $7
       limit, // $8
@@ -1836,7 +1854,7 @@ bpl.upline_pl,
       searchByMarket,
       fromDateSafe,
       toDateSafe,
-      sport?.toLowerCase(),
+      sportFilter,
     ];
 
     const countRes = await this.prisma.$queryRawUnsafe<{ total: number }[]>(
