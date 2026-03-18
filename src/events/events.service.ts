@@ -1,19 +1,29 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma';
 import { RedisService } from 'src/redis';
-import { Event, Prisma, StatusType } from '@prisma/client';
+import {
+  Event,
+  GliveEvent,
+  Prisma,
+  SportType,
+  StatusType,
+} from '@prisma/client';
 import { EventRequest, EventStatusChangeRequest } from './dto';
 import { ConfigType } from '@nestjs/config';
 import { scorecardConfigFactory, sportConfigFactory } from '@Config';
 import { BaseService, Pagination, UtilsService } from '@Common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom, timeout } from 'rxjs';
-import { getSportEnum, getSportId } from 'src/utils/sports';
+import { getSportEnum } from 'src/utils/sports';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import stringSimilarity from 'string-similarity';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ScorecardFn, ScorecardResponse, TvFn } from './events.type';
 import { SportsProviderService } from 'src/sports-provider/sports-provider.service';
+
+dayjs.extend(utc);
 
 @Injectable()
 export class EventsService extends BaseService {
@@ -285,7 +295,7 @@ export class EventsService extends BaseService {
   //   }
   // }
 
-  async getScorecard(eventId: number) {
+  async getScorecard(eventId: number, user: { id: bigint; ip?: string }) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
@@ -293,13 +303,19 @@ export class EventsService extends BaseService {
 
     const scorecardProvider = this.scorecardConfig.activeScorecardProvider;
     const tvProvider = this.scorecardConfig.activeTvProvider;
+    const raceTvProvider = this.scorecardConfig.activeRaceTvProvider;
 
     const getScorecard = this.getScorecardStrategy(scorecardProvider);
-    const getTv = this.getTvStrategy(tvProvider);
+    const getTv = this.getTvStrategy(
+      this.isRaceEvent(event.sport) ? raceTvProvider : tvProvider,
+    );
 
     const scorecardUrl = await getScorecard(event);
 
-    const liveTvUrl = await getTv(event);
+    const liveTvUrl = await getTv(event, {
+      id: Number(user.id),
+      ip: user.ip ?? '',
+    });
 
     return {
       scorecardUrl,
@@ -383,7 +399,7 @@ export class EventsService extends BaseService {
       );
 
       return response?._eventInfo?.liveStreamUrl ?? null;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to get Live data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
       );
@@ -443,8 +459,86 @@ export class EventsService extends BaseService {
   };
 
   raviTv: TvFn = async (event) => {
+    if (this.isRaceEvent(event.sport)) {
+      const raviRaceTvBaseUrl = this.scorecardConfig.raviTvUrlForRace;
+      let sport = '';
+      if (event.sport === SportType.Greyhound) sport = 'dog';
+      if (event.sport === SportType.HorseRacing) sport = 'horse';
+      return `${raviRaceTvBaseUrl}?eventid=${event.externalId}&sport=${sport}`;
+    }
     const raviTvBaseUrl = this.scorecardConfig.raviTvUrl;
     return `${raviTvBaseUrl}?eventid=${event.externalId}`;
+  };
+
+  gliveTv: TvFn = async (event, user?: { id: number; ip: string }) => {
+    if (!user) {
+      this.logger.warn(`User details not found`);
+      return null;
+    }
+
+    let gliveEvent: {
+      matchId: string;
+      channel: string;
+      name: string;
+      similarity: number;
+    } | null = null;
+
+    const redisKey = `gliveevent:${event.id}`;
+    const data = await this.redis.client.get(redisKey);
+    if (data) {
+      try {
+        gliveEvent = JSON.parse(data);
+      } catch (error: any) {
+        this.logger.warn(
+          `Error to parse glive event from redis, Error= ${error.message}`,
+        );
+      }
+    }
+
+    if (!gliveEvent) {
+      const todayGliveEvents = await this.prisma.gliveEvent.findMany({
+        where: {
+          startTime: {
+            gte: dayjs().subtract(1, 'day').toDate(),
+            lte: dayjs().endOf('day').toDate(),
+          },
+          isLive: '1',
+        },
+      });
+
+      gliveEvent = this.findGliveMatch(event.name, todayGliveEvents);
+
+      if (gliveEvent)
+        await this.redis.client.setex(
+          redisKey,
+          5 * 60,
+          JSON.stringify(gliveEvent),
+        );
+    }
+
+    if (!gliveEvent) return null;
+
+    const baseUrl = this.scorecardConfig.gliveTvUrl;
+    const apiUserId = this.scorecardConfig.gliveUserId;
+    const apiKey = this.scorecardConfig.gliveApiKey;
+    const brand = this.scorecardConfig.brand;
+
+    if (!baseUrl || !apiUserId || !apiKey || !brand)
+      throw new Error('Glive base url is not configured');
+
+    const url = `${baseUrl}/api.php?action=geth5link&apiuser=${apiUserId}&key=${apiKey}&ip=${user.ip}&uid=${user.id}&matchid=${gliveEvent.matchId}&brand=${brand}`;
+
+    try {
+      const res = await firstValueFrom(
+        this.http
+          .get<{ Status: string; H5LINKROW: string }>(url)
+          .pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+      );
+      return res.data.H5LINKROW;
+    } catch (error: any) {
+      this.logger.error(`Error to get glive tv url, Error = ${error.message}`);
+      return null;
+    }
   };
 
   scorecardStrategies: Record<string, ScorecardFn> = {
@@ -455,6 +549,7 @@ export class EventsService extends BaseService {
   tvStrategies: Record<string, TvFn> = {
     SAT: this.satLiveTv,
     RAVI: this.raviTv,
+    GLIVE: this.gliveTv,
   };
 
   getScorecardStrategy = (provider: string): ScorecardFn =>
@@ -462,6 +557,52 @@ export class EventsService extends BaseService {
 
   getTvStrategy = (provider: string): TvFn =>
     this.tvStrategies[provider] ?? (async () => null);
+
+  isRaceEvent = (sport: SportType): boolean => {
+    return sport === SportType.HorseRacing || sport === SportType.Greyhound;
+  };
+
+  normalize(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/vs|v/gi, '-')
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  findGliveMatch(providerEvent: string, gliveEvents: GliveEvent[]) {
+    const normalizedProvider = this.normalize(providerEvent);
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const event of gliveEvents) {
+      const normalizedGlive = this.normalize(event.eventName);
+
+      const score = stringSimilarity.compareTwoStrings(
+        normalizedProvider,
+        normalizedGlive,
+      );
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = event;
+      }
+    }
+
+    if (bestScore >= 0.7 && bestMatch) {
+      // Match 70%
+      return {
+        matchId: bestMatch.matchId,
+        channel: bestMatch.channel,
+        name: bestMatch.eventName,
+        similarity: bestScore,
+      };
+    }
+
+    return null;
+  }
 
   async closedEvent(eventExternalId: string, sport: string) {
     try {
@@ -480,7 +621,7 @@ export class EventsService extends BaseService {
           status: StatusType.Closed,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Error to closed event by mqtt updates: ${error.message}`,
       );
@@ -500,7 +641,7 @@ export class EventsService extends BaseService {
       try {
         const events = JSON.parse(data) as Event[] | null;
         return events ? events?.[0] : null;
-      } catch (error) {
+      } catch (error: any) {
         this.logger.warn(
           `Error to parse event (${externalId}), error: ${error.message}`,
         );
@@ -520,7 +661,7 @@ export class EventsService extends BaseService {
       try {
         const events = JSON.parse(data) as Event[] | null;
         return events;
-      } catch (error) {
+      } catch (error: any) {
         this.logger.warn(
           `Error to parse event (${externalId}), error: ${error.message}`,
         );
