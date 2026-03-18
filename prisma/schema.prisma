@@ -1976,3 +1976,22 @@ model UplineExposure {
   @@index([updatedAt])
   @@map("upline_exposure")
 }
+
+model GliveEvent {
+  id        BigInt   @id @default(autoincrement())
+  eventName String   @map("event_name")
+  startTime DateTime @map("start_time") @db.Timestamptz
+  matchId   String   @map("match_id")
+  channel   String
+  home      String
+  away      String
+  sport     String
+  league    String
+  isLive    String   @map("is_live")
+  state     String
+
+  @@unique([matchId])
+  @@index([eventName])
+  @@index([startTime, isLive])
+  @@map("glive_events")
+}

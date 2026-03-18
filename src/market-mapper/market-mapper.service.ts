@@ -91,7 +91,6 @@ export class MarketMapperService {
 
     const markets = Array.isArray(data) ? data : [data];
     const market = markets[0];
-    if (marketName === 'BOOKMAKER') console.log('Inside mapper', data);
 
     return {
       eventID: String(eventID),

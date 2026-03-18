@@ -7,11 +7,13 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { EventsProcessor } from './events.processor';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   EventBetSuspendedStatusChangeRequest,
   EventInplayStatusChangeRequest,
@@ -19,17 +21,24 @@ import {
   EventStatusChangeRequest,
   MultipleEventStatusChangeRequest,
 } from './dto';
-import { SentryExceptionFilter } from '@Common';
+import {
+  AuthenticatedRequest,
+  BaseController,
+  JwtAuthGuard,
+  SentryExceptionFilter,
+} from '@Common';
 import { CacheTTL } from '@nestjs/cache-manager';
 
 @ApiTags('Events')
 @UseFilters(SentryExceptionFilter)
 @Controller('events')
-export class EventsController {
+export class EventsController extends BaseController {
   constructor(
     private readonly eventsService: EventsService,
     private readonly eventsProcessor: EventsProcessor,
-  ) {}
+  ) {
+    super({ loggerDefaultMeta: { controller: EventsController.name } });
+  }
 
   @ApiOperation({ summary: 'Only For Manual Fetch' })
   @Post('/insert/manually')
@@ -58,11 +67,21 @@ export class EventsController {
     };
   }
 
+  @ApiBearerAuth()
   @Get('/scorecard/:eventId')
   @CacheTTL(2 * 60 * 1000) // 2 min
-  async getScorecard(@Param('eventId', ParseIntPipe) eventId: number) {
-    const { scorecardUrl, liveTvUrl } =
-      await this.eventsService.getScorecard(eventId);
+  @UseGuards(JwtAuthGuard)
+  async getScorecard(
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const ctx = this.getContext(req);
+    const ip = this.getIp(req);
+
+    const { scorecardUrl, liveTvUrl } = await this.eventsService.getScorecard(
+      eventId,
+      { id: ctx.user.id, ip },
+    );
     return {
       success: true,
       message: 'Scorecard fetched successfully',

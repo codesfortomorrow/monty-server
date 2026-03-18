@@ -109,3 +109,17 @@ export const getBetTypeEnum = (name: string): BetType => {
 
   return matched ? matched[1] : BetType.Back;
 };
+
+const gliveSports = {
+  Cricket: 'CRICKET',
+  Soccer: 'FOOTBALL',
+  Tennis: 'TENNIS',
+};
+
+export const getGliveSportName = (sport: string) => {
+  const normalized = sport.trim().toLowerCase();
+  const matched = Object.entries(gliveSports).find(
+    ([key]) => key.toLowerCase() === normalized,
+  );
+  return matched ? matched[1] : null;
+};
