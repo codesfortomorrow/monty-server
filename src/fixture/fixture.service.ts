@@ -185,7 +185,11 @@ export class FixtureService extends BaseService {
       console.log('⏱ Odds mapping:', Date.now() - oddsStart, 'ms');
 
       console.log('🚀 TOTAL API TIME:', Date.now() - apiStart, 'ms');
-      return enriched;
+      let final = enriched;
+      if (inplay === 'true') {
+        final = enriched.filter((e) => e.inplay === true);
+      }
+      return final;
     } catch (error) {
       console.error('❌ getFixtureDetails error:', error);
       throw error;
