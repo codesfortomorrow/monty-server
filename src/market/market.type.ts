@@ -17,3 +17,9 @@ export interface MarketDto {
 export interface MarketApiResponse {
   sports: MarketDto[];
 }
+
+export interface SubscribeApiResponse {
+  success: boolean;
+  message: string;
+  error?: string;
+}

@@ -7,7 +7,7 @@ import { PrismaService } from 'src/prisma';
 import { BaseService, UtilsService } from '@Common';
 import { sportConfigFactory } from '@Config';
 import { ConfigType } from '@nestjs/config';
-import { MarketApiResponse } from './market.type';
+import { MarketApiResponse, SubscribeApiResponse } from './market.type';
 import { RedisService } from 'src/redis';
 import { EventsService } from 'src/events/events.service';
 // import { Cron, CronExpression } from '@nestjs/schedule';
@@ -15,6 +15,8 @@ import { Sentry } from 'src/configs/sentry.config';
 
 import { AlertService } from 'src/alert/alert.service';
 import { getSportId } from 'src/utils/sports';
+import { OnEvent } from '@nestjs/event-emitter';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class MarketProcessor
@@ -22,6 +24,7 @@ export class MarketProcessor
   implements OnApplicationBootstrap
 {
   private readonly REQUEST_TIMEOUT_MS = 5000; // 5 seconds
+  private readonly SUBSCRIBE_REDIS_KEY = 'subscribe:market';
   private readonly CACHE_TTL = 60 * 60 * 24 * 1; // 1 days
   constructor(
     private readonly prisma: PrismaService,
@@ -146,7 +149,7 @@ export class MarketProcessor
           );
           return res.data;
         }, 3);
-      } catch (error) {
+      } catch (error: any) {
         // Call Alert Service
         this.alertService.notifyApiFailure({
           url,
@@ -230,7 +233,7 @@ export class MarketProcessor
 
       const redisKey = `market:exists:${externalEventId}:${market.marketId}`;
       await this.redis.client.setex(redisKey, this.CACHE_TTL, '1');
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error to upsert market. error: ${error.message}`);
     }
   }
@@ -405,6 +408,136 @@ export class MarketProcessor
       } finally {
         await this.redis.client.del(lockKey);
       }
+    }
+  }
+
+  // Set/Unset markets
+  async subscribMarkets(eventIds: string[]) {
+    try {
+      const baseUrl = this.sportConfig.sportBaseUrl;
+
+      if (!baseUrl) throw new Error('Base Url is not configured');
+      const url = `${baseUrl}/markets/subscribe-market`;
+      console.log('Subscribing markets, url', url, 'EventIds', eventIds);
+
+      const response = await firstValueFrom(
+        this.httpService
+          .post<SubscribeApiResponse>(url, { eventIds: eventIds })
+          .pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+      );
+      const res = response.data;
+      if (!res.success) {
+        this.logger.warn(
+          `Subscribe webhook failure, Error = ${res.error ?? res.message}`,
+        );
+        return false;
+      }
+      return true;
+    } catch (error: any) {
+      console.log(error);
+      this.logger.error(`Error to subscribe markets ${error.message}`);
+      return false;
+    }
+  }
+
+  async unSubscribMarkets(marketIds: string[]) {
+    try {
+      const baseUrl = this.sportConfig.sportBaseUrl;
+
+      if (!baseUrl) throw new Error('Base Url is not configured');
+      const url = `${baseUrl}/markets/unsubscribe-market`;
+      const response = await firstValueFrom(
+        this.httpService
+          .post<SubscribeApiResponse>(url, { eventIds: marketIds })
+          .pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+      );
+      const res = response.data;
+      if (!res.success) {
+        this.logger.warn(
+          `UnSubscribe webhook failure, Error = ${res.error ?? res.message}`,
+        );
+        return false;
+      }
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Error to unSubscribe markets ${error.message}`);
+      return false;
+    }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async unsubscribeProcessor() {
+    if (!this.utils.isMaster()) return;
+    try {
+      this.logger.info(`Started unsubscribe market processor`);
+      const unsubscribe = await this.getExpiredMarkets(2 * 60 * 1000); // 2 min
+      if (unsubscribe.length > 0) {
+        const success = await this.unSubscribMarkets(unsubscribe);
+        if (success) {
+          await this.removeMarkets(unsubscribe);
+          this.logger.info(`Unsubscribed markets: ${unsubscribe}`);
+        }
+      }
+    } catch (error: any) {
+      this.logger.error(
+        `Error at unsubscribe proccessor, Error = ${error.message}`,
+      );
+    }
+  }
+
+  async touchMarket(marketIds: string[]) {
+    const now = Date.now();
+    return this.redis.client.zadd(
+      this.SUBSCRIBE_REDIS_KEY,
+      ...marketIds.flatMap((id) => [now, id]),
+    );
+  }
+
+  async isSubscribed(marketId: string): Promise<boolean> {
+    const score = await this.redis.client.zscore(
+      this.SUBSCRIBE_REDIS_KEY,
+      marketId,
+    );
+    return score !== null;
+  }
+
+  async getExpiredMarkets(expiryMs: number): Promise<string[]> {
+    const threshold = Date.now() - expiryMs;
+    return this.redis.client.zrangebyscore(
+      this.SUBSCRIBE_REDIS_KEY,
+      0,
+      threshold,
+    );
+  }
+
+  async removeMarkets(marketIds: string[]) {
+    if (!marketIds.length) return;
+    return this.redis.client.zrem(this.SUBSCRIBE_REDIS_KEY, ...marketIds);
+  }
+
+  @OnEvent('event.subscribe')
+  async handleSubscribeEvent(eventId: string) {
+    try {
+      const subscribe = [];
+      const alreadySubscribedMatches = [];
+      const alreadySubscribed = await this.isSubscribed(eventId);
+      if (!alreadySubscribed) {
+        subscribe.push(eventId);
+      } else {
+        alreadySubscribedMatches.push(eventId);
+      }
+
+      if (subscribe.length > 0) {
+        const success = await this.subscribMarkets(subscribe);
+        if (success) {
+          await this.touchMarket(subscribe);
+          this.logger.info(`Subscribed markets: ${subscribe}`);
+        }
+      }
+      if (alreadySubscribedMatches.length > 0)
+        await this.touchMarket(alreadySubscribedMatches);
+    } catch (error: any) {
+      this.logger.error(`Error to subscribe markets: ${error.message}`);
     }
   }
 }

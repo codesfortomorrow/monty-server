@@ -5,6 +5,7 @@ import { MarketRequest, UpdateMarketBetSetting } from './dto';
 import { Prisma, StatusType } from '@prisma/client';
 import { BaseService } from '@Common';
 import { FancyMarketPayload } from 'src/market-mapper/market.type';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class MarketService extends BaseService {
@@ -12,6 +13,7 @@ export class MarketService extends BaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     super({ loggerDefaultMeta: { service: MarketService.name } });
   }
@@ -165,8 +167,18 @@ export class MarketService extends BaseService {
         4 * 60 * 60, // 4h
         JSON.stringify(fancyMarkets),
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`Error to remove fancy market: ${error.message}`);
+    }
+  }
+
+  async checkAndSubscribeMarket(eventId: string) {
+    try {
+      this.eventEmitter.emit('event.subscribe', eventId);
+    } catch (error: any) {
+      this.logger.error(
+        `Error to initialize subscribe market job, ${error.message}`,
+      );
     }
   }
 }
