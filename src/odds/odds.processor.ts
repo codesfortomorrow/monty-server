@@ -132,7 +132,7 @@ export class OddsProcessor
       where: {
         startTime: {
           gte: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // past 1 days
-          lte: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // next 2 days
+          lte: new Date(Date.now() + 60 * 1000), // next 2 days
         },
         status: {
           in: [
