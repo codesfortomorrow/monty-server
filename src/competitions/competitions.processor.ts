@@ -8,7 +8,7 @@ import { ConfigType } from '@nestjs/config';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PrismaService } from 'src/prisma';
 import { RemoteResponse, RemoteSeries } from './competitions.type';
-import { SportType, StatusType } from '@prisma/client';
+import { ResultProvider, SportType, StatusType } from '@prisma/client';
 import { getSportEnum } from 'src/utils/sports';
 import { AlertService } from 'src/alert/alert.service';
 
@@ -214,41 +214,132 @@ export class CompetitionsProcessor extends BaseService {
             ? StatusType.Inactive
             : StatusType.Active;
 
-        await this.utils.batchable(
-          matches,
-          async (m) => {
-            await this.prisma.event.upsert({
-              where: {
-                competitionId_externalId: {
-                  competitionId: competition.id,
-                  externalId: m.event.id,
-                },
-                NOT: {
-                  status: StatusType.Closed,
-                },
-              },
-              update: {
+        const externalIds = matches.map((m) => m.event.id);
+
+        // 🔹 1. Fetch all existing events in ONE query
+        const existingEvents = await this.prisma.event.findMany({
+          where: {
+            competitionId: competition.id,
+            externalId: { in: externalIds },
+          },
+          select: {
+            id: true,
+            externalId: true,
+            status: true,
+            statusUpdatedBy: true,
+          },
+        });
+
+        const existingMap = new Map(
+          existingEvents.map((e) => [e.externalId, e]),
+        );
+
+        const updates: any[] = [];
+        const creates: any[] = [];
+
+        for (const m of matches) {
+          const existing = existingMap.get(m.event.id);
+
+          const matchStatus = m.isInactive
+            ? StatusType.Inactive
+            : StatusType.Active;
+
+          if (existing) {
+            let shouldUpdateStatus = true;
+
+            // ❌ Rule 1: Closed → never update
+            if (existing.status === StatusType.Closed) {
+              shouldUpdateStatus = false;
+            }
+
+            // ⚠️ Rule 2: Panel override
+            else if (existing.statusUpdatedBy === ResultProvider.Panel) {
+              if (matchStatus !== StatusType.Inactive) {
+                shouldUpdateStatus = false;
+              }
+            }
+
+            updates.push({
+              where: { id: existing.id },
+              data: {
                 startTime: new Date(m.event.openDate),
                 sport: getSportEnum(sportName),
-                // status: status,
                 updatedAt: new Date(),
-              },
-              create: {
-                externalId: m.event.id,
-                name: m.event.name,
-                startTime: new Date(m.event.openDate),
-                sport: getSportEnum(sportName),
-                competitionId: competition.id,
-                providerId,
-                status: status,
-                isFancy: false,
-                isBookmaker: false,
-                isPopular: false,
+                ...(shouldUpdateStatus && {
+                  status: matchStatus,
+                  statusUpdatedBy: ResultProvider.Webhook,
+                }),
               },
             });
+          } else {
+            creates.push({
+              externalId: m.event.id,
+              name: m.event.name,
+              startTime: new Date(m.event.openDate),
+              sport: getSportEnum(sportName),
+              competitionId: competition.id,
+              providerId,
+              status: status,
+              statusUpdatedBy: ResultProvider.Webhook,
+              isFancy: false,
+              isBookmaker: false,
+              isPopular: false,
+            });
+          }
+        }
+
+        // 🔹 2. Execute updates in parallel batches
+        await this.utils.batchable(
+          updates,
+          async (u) => {
+            await this.prisma.event.update(u);
           },
           os.availableParallelism() / 2,
         );
+
+        // 🔹 3. Bulk create (fastest way)
+        if (creates.length) {
+          await this.prisma.event.createMany({
+            data: creates,
+            skipDuplicates: true,
+          });
+        }
+
+        // await this.utils.batchable(
+        //   matches,
+        //   async (m) => {
+        //     await this.prisma.event.upsert({
+        //       where: {
+        //         competitionId_externalId: {
+        //           competitionId: competition.id,
+        //           externalId: m.event.id,
+        //         },
+        //         NOT: {
+        //           status: StatusType.Closed,
+        //         },
+        //       },
+        //       update: {
+        //         startTime: new Date(m.event.openDate),
+        //         sport: getSportEnum(sportName),
+        //         // status: status,
+        //         updatedAt: new Date(),
+        //       },
+        //       create: {
+        //         externalId: m.event.id,
+        //         name: m.event.name,
+        //         startTime: new Date(m.event.openDate),
+        //         sport: getSportEnum(sportName),
+        //         competitionId: competition.id,
+        //         providerId,
+        //         status: status,
+        //         isFancy: false,
+        //         isBookmaker: false,
+        //         isPopular: false,
+        //       },
+        //     });
+        //   },
+        //   os.availableParallelism() / 2,
+        // );
       }
 
       this.logger.info(
