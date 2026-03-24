@@ -188,6 +188,7 @@ enum StatusType {
   Void      @map("void")
   Active    @map("active")
   Inactive  @map("inactive")
+  Suspended @map("suspended")
 
   @@map("status_type")
 }
@@ -785,23 +786,24 @@ model Competition {
 }
 
 model Event {
-  id             BigInt     @id @default(autoincrement()) @map("id")
-  competitionId  Int?       @map("competition_id")
-  providerId     Int?       @map("provider_id")
-  externalId     String     @map("external_id")
-  name           String     @map("name")
-  sport          SportType  @map("sport")
-  startTime      DateTime   @map("start_time") @db.Timestamptz
-  status         StatusType @map("status")
-  isFancy        Boolean    @default(false) @map("is_fancy")
-  isBookmaker    Boolean    @default(false) @map("is_bookmaker")
-  isPremiumFancy Boolean    @default(false) @map("is_premium_fancy")
-  isPopular      Boolean    @default(false) @map("is_popular")
-  inplay         Boolean    @default(false) @map("inplay")
-  isBetSuspended Boolean    @default(false) @map("is_bet_suspended")
-  isSubscribed   Boolean    @default(false) @map("is_subscribed")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id              BigInt         @id @default(autoincrement()) @map("id")
+  competitionId   Int?           @map("competition_id")
+  providerId      Int?           @map("provider_id")
+  externalId      String         @map("external_id")
+  name            String         @map("name")
+  sport           SportType      @map("sport")
+  startTime       DateTime       @map("start_time") @db.Timestamptz
+  status          StatusType     @map("status")
+  statusUpdatedBy ResultProvider @default(Webhook) @map("status_updated_by")
+  isFancy         Boolean        @default(false) @map("is_fancy")
+  isBookmaker     Boolean        @default(false) @map("is_bookmaker")
+  isPremiumFancy  Boolean        @default(false) @map("is_premium_fancy")
+  isPopular       Boolean        @default(false) @map("is_popular")
+  inplay          Boolean        @default(false) @map("inplay")
+  isBetSuspended  Boolean        @default(false) @map("is_bet_suspended")
+  isSubscribed    Boolean        @default(false) @map("is_subscribed")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   competition        Competition?              @relation(fields: [competitionId], references: [id])
   markets            Market[]

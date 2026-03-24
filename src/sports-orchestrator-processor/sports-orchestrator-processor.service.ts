@@ -79,7 +79,7 @@ export class SportsOrchestratorProcessorService
       return;
     }
     const now = Date.now();
-    const competitionTimestamp = now + 2 * 60 * 60 * 1000;
+    const competitionTimestamp = now + 10 * 60 * 1000;
     const marketTimestamp = now + 2 * 60 * 60 * 1000;
     // const duplicateEventTimestamp = now + 2 * 60 * 60 * 1000;
 

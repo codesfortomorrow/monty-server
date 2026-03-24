@@ -294,8 +294,14 @@ export class KafkaService
         this.eventService.checkAndCloseEvent(eventID);
     } else {
       // Active Event
-      if (targetMarkets.includes(data?.marketName?.toLowerCase()))
+      if (targetMarkets.includes(data?.marketName?.toLowerCase())) {
         this.eventService.checkAndActiveEvent(eventID);
+        await this.redis.client.setex(
+          `fixtureodds:${eventID}:${data.marketId}`,
+          5 * 60, // 5 mins
+          JSON.stringify(mapped),
+        );
+      }
     }
 
     const existsKey = `market:exists:${eventID}:${data.marketId}`;

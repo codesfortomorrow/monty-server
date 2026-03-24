@@ -5,7 +5,10 @@ interface RemoteEvent {
   gameId?: string;
   name?: string;
   seriesId?: string;
-  active?: boolean;
+  status?: string;
+  isActive?: boolean;
+  isLive?: boolean;
+  isInactive?: boolean;
 }
 
 export interface RemoteSeries {

@@ -377,7 +377,7 @@ export class OddsService {
             m.name && preferredMarkets.has(m.name.toLowerCase()),
         ) ?? event.markets?.[0];
 
-      const key = `odds:${event.externalId}:${market.externalId}`;
+      const key = `fixtureodds:${event.externalId}:${market.externalId}`;
       keys.push(key);
       eventMarketMap.set(key, { event, market });
     }
