@@ -11,6 +11,7 @@ import {
   ResetPasswordVerificationCodeMailTemplate,
 } from '../mail';
 import { SmsService } from '../sms';
+import { WhatsappService } from 'src/whatsapp';
 
 export type SendCodeResponse = {
   sentAt: Date;
@@ -62,6 +63,7 @@ export class OtpService {
     private readonly utilsService: UtilsService,
     private readonly mailService: MailService,
     private readonly smsService: SmsService,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   private blockError(target: string, blockTimeout: number): Error {
@@ -128,6 +130,12 @@ export class OtpService {
     if (!this.utilsService.isProductionApp()) return;
 
     this.smsService.send(target, params.text).catch((err) => err);
+  }
+
+  private sendWhatsappSMS(target: string, params: OtpSmsParams): void {
+    if (!this.utilsService.isProductionApp()) return;
+
+    this.whatsappService.send(target, params.text).catch((err) => err);
   }
 
   private sendEmail(target: string, params: OtpMailParams): void {
@@ -203,14 +211,19 @@ export class OtpService {
     } & OtpTransportPayload,
   ): void {
     if (args.transport === OtpTransport.Mobile) {
-      return this.sendSMS(
-        args.target,
-        this.getContextSmsParams({
-          context: args.context,
-          code: args.code,
-          timeout: args.timeout,
-        }),
-      );
+      const provider = this.config.provider;
+      if (provider === 'SMS') {
+        return this.sendSMS(
+          args.target,
+          this.getContextSmsParams({
+            context: args.context,
+            code: args.code,
+            timeout: args.timeout,
+          }),
+        );
+      } else {
+        return this.sendWhatsappSMS(args.target, { text: args.code });
+      }
     }
 
     if (args.transport === OtpTransport.Email) {

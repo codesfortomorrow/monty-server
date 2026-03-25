@@ -25,7 +25,7 @@ export class FixtureService extends BaseService {
       const { sport, search, inplay, competitionId, matchTime } = query;
 
       const cacheKey = `fixture:${sport || 'all'}:${search || 'all'}:${inplay || 'all'}:${competitionId || 'all'}:${matchTime || 'all'}`;
-      const cacheTTL = 120; // 2 minutes
+      const cacheTTL = 30; // 30 Sec
 
       // 🔴 IMPORTANT: null rakho, [] mat rakho
       let events: any[] | null = null;
@@ -185,11 +185,12 @@ export class FixtureService extends BaseService {
       console.log('⏱ Odds mapping:', Date.now() - oddsStart, 'ms');
 
       console.log('🚀 TOTAL API TIME:', Date.now() - apiStart, 'ms');
-      let final = enriched;
-      if (inplay === 'true') {
-        final = enriched.filter((e) => e.inplay === true);
-      }
-      return final;
+      // let final = enriched;
+      // if (inplay === 'true') {
+      //   final = enriched.filter((e) => e.inplay === true);
+      // }
+      // return final;
+      return enriched;
     } catch (error) {
       console.error('❌ getFixtureDetails error:', error);
       throw error;

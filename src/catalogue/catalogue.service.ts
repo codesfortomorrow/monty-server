@@ -226,7 +226,9 @@ export class CatalogueService extends BaseService {
       if (
         events.sport === SportType.Cricket ||
         events.sport === SportType.Soccer ||
-        events.sport === SportType.Tennis
+        events.sport === SportType.Tennis ||
+        events.sport === SportType.Greyhound ||
+        events.sport === SportType.HorseRacing
       )
         await this.marketService.checkAndSubscribeMarket(enriched.externalId);
 

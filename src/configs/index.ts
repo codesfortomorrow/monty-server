@@ -23,3 +23,4 @@ export * from './alert.config';
 export * from './kafka.config';
 export * from './casino-games.config';
 export * from './scorecard.config';
+export * from './whatsapp.config';
