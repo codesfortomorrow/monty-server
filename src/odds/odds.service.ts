@@ -649,6 +649,6 @@ export class OddsService {
         })),
       };
     });
-    return enrichedEvents;
+    return enrichedEvents.filter((e) => e !== null);
   }
 }
