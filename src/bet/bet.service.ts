@@ -398,7 +398,7 @@ export class BetService extends BaseService {
 
         let updatedOdd: number;
         // external validator API
-        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}`;
+        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}&marketName=${data.marketName}`;
         const result = await this.utils.rerunnable(async () => {
           const apiRes = await firstValueFrom(
             this.http.get(apiUrl).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
