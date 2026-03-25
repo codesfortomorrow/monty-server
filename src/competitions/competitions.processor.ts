@@ -264,6 +264,7 @@ export class CompetitionsProcessor extends BaseService {
               data: {
                 startTime: new Date(m.event.openDate),
                 sport: getSportEnum(sportName),
+                inplay: m.isLive,
                 updatedAt: new Date(),
                 ...(shouldUpdateStatus && {
                   status: matchStatus,
@@ -281,6 +282,7 @@ export class CompetitionsProcessor extends BaseService {
               providerId,
               status: status,
               statusUpdatedBy: ResultProvider.Webhook,
+              inplay: m.isLive,
               isFancy: false,
               isBookmaker: false,
               isPopular: false,
