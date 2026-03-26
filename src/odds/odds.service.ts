@@ -183,7 +183,7 @@ export class OddsService {
       // ------------------------------------------------
       // 5️⃣ FINAL RESPONSE
       // ------------------------------------------------
-      const inplay = mainMarkets.some((m) => m.inplay) || event.inplay;
+      const inplay = mainMarkets.some((m) => m.inplay);
 
       const mappedDbMarket = event.markets.map(this.mapDBMainMarket);
 
