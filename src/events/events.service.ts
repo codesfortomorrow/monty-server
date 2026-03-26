@@ -27,7 +27,7 @@ dayjs.extend(utc);
 
 @Injectable()
 export class EventsService extends BaseService {
-  private readonly CACHE_TTL = 60 * 1; // 1 minutes
+  private readonly CACHE_TTL = 30; // 30 sec
   private readonly REQUEST_TIMEOUT_MS = 10000; // 10 seconds
   constructor(
     private readonly http: HttpService,
