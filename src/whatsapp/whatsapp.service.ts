@@ -2,7 +2,7 @@ import { whatsappConfigFactory } from '@Config';
 import { HttpService } from '@nestjs/axios';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 
 @Injectable()
 export class WhatsappService {
@@ -30,16 +30,16 @@ export class WhatsappService {
     formData.append('gateway', '1');
 
     try {
-      const response = await firstValueFrom(
-        this.httpService.post(url, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Cookie: `PHPSESSID=${phpsessid}`,
-          },
-        }),
+      await firstValueFrom(
+        this.httpService
+          .post(url, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Cookie: `PHPSESSID=${phpsessid}`,
+            },
+          })
+          .pipe(timeout(15000)),
       );
-
-      return response.data;
     } catch (error: any) {
       console.error(
         'Whatsapp SMS API Error:',
