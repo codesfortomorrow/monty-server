@@ -198,8 +198,6 @@ export class FixtureService extends BaseService {
   }
 
   async getRaceFixtureDetails(query: FixtureRequest) {
-    const apiStart = Date.now();
-
     try {
       const { sport, search, inplay, competitionId, matchTime } = query;
 
@@ -210,7 +208,6 @@ export class FixtureService extends BaseService {
       // :mag: REDIS CACHE (WITH TIMEOUT)
       // -----------------------------
 
-      const redisStart = Date.now();
       let cached: string | null = null;
 
       try {
@@ -282,7 +279,6 @@ export class FixtureService extends BaseService {
           }
         }
 
-        const dbStart = Date.now();
         events = await this.prisma.event.findMany({
           where,
           orderBy: { startTime: 'asc' },
@@ -330,12 +326,12 @@ export class FixtureService extends BaseService {
           JSON.stringify(events),
         );
       }
-      console.log('Before filter race market', JSON.stringify(events));
-      const enriched = await this.oddsService.filterRaceMarket(events);
-      console.log('After filter race market', JSON.stringify(enriched));
-      return enriched;
+      // console.log('Before filter race market', JSON.stringify(events));
+      // const enriched = await this.oddsService.filterRaceMarket(events);
+      // console.log('After filter race market', JSON.stringify(enriched));
+      return events;
     } catch (error) {
-      console.error(':x: getFixtureDetails error:', error);
+      console.error(':x: getRaceFixtureDetails error:', error);
       throw error;
     }
   }
