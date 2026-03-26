@@ -366,6 +366,7 @@ export class OddsService {
 
       const preferredMarkets = new Set([
         'match odds',
+        'who will win the match',
         '1x2',
         'winner',
         'winner (incl. super over)',
@@ -389,8 +390,6 @@ export class OddsService {
     // -----------------------------------
     const CHUNK_SIZE = 60;
     const oddsMap = new Map<string, any>();
-
-    const redisStart = Date.now();
 
     for (let i = 0; i < keys.length; i += CHUNK_SIZE) {
       const chunk = keys.slice(i, i + CHUNK_SIZE);
@@ -430,7 +429,7 @@ export class OddsService {
             : event.startTime,
 
         status: liveData?.status || event.status,
-        inplay: liveData?.inplay ?? event.inplay,
+        inplay: event.inplay,
 
         isFancy: event.isFancy,
         isBookmaker: event.isBookmaker,
