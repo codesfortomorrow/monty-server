@@ -27,7 +27,7 @@ import { GetBonusApplicantsQueryDto } from './dto/get-bonus-applicant.dto';
 import { ApproveBonusApplicantDto } from './dto/approve-bonus-applicant.dto';
 
 @ApiTags('Bonus')
-@ApiBearerAuth()
+// @ApiBearerAuth()
 @UseFilters(SentryExceptionFilter)
 @Controller('bonuses')
 export class BonusController extends BaseController {

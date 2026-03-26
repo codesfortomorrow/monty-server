@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma';
 import { UtilsService, BaseService } from '@Common';
-import { WalletTransactionType } from '@prisma/client';
+import {
+  WalletTransactionContext,
+  WalletTransactionType,
+} from '@prisma/client';
 
 @Injectable()
 export class WalletTransactionsProcessor
@@ -56,7 +59,6 @@ export class WalletTransactionsProcessor
     while (!this.isShuttingDown) {
       try {
         const processed = await this.processBatch();
-
         if (this.isShuttingDown) break;
 
         // Shorter delay if processed, longer delay if nothing to do
@@ -74,25 +76,38 @@ export class WalletTransactionsProcessor
 
   private async processBatch(): Promise<boolean> {
     if (this.isShuttingDown) return false;
+    const DEPOSIT_CONTEXTS: WalletTransactionContext[] = [
+      WalletTransactionContext.Deposit,
+      WalletTransactionContext.SystemDeposit,
+      WalletTransactionContext.CryptoDeposit,
+      WalletTransactionContext.DepositApproval,
+    ];
+    const WITHDRAW_CONTEXTS: WalletTransactionContext[] = [
+      WalletTransactionContext.Withdrawal,
+      WalletTransactionContext.SystemWithdrawal,
+      WalletTransactionContext.CryptoWithdrawal,
+      WalletTransactionContext.WithdrawalApproval,
+    ];
 
     return this.prisma.$transaction(async (tx) => {
       if (this.isShuttingDown) return false;
 
-      // 1️⃣ Read last processed transaction ID (cursor)
-      const cursorRow = await tx.userWalletStat.findUnique({
-        where: { userId: this.CURSOR_USER_ID },
-        select: { lastTransactionId: true },
+      const cursor = await tx.walletTransactionCursor.findUnique({
+        where: { id: 1 },
       });
 
-      const lastTxId = cursorRow?.lastTransactionId ?? 0n;
+      const lastTxId = cursor?.lastTransactionId ?? 0n;
 
       // 2️⃣ Fetch wallet transactions newer than cursor
       const transactions = await tx.walletTransactions.findMany({
         where: {
           id: { gt: lastTxId },
           status: 'Confirmed',
+          context: {
+            in: [...DEPOSIT_CONTEXTS, ...WITHDRAW_CONTEXTS],
+          },
           wallet: {
-            userId: { not: null }, // <-- Add this filter
+            userId: { not: null },
           },
         },
         orderBy: { id: 'asc' },
@@ -138,8 +153,6 @@ export class WalletTransactionsProcessor
         statsMap.set(userId, stat);
       }
 
-      const lastProcessedId = transactions[transactions.length - 1].id;
-
       // 4️⃣ Upsert stats for each user
       for (const [userId, stat] of statsMap.entries()) {
         const updated = await tx.userWalletStat.updateMany({
@@ -161,7 +174,6 @@ export class WalletTransactionsProcessor
               stat.withdrawCount > 0
                 ? { increment: stat.withdrawCount }
                 : undefined,
-            lastTransactionId: lastProcessedId,
           },
         });
 
@@ -187,11 +199,17 @@ export class WalletTransactionsProcessor
               totalWithdrawAmount: stat.withdrawAmount,
               depositCount: stat.depositCount,
               withdrawCount: stat.withdrawCount,
-              lastTransactionId: lastProcessedId,
             },
           });
         }
       }
+      const lastProcessedId = transactions[transactions.length - 1].id;
+
+      await tx.walletTransactionCursor.upsert({
+        where: { id: 1 },
+        update: { lastTransactionId: lastProcessedId },
+        create: { id: 1, lastTransactionId: lastProcessedId },
+      });
 
       this.logger.info(
         `Processed ${transactions.length} wallet transactions | lastTxId=${lastProcessedId}`,

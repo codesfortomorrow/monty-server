@@ -3,9 +3,10 @@ import { OddsService } from 'src/odds/odds.service';
 import { PrismaService } from 'src/prisma';
 import { RedisService } from 'src/redis';
 import { CatalogueRequest } from './dto';
-import { MarketType, Prisma, StatusType } from '@prisma/client';
+import { MarketType, Prisma, SportType, StatusType } from '@prisma/client';
 import { BaseService } from '@Common';
 import { BetconfigService } from 'src/betconfig/betconfig.service';
+import { MarketService } from 'src/market/market.service';
 
 @Injectable()
 export class CatalogueService extends BaseService {
@@ -13,6 +14,7 @@ export class CatalogueService extends BaseService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly oddsService: OddsService,
+    private readonly marketService: MarketService,
     private readonly betConfigService: BetconfigService,
   ) {
     super({ loggerDefaultMeta: { service: CatalogueService.name } });
@@ -136,6 +138,13 @@ export class CatalogueService extends BaseService {
         ? betConfig.sessionInPlayMaxBetAmount
         : betConfig.sessionOffPlayMaxBetAmount;
 
+      if (
+        events.sport === SportType.Cricket ||
+        events.sport === SportType.Soccer ||
+        events.sport === SportType.Tennis
+      )
+        await this.marketService.checkAndSubscribeMarket(enriched.externalId);
+
       return {
         catalogue: enriched,
         betConfig: {
@@ -149,7 +158,7 @@ export class CatalogueService extends BaseService {
           sessionMaxRate: betConfig.sessionMaxRate,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error to get catalogue: ${error.message}`);
       throw new Error();
     }
@@ -200,12 +209,12 @@ export class CatalogueService extends BaseService {
         enriched.markets = this.filterMarketRecord(enriched.markets, marketId);
       }
 
-      if (marketType && marketType.toLowerCase() === 'premium') {
-        enriched.premiumMarket = this.filterMarketRecord(
-          enriched.premiumMarket,
-          marketId,
-        );
-      }
+      // if (marketType && marketType.toLowerCase() === 'premium') {
+      //   enriched.premiumMarket = this.filterMarketRecord(
+      //     enriched.premiumMarket,
+      //     marketId,
+      //   );
+      // }
 
       if (marketType && marketType.toLowerCase() === 'fancy') {
         enriched.fancyMarkets = this.filterMarketRecord(
@@ -214,8 +223,17 @@ export class CatalogueService extends BaseService {
         );
       }
 
+      if (
+        events.sport === SportType.Cricket ||
+        events.sport === SportType.Soccer ||
+        events.sport === SportType.Tennis ||
+        events.sport === SportType.Greyhound ||
+        events.sport === SportType.HorseRacing
+      )
+        await this.marketService.checkAndSubscribeMarket(enriched.externalId);
+
       return enriched;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error to get catalogue: ${error.message}`);
       throw new Error();
     }

@@ -279,8 +279,8 @@ export class TransactionsService {
         in: [
           WalletTransactionContext.SystemDeposit,
           WalletTransactionContext.SystemWithdrawal,
-          // WalletTransactionContext.PointIssue,
-          // WalletTransactionContext.PointRemove,
+          WalletTransactionContext.PointIssue,
+          WalletTransactionContext.PointRemove,
           WalletTransactionContext.Deposit,
           WalletTransactionContext.Withdrawal,
         ],

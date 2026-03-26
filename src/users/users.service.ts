@@ -44,10 +44,9 @@ import {
 } from './dto';
 import { AdminService } from 'src/admin';
 import crypto from 'crypto';
-// import { BonusProcessor } from 'src/bonus/services/bonus.internal.processor';
+import { BonusProcessor } from 'src/bonus/services/bonus.internal.processor';
 type UserWithUpline<T> = T & { upline: string };
 import { getStatusPriorityLevel } from 'src/utils/user-status';
-import { use } from 'passport';
 
 @Injectable()
 export class UsersService {
@@ -63,7 +62,7 @@ export class UsersService {
     private readonly otpService: OtpService,
     private readonly walletService: WalletsService,
     private readonly adminService: AdminService,
-    // private readonly bonusProcessor: BonusProcessor,
+    private readonly bonusProcessor: BonusProcessor,
   ) {}
 
   private getProfileImageUrl(profileImage: string): string {
@@ -107,7 +106,7 @@ export class UsersService {
     return (
       (await this.prisma.user.count({
         where: {
-          username,
+          username: username.toLowerCase(),
           NOT: {
             id: excludeUserId,
           },
@@ -162,7 +161,7 @@ export class UsersService {
   async getByUsername(username: string): Promise<User | null> {
     return await this.prisma.user.findUnique({
       where: {
-        username: username,
+        username: username.toLowerCase(),
       },
     });
   }
@@ -332,7 +331,7 @@ export class UsersService {
           firstname: data.firstname,
           lastname: data.lastname,
           ...(data.email && { email: data.email.toLowerCase() }),
-          ...(data.username && { username: data.username }),
+          ...(data.username && { username: data.username.toLowerCase() }),
           dialCode: data.dialCode,
           mobile: data.mobile,
           profileImage: data.profileImage,
@@ -389,18 +388,22 @@ export class UsersService {
         }
       }
 
-      if (affiliateResult?.isAffiliate && affiliateResult.affiliateId) {
-        await this.createAffiliateReferral(
-          affiliateResult.affiliateId,
-          user.id,
-          tx,
-        );
-      }
+      // if (affiliateResult?.isAffiliate && affiliateResult.affiliateId) {
+      //   await this.createAffiliateReferral(
+      //     affiliateResult.affiliateId,
+      //     user.id,
+      //     tx,
+      //   );
+      // }
 
       // Refferal Bonus -------------------------------
-      // if (data.referralCode) {
-      //   this.bonusProcessor.emitReferralEvent(user.id, data.referralCode);
-      // }
+      console.log('line 401 : ', data.referralCode);
+      if (data.referralCode) {
+        this.bonusProcessor.emitReferralEvent(
+          Number(user.id),
+          data.referralCode,
+        );
+      }
 
       return { ...user, uplinePath };
     });
@@ -837,24 +840,23 @@ export class UsersService {
   ) {
     // 1️⃣ Fetch creator + role
     let creator;
-    let creatorMeta;
     let creatorStatus: UserStatus | null = null;
+
+    if (dto.partnership && dto.partnership <= 0) {
+      throw new Error('Partnership percentage must be greater than 0.');
+    }
     if (userType === UserType.User) {
       creator = await this.prisma.user.findUnique({
         where: { id: creatorId },
         include: { role: true },
       });
-      creatorMeta = await this.getMetaById(creatorId);
       if (creator) creatorStatus = creator.status;
     } else {
       creator = await this.prisma.admin.findUnique({
         where: { id: creatorId },
         include: { role: true },
       });
-      creatorMeta = await this.adminService.getMetaById(creatorId);
     }
-    if (!creatorMeta || creatorMeta.transactionCode !== dto.transactionCode)
-      throw new Error('Wrong transaction code');
     if (!creator?.role) throw new Error('Creator role not found');
 
     const targetRole = await this.prisma.role.findUnique({
@@ -880,7 +882,7 @@ export class UsersService {
     );
     if (dto.username) {
       const exists = await this.prisma.user.findFirst({
-        where: { username: dto.username },
+        where: { username: dto.username.toLowerCase() },
       });
       if (exists) throw new Error('Username already exist');
     }
@@ -905,7 +907,7 @@ export class UsersService {
           firstname: dto.firstname,
           lastname: dto.lastname,
           // email: dto.email,
-          username: dto.username,
+          username: dto.username?.toLowerCase(),
           mobile: dto.mobile,
           roleId: dto.roleId,
           status: creatorStatus ?? UserStatus.Active,
@@ -913,6 +915,7 @@ export class UsersService {
           transactionCodeViewed: false,
           referralCode,
           partnership: dto.partnership || 0,
+          createdBy: creator?.role?.name,
           meta: {
             create: {
               passwordSalt: salt,
@@ -1012,11 +1015,6 @@ export class UsersService {
       skip = (query.page - 1) * query.limit;
     }
 
-    let reportLimit = '';
-    if (!isExport) {
-      reportLimit += 'LIMIT $10 OFFSET $11';
-    }
-
     const UserStatusDB = {
       Active: 'active',
       Blocked: 'blocked',
@@ -1040,7 +1038,7 @@ export class UsersService {
       ? 'u.change_status_at'
       : 'u.created_at';
 
-    const settlement = query.settlement ?? false;
+    const settlement = query.settlement ?? null;
 
     const params: any[] = [
       basePath, // $1
@@ -1089,6 +1087,7 @@ export class UsersService {
         profitLoss: number;
         downlinePl: number;
         downlinePlInPercent: number;
+        withdrawalBalance: number;
       }[]
     >(
       `
@@ -1131,6 +1130,11 @@ WHERE um.upline <@ text2ltree($1::text)
   AND ($7::text IS NULL OR u.username ILIKE '%' || $7 || '%')
   AND ($8::text IS NULL OR u.status = ($8::text)::user_status)
 
+  AND (
+    $9::boolean IS NULL
+    OR u.is_self_registered = false::boolean
+  )
+
 ORDER BY u.created_at DESC
 ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
 `,
@@ -1157,6 +1161,11 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
           AND ($6::timestamptz IS NULL OR ${toDateColumn} <= $6)
           AND ($7::text IS NULL OR u.username ILIKE '%' || $7 || '%')
           AND ($8::text IS NULL OR u.status = ($8::text)::user_status)
+
+          AND (
+            $9::boolean IS NULL
+            OR u.is_self_registered = false::boolean
+          )
       `,
       basePath,
       userId,
@@ -1166,36 +1175,46 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
       toDate,
       search,
       statusFilter,
+      settlement,
     );
 
     let extraBalanceInfo = null;
     if (isDownlineBalanceInformationNeeded) {
       for (const usr of downlineUsers) {
-        const summary = await this.getDownlineSummaryForUser(
-          usr.id,
-          usr.upline,
-        );
-
+        let summary = {
+          player_exposure: 0,
+          total_downline_balance: 0,
+          player_balance: 0,
+        };
+        if (usr.role !== 'USER') {
+          summary = await this.getDownlineSummaryForUser(usr.id, usr.upline);
+        }
         usr.exposure = Number(summary.player_exposure || 0);
 
-        usr.downlineBalance =
-          Number(summary.total_downline_balance || 0) + usr.exposure;
+        usr.downlineBalance = Number(summary.total_downline_balance || 0);
 
         usr.totalBalance =
-          usr.downlineBalance +
-          Number(usr.availableBalance || 0) +
-          Number(usr.exposureAmount || 0);
+          usr.downlineBalance + Number(usr.availableBalance || 0);
+        //  +
+        // Number(usr.exposureAmount || 0);
 
         usr.playerBalance = Number(summary.player_balance || 0);
 
-        usr.downlinePl = usr.totalBalance - Number(usr.creditAmount || 0);
-
+        usr.downlinePl = Number(usr.creditAmount || 0) - usr.totalBalance;
+        usr.withdrawalBalance =
+          Number(usr.availableBalance || 0) +
+          Number(usr.exposureAmount || 0) -
+          usr.lockedAmount;
         usr.downlinePlInPercent =
-          usr.totalBalance -
-          (Number(usr.creditAmount || 0) * (usr.partnership || 100)) / 100;
+          ((Number(usr.creditAmount || 0) - usr.totalBalance) *
+            (usr.partnership || 100)) /
+          100;
 
-        usr.referance = usr.totalBalance - Number(usr.creditAmount || 0);
-        usr.lifetimePl = usr.totalWithdrawAmount - usr.totalDepositAmount;
+        usr.referance = usr.isSelfRegistered
+          ? usr.totalDepositAmount - usr.totalWithdrawAmount - usr.totalBalance
+          : Number(usr.creditAmount || 0) - usr.totalBalance;
+        usr.lifetimePl =
+          usr.totalDepositAmount - usr.totalWithdrawAmount - usr.totalBalance;
       }
     }
 
@@ -1733,6 +1752,7 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
 
   async exportSubUserReport(
     userId: bigint,
+    basePath: string,
     userType: UserType,
     query: GetSubuserRequest,
   ) {
@@ -1756,6 +1776,7 @@ ${!isExport ? 'LIMIT $10 OFFSET $11' : ''}
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
           status: query.status,
+          path: basePath,
         },
       },
     });

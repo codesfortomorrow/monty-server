@@ -142,14 +142,14 @@ enum WalletTransactionContext {
 }
 
 enum SportType {
-  Cricket         @map("cricket")
-  Football        @map("football")
-  Tennis          @map("tennis")
-  GreyhoundRacing @map("greyhound_racing")
-  HorseRacing     @map("horse_racing")
-  Basketball      @map("basketball")
-  Soccer          @map("soccer")
-  Other           @map("other")
+  Cricket     @map("cricket")
+  Football    @map("football")
+  Tennis      @map("tennis")
+  Greyhound   @map("greyhound")
+  HorseRacing @map("horse_racing")
+  Basketball  @map("basketball")
+  Soccer      @map("soccer")
+  Other       @map("other")
 
   @@map("sport_type")
 }
@@ -188,6 +188,7 @@ enum StatusType {
   Void      @map("void")
   Active    @map("active")
   Inactive  @map("inactive")
+  Suspended @map("suspended")
 
   @@map("status_type")
 }
@@ -445,6 +446,7 @@ model User {
   parentPartnership     Int        @default(0) @map("parent_partnership")
   commision             Int        @default(0) @map("commision")
   isSelfRegistered      Boolean    @default(false) @map("is_self_registered")
+  createdBy             String?    @map("created_by")
   isPartnershipEnabled  Boolean    @default(false) @map("is_partnership_enabled")
   passwordChanged       Boolean?   @default(true) @map("password_changed")
   transactionCodeViewed Boolean?   @default(true) @map("transaction_code_viewed")
@@ -784,23 +786,24 @@ model Competition {
 }
 
 model Event {
-  id             BigInt     @id @default(autoincrement()) @map("id")
-  competitionId  Int?       @map("competition_id")
-  providerId     Int?       @map("provider_id")
-  externalId     String     @map("external_id")
-  name           String     @map("name")
-  sport          SportType  @map("sport")
-  startTime      DateTime   @map("start_time") @db.Timestamptz
-  status         StatusType @map("status")
-  isFancy        Boolean    @default(false) @map("is_fancy")
-  isBookmaker    Boolean    @default(false) @map("is_bookmaker")
-  isPremiumFancy Boolean    @default(false) @map("is_premium_fancy")
-  isPopular      Boolean    @default(false) @map("is_popular")
-  inplay         Boolean    @default(false) @map("inplay")
-  isBetSuspended Boolean    @default(false) @map("is_bet_suspended")
-  isSubscribed   Boolean    @default(false) @map("is_subscribed")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id              BigInt         @id @default(autoincrement()) @map("id")
+  competitionId   Int?           @map("competition_id")
+  providerId      Int?           @map("provider_id")
+  externalId      String         @map("external_id")
+  name            String         @map("name")
+  sport           SportType      @map("sport")
+  startTime       DateTime       @map("start_time") @db.Timestamptz
+  status          StatusType     @map("status")
+  statusUpdatedBy ResultProvider @default(Webhook) @map("status_updated_by")
+  isFancy         Boolean        @default(false) @map("is_fancy")
+  isBookmaker     Boolean        @default(false) @map("is_bookmaker")
+  isPremiumFancy  Boolean        @default(false) @map("is_premium_fancy")
+  isPopular       Boolean        @default(false) @map("is_popular")
+  inplay          Boolean        @default(false) @map("inplay")
+  isBetSuspended  Boolean        @default(false) @map("is_bet_suspended")
+  isSubscribed    Boolean        @default(false) @map("is_subscribed")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
   competition        Competition?              @relation(fields: [competitionId], references: [id])
   markets            Market[]
@@ -1004,8 +1007,10 @@ model Result {
   status           ResultStatusType @default(Pending) @map("status")
   outcome          Json             @map("outcome")
   providedBy       ResultProvider   @default(Webhook) @map("provided_by")
+  rollbackedBy     ResultProvider?  @map("rollbacked_by")
   count            BigInt           @default(0) @map("count")
   selection        String?          @map("selection")
+  resultSelection  String?          @map("result_selection")
 
   settledAt DateTime? @map("settled_at") @db.Timestamptz
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -1099,6 +1104,7 @@ model CasinoTransaction {
   amount                Decimal                @default(0) @map("amount") @db.Decimal(15, 2)
   payout                Decimal                @default(0) @map("payout") @db.Decimal(15, 2)
   status                BetStatusType          @map("status")
+  exchangeRate          Decimal                @default(1.00) @map("exchange_rate") @db.Decimal(15, 2)
   debitTxnId            String?                @map("debit_txn_id")
   creditTxnId           String?                @map("credit_txn_id")
   rollbackTxnId         String?                @map("rollback_txn_id")
@@ -1116,19 +1122,20 @@ model CasinoTransaction {
 }
 
 model CasinoRoundHistory {
-  id          Int           @id @default(autoincrement())
-  gameId      Int           @map("game_id")
-  gameName    String?       @map("game_name")
-  roundId     String        @unique @map("round_id")
-  txnId       String        @unique @map("txn_id")
-  userId      BigInt        @map("user_id")
-  status      BetStatusType @default(Pending) @map("status")
-  totalBets   Decimal       @default(0.00) @map("total_bets") @db.Decimal(15, 2)
-  totalWins   Decimal       @default(0.00) @map("total_wins") @db.Decimal(15, 2)
-  totalLosses Decimal       @default(0.00) @map("total_losses") @db.Decimal(15, 2)
-  completed   Boolean       @default(false)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id           Int           @id @default(autoincrement())
+  gameId       Int           @map("game_id")
+  gameName     String?       @map("game_name")
+  roundId      String        @unique @map("round_id")
+  txnId        String        @unique @map("txn_id")
+  userId       BigInt        @map("user_id")
+  status       BetStatusType @default(Pending) @map("status")
+  exchangeRate Decimal       @default(1.00) @map("exchange_rate") @db.Decimal(15, 2)
+  totalBets    Decimal       @default(0.00) @map("total_bets") @db.Decimal(15, 2)
+  totalWins    Decimal       @default(0.00) @map("total_wins") @db.Decimal(15, 2)
+  totalLosses  Decimal       @default(0.00) @map("total_losses") @db.Decimal(15, 2)
+  completed    Boolean       @default(false)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   isTurnOverCalculated Boolean @default(false) @map("is_turnover_calculated")
   isPlCalculated       Boolean @default(false) @map("is_pl_calculated")
@@ -1828,6 +1835,14 @@ model UserTurnoverAccount {
   @@map("user_turnover_account")
 }
 
+model WalletTransactionCursor {
+  id                BigInt   @id @default(1)
+  lastTransactionId BigInt   @map("last_transaction_id")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("wallet_transaction_cursor")
+}
+
 model UserWalletStat {
   id BigInt @id @default(autoincrement())
 
@@ -1925,9 +1940,9 @@ model BetPl {
   betId     BigInt?          @map("bet_id")
   casinoId  Int?             @map("casino_id")
   uplineId  BigInt?          @map("upline_id")
-  uplinePl  Decimal          @map("upline_pl")
+  uplinePl  Decimal          @map("upline_pl") @db.Decimal(15, 2)
   userType  String           @map("user_type")
-  totalPl   Decimal          @map("total_pl")
+  totalPl   Decimal          @map("total_pl") @db.Decimal(15, 2)
   category  GameTypeCategory @default(Sports) @map("category")
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz
@@ -1949,9 +1964,9 @@ model UplineExposure {
   id         BigInt   @id @default(autoincrement()) @map("id")
   exposureId BigInt   @map("exposure_id")
   uplineId   BigInt?  @map("upline_id")
-  uplinePl   Decimal  @map("upline_pl")
+  uplinePl   Decimal  @map("upline_pl") @db.Decimal(15, 2)
   userType   String   @map("user_type")
-  totalPl    Decimal  @map("total_pl")
+  totalPl    Decimal  @map("total_pl") @db.Decimal(15, 2)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1962,4 +1977,23 @@ model UplineExposure {
   @@index([uplineId])
   @@index([updatedAt])
   @@map("upline_exposure")
+}
+
+model GliveEvent {
+  id        BigInt   @id @default(autoincrement())
+  eventName String   @map("event_name")
+  startTime DateTime @map("start_time") @db.Timestamptz
+  matchId   String   @map("match_id")
+  channel   String
+  home      String
+  away      String
+  sport     String
+  league    String
+  isLive    String   @map("is_live")
+  state     String
+
+  @@unique([matchId])
+  @@index([eventName])
+  @@index([startTime, isLive])
+  @@map("glive_events")
 }

@@ -37,7 +37,10 @@ export class AccessGuard implements CanActivate {
       const userInfo = await this.prisma.user.findUnique({
         where: { id: user.id },
       });
-      if (userInfo?.status !== UserStatus.Active) {
+      if (
+        userInfo?.status !== UserStatus.Active &&
+        userInfo?.status !== UserStatus.BetLock
+      ) {
         await this.cacheManager.set(cacheKey, false, cacheTtl);
         throw new UnauthorizedException();
       }

@@ -6,21 +6,12 @@ import { PrismaModule } from 'src/prisma';
 import { HttpModule } from '@nestjs/axios';
 import { RedisModule } from 'src/redis';
 import { EventsModule } from 'src/events/events.module';
-import { QueueModule } from 'src/queue';
-import { PremiumMarketProcessor } from './premium-market.processor';
 import { AlertModule } from 'src/alert/alert.module';
 
 @Module({
-  imports: [
-    QueueModule.registerAsync('premium-market'),
-    PrismaModule,
-    HttpModule,
-    RedisModule,
-    EventsModule,
-    AlertModule,
-  ],
+  imports: [PrismaModule, HttpModule, RedisModule, EventsModule, AlertModule],
   controllers: [MarketController],
-  providers: [MarketService, MarketProcessor, PremiumMarketProcessor],
+  providers: [MarketService, MarketProcessor],
   exports: [MarketProcessor, MarketService],
 })
 export class MarketModule {}

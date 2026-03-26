@@ -197,7 +197,7 @@ export class BussinessReportService extends BaseService {
     const count = Number(countResult?.[0].count);
 
     const userIds = new Set(deposits.map((deposit) => deposit.id));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedDeposits = deposits.map((deposit) => {
       const uplineDetails = uplineMap.get(deposit.id);
@@ -389,7 +389,7 @@ export class BussinessReportService extends BaseService {
     const count = Number(countResult?.[0].count);
 
     const userIds = new Set(withdraws.map((withdraw) => withdraw.id));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedWithdraws = withdraws.map((withdraw) => {
       const uplineDetails = uplineMap.get(withdraw.id);
@@ -413,7 +413,7 @@ export class BussinessReportService extends BaseService {
     userId: bigint,
     userType: UserType,
     query: LoginReportRequest,
-    isExport?: Boolean,
+    isExport?: boolean,
   ) {
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit ?? 10;
@@ -536,7 +536,7 @@ export class BussinessReportService extends BaseService {
     const count = Number(countResult?.[0].count);
 
     const userIds = new Set(logins.map((login) => login.userId));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedLogins = logins.map((login) => {
       const uplineDetails = uplineMap.get(login.userId);
@@ -677,7 +677,7 @@ export class BussinessReportService extends BaseService {
     const count = Number(countResult?.[0].count);
 
     const userIds = new Set(signups.map((signup) => signup.id));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedSignups = signups.map((signup) => {
       const uplineDetails = uplineMap.get(signup.id);
@@ -826,7 +826,7 @@ export class BussinessReportService extends BaseService {
     const count = Number(countResult?.[0].count);
 
     const userIds = new Set(activeUsers.map((user) => user.id));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedUsers = activeUsers.map((user) => {
       const uplineDetails = uplineMap.get(user.id);
@@ -1003,7 +1003,7 @@ export class BussinessReportService extends BaseService {
     const count = Number(countResult?.[0].count);
 
     const userIds = new Set(idleUsers.map((user) => user.id));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedUsers = idleUsers.map((user) => {
       const uplineDetails = uplineMap.get(user.id);
@@ -1023,10 +1023,10 @@ export class BussinessReportService extends BaseService {
     return { idleUsers: mappedUsers, pagination };
   }
 
-  private async getUplineDetails(userIds: bigint[]) {
+  private async getDirectUplineDetails(userIds: bigint[]) {
     const map = new Map<bigint, Record<string, string>>();
     for (const userId of userIds) {
-      const redisKey = `upline:${userId}`;
+      const redisKey = `upline:direct:${userId}`;
       const data = await this.redis.client.get(redisKey);
       if (data) {
         try {
@@ -1047,7 +1047,8 @@ export class BussinessReportService extends BaseService {
       const ownRole = await this.userService.getRoleByUserId(userId);
 
       const uplineMap: Record<string, string> = {};
-      for (const uplineId of uplineIds) {
+      for (let i = uplineIds.length - 1; i >= 0; i++) {
+        const uplineId = uplineIds[i];
         const user = await this.userService.getRoleAndUsernameByUserId(
           BigInt(uplineId),
         );
@@ -1057,7 +1058,9 @@ export class BussinessReportService extends BaseService {
           ownRole.name !== user.role.name &&
           user.username
         ) {
-          uplineMap[user.role.name] = user.username;
+          uplineMap.name = user.username;
+          uplineMap.role = user.role.name;
+          break;
         }
       }
 
@@ -1087,6 +1090,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Deposit',
+        timezone: query.timezone,
         filters: {
           userType,
           category: query.category,
@@ -1122,6 +1126,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Withdrawal',
+        timezone: query.timezone,
         filters: {
           userType,
           category: query.category,
@@ -1157,6 +1162,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Logins',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,
@@ -1191,6 +1197,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Signups',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,
@@ -1224,6 +1231,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Active Users',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,
@@ -1259,6 +1267,7 @@ export class BussinessReportService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Idle Users',
+        timezone: query.timezone,
         filters: {
           userType,
           reportType: query.reportType,

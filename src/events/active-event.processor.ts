@@ -2,7 +2,7 @@ import { BaseProcessor } from '@Common';
 import { Processor } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { RedisService } from 'src/redis';
-import { StatusType } from '@prisma/client';
+import { ResultProvider, StatusType } from '@prisma/client';
 import { PrismaService } from 'src/prisma';
 
 @Processor('active-event', {
@@ -30,17 +30,19 @@ export class ActiveEventProcessor extends BaseProcessor {
           externalId: eventExternalId,
           NOT: {
             status: StatusType.Closed,
+            statusUpdatedBy: ResultProvider.Panel,
           },
         },
         data: {
           status: StatusType.Active,
+          statusUpdatedBy: ResultProvider.Webhook,
         },
       });
       if (updated.count > 0) {
         this.logger.info(`Activated event for eventId ${eventExternalId}`);
-        await this.redis.client.setex(existsKey, 1 * 24 * 60 * 60, 1);
+        await this.redis.client.setex(existsKey, 15 * 60, 1);
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Error to activate event based on mqtt market: ${error.message}`,
       );

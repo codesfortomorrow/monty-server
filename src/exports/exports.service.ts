@@ -275,10 +275,18 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
     const rawData = result.data ?? [];
     let columns: string[];
-    if (
-      recordType === RecordType.Gaming ||
-      recordType === RecordType.Transaction
-    ) {
+
+    if (recordType === RecordType.Gaming) {
+      columns = [
+        'S.No',
+        'Date/Time',
+        'Type',
+        'Remark',
+        'Credit',
+        'Debit',
+        'Balance',
+      ];
+    } else if (recordType === RecordType.Transaction) {
       columns = [
         'S.No',
         'Date/Time',
@@ -409,6 +417,9 @@ export class ExportsService extends BaseService implements OnModuleInit {
       userId,
       search,
       adminId,
+      isWallet,
+      paymentMode,
+      isCrypto,
       isUpi,
       userType,
       isBank,
@@ -421,195 +432,183 @@ export class ExportsService extends BaseService implements OnModuleInit {
     if (adminId) resolvedBankerId = adminId;
     else if (userId) resolvedBankerId = userId;
 
-    // const options: GetDepositWithdrawQueryDto = {
-    //   fromDate,
-    //   toDate,
-    //   status,
-    //   type,
-    //   search,
-    //   isAdmin,
-    //   isWallet,
-    //   isBank,
-    // };
-    // const result = await this.bankerService.getAllDepositWithdrawRequests(
-    //   resolvedBankerId as bigint,
-    //   options,
-    //   true,
-    // );
-    // const rawData = result.data as any[];
-    // const columns: string[] = ['S.No', 'User Name', 'Amount', 'Status'];
-    // if (adminId) {
-    //   columns.push('Banker Name');
-    // }
-    // if (type === WalletTransactionType.Credit) {
-    //   if (isWallet || isWalletBank || paymentMode || isBank) {
-    //     columns.push('Pay Mode', 'UTR Number', 'File');
-    //   }
+    const options: GetDepositWithdrawQueryDto = {
+      fromDate,
+      toDate,
+      status,
+      paymentMode,
+      type,
+      isWallet,
+      isCrypto,
+      search,
+      isUpi,
+      isBank,
+    };
+    const result = await this.bankerService.getAllDepositWithdrawRequests(
+      resolvedBankerId as bigint,
+      userType,
+      options,
+      true,
+    );
+    const rawData = result.data as any[];
+    const columns: string[] = ['S.No', 'User Name', 'Amount', 'Status'];
+    if (type === WalletTransactionType.Credit) {
+      if (isBank || isWallet) {
+        columns.push('UTR Number', 'Screenshot');
+      }
+      if (isUpi) {
+        columns.push('UTR Number', 'Screenshot');
+      }
+      if (isCrypto) {
+        columns.push('ConversionRate', 'walletAddress', 'Screenshot');
+      }
+      if (isWallet) {
+        columns.push('Payment Mode');
+      }
+    }
+    if (type === WalletTransactionType.Debit) {
+      if (isUpi) {
+        columns.push('UPI ID');
+      }
 
-    //   if (isCrypto) {
-    //     columns.push('Wallet Address', 'Conversion Rate', 'File');
-    //   }
-    // }
-    // if (type === WalletTransactionType.Debit) {
-    //   if (
-    //     isWallet ||
-    //     paymentMode === PaymentMode.Nagad ||
-    //     paymentMode === PaymentMode.Rocket ||
-    //     paymentMode === PaymentMode.bKash
-    //   ) {
-    //     columns.push('Mobile Number', 'Pay Mode');
-    //   }
+      if (isWallet) {
+        columns.push('Mobile Number', 'Payment Mode');
+      }
 
-    //   if (isBank || paymentMode === PaymentMode.Bank) {
-    //     columns.push('A/C Number', 'Account Holder', 'Bank Name', 'District');
-    //   }
-    //   if (isCrypto) {
-    //     columns.push('Wallet Address', 'Conversion Rate', 'QR');
-    //   }
-    //   // if(isWalletBank)
-    //   // {
-    //   //   columns.push('A/C Number', 'Account Holder', 'Bank Name', 'District','Mobile Number', 'Pay Mode');
-    //   // }
-    // }
-    // columns.push('Req. At', 'Upd. At');
+      if (isBank) {
+        columns.push(
+          'A/C Number',
+          'Account Holder',
+          'IBAN',
+          'Bank Name',
+          'Distict',
+        );
+      }
+      if (isCrypto) {
+        columns.push('walletAddress');
+      }
+    }
+    columns.push('Req. At', 'Upd. At');
 
-    // const data = rawData.map((row, index) => {
-    //   const mappedRow: Record<string, any> = {};
-    //   columns.forEach((col) => {
-    //     switch (col) {
-    //       case 'S.No':
-    //         mappedRow[col] = index + 1;
-    //         break;
+    const data = rawData.map((row, index) => {
+      const mappedRow: Record<string, any> = {};
 
-    //       case 'User Name':
-    //         mappedRow[col] = row.user?.username ?? '-';
-    //         break;
+      columns.forEach((col) => {
+        switch (col) {
+          case 'S.No':
+            mappedRow[col] = index + 1;
+            break;
 
-    //       case 'Amount': {
-    //         const amount = Number(row.amount ?? 0);
+          case 'User Name':
+            mappedRow[col] = row.user?.username ?? '-';
+            break;
 
-    //   if (isCrypto && row.conversionRate) {
-    //     mappedRow[col] = Number(
-    //       (amount * Number(row.conversionRate)).toFixed(2),
-    //     );
-    //   } else {
-    //     mappedRow[col] = Number(amount);
-    //   }
-    //   break;
-    // }
+          case 'Amount':
+            mappedRow[col] = Number(row.amount ?? 0);
+            break;
 
-    //       case 'Status':
-    //         mappedRow[col] = row.status ?? '-';
-    //         break;
+          case 'Status':
+            mappedRow[col] = row.status ?? '-';
+            break;
 
-    //       case 'Banker Name':
-    //         mappedRow[col] = row.bankerUser?.username ?? '-';
-    //         break;
+          case 'UTR Number':
+            mappedRow[col] = row.transactionCode ?? '-';
+            break;
 
-    //       case 'Pay Mode':
-    //         mappedRow[col] = row.digitalPayment?.paymentMode ?? '-';
-    //         break;
+          case 'Screenshot':
+            mappedRow[col] = row.image ?? '-';
+            break;
 
-    //       case 'UTR Number':
-    //         mappedRow[col] = row.transactionCode ?? '-';
-    //         break;
+          case 'ConversionRate':
+            mappedRow[col] = row.conversionRate ?? '-';
+            break;
 
-    //       case 'Mobile Number':
-    //         mappedRow[col] = Number(row.digitalPayment?.number) ?? '-';
-    //         break;
+          case 'walletAddress':
+            mappedRow[col] = row.crypto?.walletAddress ?? '-';
+            break;
 
-    //       case 'Wallet Address':
-    //         mappedRow[col] = row.crypto?.walletAddress ?? '-';
-    //         break;
+          case 'Payment Mode':
+            mappedRow[col] =
+              row.digitalPayment?.paymentMode ?? row.paymentMode ?? '-';
+            break;
 
-    //       case 'Conversion Rate':
-    //         mappedRow[col] = row.conversionRate
-    //           ? Number(row.conversionRate)
-    //           : '-';
-    //         break;
+          case 'UPI ID':
+            mappedRow[col] = row.upi?.upiId ?? '-';
+            break;
 
-    //       case 'QR':
-    //         mappedRow[col] = row.crypto?.qrCode ?? '-';
-    //         break;
+          case 'Mobile Number':
+            mappedRow[col] = row.digitalPayment?.number ?? row.number ?? '-';
+            break;
 
-    //       case 'A/C Number':
-    //         mappedRow[col] = Number(row.digitalPayment?.accountNumber) ?? '-';
-    //         break;
+          case 'A/C Number':
+            mappedRow[col] = row.bank?.accountNumber ?? '-';
+            break;
 
-    //       case 'Account Holder':
-    //         mappedRow[col] = row.digitalPayment?.accountHolder ?? '-';
-    //         break;
+          case 'Account Holder':
+            mappedRow[col] = row.bank?.accountHolder ?? '-';
+            break;
 
-    //       case 'Bank Name':
-    //         mappedRow[col] = row.digitalPayment?.bankName ?? '-';
-    //         break;
+          case 'IBAN':
+            mappedRow[col] = row.bank?.iban ?? row.bank?.ifsc ?? '-';
+            break;
 
-    //       case 'District':
-    //         mappedRow[col] = row.digitalPayment?.districtName ?? '-';
-    //         break;
+          case 'Bank Name':
+            mappedRow[col] = row.bank?.bankName ?? '-';
+            break;
 
-    //       case 'File':
-    //         mappedRow[col] = row.image ?? '-';
-    //         break;
+          case 'Distict':
+            mappedRow[col] = row.bank?.distict ?? row.bank?.distict ?? '-';
+            break;
 
-    //       case 'Req. At':
-    //         mappedRow[col] = row.createOrUpdatePaymentConfig
-    //           ? this.convertToTimeZone(
-    //               row.createOrUpdatePaymentConfig,
-    //               timezone,
-    //             )
-    //           : '-';
-    //         break;
+          case 'Req. At':
+            mappedRow[col] = row.createdAt
+              ? this.convertToTimeZone(row.createdAt, timezone)
+              : '-';
+            break;
 
-    //       case 'Upd. At':
-    //         mappedRow[col] = row.updateDepositWithdrawStatus
-    //           ? this.convertToTimeZone(
-    //               row.updateDepositWithdrawStatus,
-    //               timezone,
-    //             )
-    //           : '-';
-    //         break;
-    //     }
-    //   });
+          case 'Upd. At':
+            mappedRow[col] = row.statusUpdatedAt
+              ? this.convertToTimeZone(row.statusUpdatedAt, timezone)
+              : '-';
+            break;
 
-    //   return mappedRow;
-    // });
+          default:
+            mappedRow[col] = '-';
+        }
+      });
 
-    // let modeSuffix = '';
+      return mappedRow;
+    });
 
-    // if (isCrypto) {
-    //   modeSuffix = 'crypto';
-    // } else if (isBank) {
-    //   modeSuffix = 'bank';
-    // } else if (isWallet) {
-    //   modeSuffix = 'ewallet';
-    // } else if (isWalletBank) {
-    //   modeSuffix = 'isWalletBank';
-    // }
+    let modeSuffix = '';
 
-    // const reportName = [
-    //   type,
-    //   modeSuffix,
-    //   new Date().toISOString().split('T')[0],
-    // ]
-    //   .filter(Boolean)
-    //   .join('_');
+    if (isUpi) {
+      modeSuffix = 'UPI';
+    } else if (isBank) {
+      modeSuffix = 'Bank';
+    } else if (isCrypto) {
+      modeSuffix = 'Crypto';
+    } else if (isWallet) {
+      modeSuffix = 'E-Wallet';
+    }
 
-    // switch (format) {
-    //   case ExportFormat.Excel:
-    //     return await this.generateDynamicExcel(data, id, reportName);
-    //     break;
+    const reportName = [type, modeSuffix].filter(Boolean).join('_');
 
-    //   case ExportFormat.Pdf:
-    //     return await this.generateDynamicPdf(data, id, reportName);
-    //     break;
+    switch (format) {
+      case ExportFormat.Excel:
+        return await this.generateDynamicExcel(data, id, reportName);
+        break;
 
-    //   case ExportFormat.Csv:
-    //     return await this.generateDynamicCsv(data, id, reportName);
-    //     break;
-    //   default:
-    //     throw new Error(`Unsupported export format: ${format}`);
-    // }
+      case ExportFormat.Pdf:
+        return await this.generateDynamicPdf(data, id, reportName);
+        break;
+
+      case ExportFormat.Csv:
+        return await this.generateDynamicCsv(data, id, reportName);
+        break;
+      default:
+        throw new Error(`Unsupported export format: ${format}`);
+    }
   }
 
   async betHistoryReport(params: BetHistoryReportParams): Promise<any> {
@@ -668,11 +667,13 @@ export class ExportsService extends BaseService implements OnModuleInit {
     const rawData = result.bets as any[];
 
     const ROLE_HIERARCHY_COLUMNS: Record<string, string[]> = {
-      OWNER: ['Super Master', 'Master'],
-      WHITELABEL: ['Super Master', 'Master'],
-      ADMIN: ['Super Master', 'Master'],
-      'SUB ADMIN': ['Master'],
-      'SUPER MASTER': ['Master'],
+      OWNER: ['SUPER ADMIN', 'ADMIN', 'SUPER MASTER', 'MASTER'],
+
+      'SUPER ADMIN': ['ADMIN', 'SUPER MASTER', 'MASTER'],
+
+      ADMIN: ['SUPER MASTER', 'MASTER'],
+
+      'SUPER MASTER': ['MASTER'],
       MASTER: [],
     };
 
@@ -695,11 +696,14 @@ export class ExportsService extends BaseService implements OnModuleInit {
       'Status',
       'Bet Taken',
       'Bet Settled',
+      'Sport',
       'Event',
+      'Selection',
       'Market',
       'Type',
       'Odds',
       'Stack',
+      'Result',
       'P/L',
       'Ip',
     ];
@@ -714,44 +718,34 @@ export class ExportsService extends BaseService implements OnModuleInit {
             mappedRow[col] = index + 1;
             break;
 
-          case 'White Label':
-            mappedRow[col] = upline.WHITELABEL ?? '-';
+          case 'SUPER ADMIN':
+            mappedRow[col] = upline['SUPER ADMIN'] ?? '-';
             break;
 
-          case 'Admin':
-            mappedRow[col] = upline.ADMIN ?? '-';
+          case 'ADMIN':
+            mappedRow[col] = upline['ADMIN'] ?? '-';
             break;
 
-          case 'Sub Admin':
-            mappedRow[col] = upline['SUB ADMIN'] ?? '-';
-            break;
-
-          case 'Super Master':
+          case 'SUPER MASTER':
             mappedRow[col] = upline['SUPER MASTER'] ?? '-';
             break;
 
-          case 'Master':
-            mappedRow[col] = upline.MASTER ?? '-';
+          case 'MASTER':
+            mappedRow[col] = upline['MASTER'] ?? '-';
             break;
 
           case 'User':
             mappedRow[col] = row.username ?? '-';
             break;
+
           case 'Status':
             mappedRow[col] = row.status ?? '-';
             break;
 
           case 'Bet ID':
-            mappedRow[col] = Number(row.id) ?? '-';
+            mappedRow[col] = row.id ? Number(row.id) : '-';
             break;
 
-          // case 'Bet Taken':
-          //   mappedRow[col] = row.placedAt ?? '-';
-          //   break;
-
-          // case 'Bet Settled':
-          //   mappedRow[col] = row.settledAt ??  '-';
-          //   break;
           case 'Bet Taken':
             mappedRow[col] = row.placedAt
               ? this.convertToTimeZone(row.placedAt, timezone)
@@ -764,9 +758,16 @@ export class ExportsService extends BaseService implements OnModuleInit {
               : '-';
             break;
 
+          case 'Sport':
+            mappedRow[col] = row.sport ?? '-';
+            break;
+
           case 'Event':
-            mappedRow[col] =
-              `${row.sportrow ?? '-'} / ${row.eventName ?? '-'} / ${row.selection ?? '-'}`;
+            mappedRow[col] = `${row.eventName ?? '-'} `;
+            break;
+
+          case 'Selection':
+            mappedRow[col] = row.selection ?? '-';
             break;
 
           case 'Market':
@@ -783,6 +784,10 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
           case 'Stack':
             mappedRow[col] = Number(row.amount ?? 0);
+            break;
+
+          case 'Result':
+            mappedRow[col] = row.result ?? '-';
             break;
 
           case 'P/L':
@@ -875,11 +880,13 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
     const rawData = result.casinoBets as any[];
     const ROLE_HIERARCHY_COLUMNS: Record<string, string[]> = {
-      OWNER: ['Super Master', 'Master'],
-      WHITELABEL: ['Super Master', 'Master'],
-      ADMIN: ['Super Master', 'Master'],
-      'SUB ADMIN': ['Super Master', 'Master'],
-      'SUPER MASTER': ['Master'],
+      OWNER: ['SUPER ADMIN', 'ADMIN', 'SUPER MASTER', 'MASTER'],
+
+      'SUPER ADMIN': ['ADMIN', 'SUPER MASTER', 'MASTER'],
+
+      ADMIN: ['SUPER MASTER', 'MASTER'],
+
+      'SUPER MASTER': ['MASTER'],
       MASTER: [],
     };
 
@@ -921,24 +928,20 @@ export class ExportsService extends BaseService implements OnModuleInit {
             mappedRow[col] = index + 1;
             break;
 
-          case 'White Label':
-            mappedRow[col] = upline.WHITELABEL ?? '-';
+          case 'SUPER ADMIN':
+            mappedRow[col] = upline['SUPER ADMIN'] ?? '-';
             break;
 
-          case 'Admin':
-            mappedRow[col] = upline.ADMIN ?? '-';
+          case 'ADMIN':
+            mappedRow[col] = upline['ADMIN'] ?? '-';
             break;
 
-          case 'Sub Admin':
-            mappedRow[col] = upline['SUB ADMIN'] ?? '-';
-            break;
-
-          case 'Super Master':
+          case 'SUPER MASTER':
             mappedRow[col] = upline['SUPER MASTER'] ?? '-';
             break;
 
-          case 'Master':
-            mappedRow[col] = upline.MASTER ?? '-';
+          case 'MASTER':
+            mappedRow[col] = upline['MASTER'] ?? '-';
             break;
 
           case 'User Name':
@@ -1087,7 +1090,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = upline['MASTER'] ?? '-';
+            mappedRow[col] = upline['name'] ?? '-';
             break;
 
           case 'User P/L':
@@ -1148,6 +1151,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       searchByUserId,
       reportType,
       transactionLimit,
+      path,
       format,
     } = params;
 
@@ -1167,7 +1171,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       {
         fromDate,
         toDate,
-        path: '0', // todo: dynaic upline  path
+        path, // todo: dynaic upline  path
         searchByUserId,
         transactionLimit,
         reportType,
@@ -1179,9 +1183,17 @@ export class ExportsService extends BaseService implements OnModuleInit {
     const rawData = (result.casinoProfitLoss ?? []) as any[];
     const isHierarchy = reportType === ReportType.HIERARCHY;
 
+    const footerConfig = {
+      labelColumn: 'User Name',
+      labelText: 'Total',
+      values: {
+        'User P/L': result.totals.totalProfitLoss,
+      },
+    };
+
     const columns: string[] = isHierarchy
-      ? ['S.No', 'User Name', 'Parent', 'P/L']
-      : ['S.No', 'User Name', 'P/L'];
+      ? ['S.No', 'User Name', 'Parent', 'User P/L']
+      : ['S.No', 'User Name', 'User P/L'];
 
     const data = rawData.map((row, index) => {
       const mappedRow: Record<string, any> = {};
@@ -1197,12 +1209,12 @@ export class ExportsService extends BaseService implements OnModuleInit {
             mappedRow[col] = row.username ?? '-';
             break;
 
-          case 'P/L':
+          case 'User P/L':
             mappedRow[col] = parseFloat(row.totalProfitLoss) || 0;
             break;
 
           case 'Parent':
-            mappedRow[col] = upline['MASTER'] ?? '-';
+            mappedRow[col] = upline['name'] ?? '-';
             break;
 
           default:
@@ -1217,13 +1229,28 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
     switch (format) {
       case ExportFormat.Excel:
-        return await this.generateDynamicExcel(data, id, reportName);
+        return await this.generateDynamicExcel(
+          data,
+          id,
+          reportName,
+          footerConfig,
+        );
 
       case ExportFormat.Pdf:
-        return await this.generateDynamicPdf(data, id, reportName);
+        return await this.generateDynamicPdf(
+          data,
+          id,
+          reportName,
+          footerConfig,
+        );
 
       case ExportFormat.Csv:
-        return await this.generateDynamicCsv(data, id, reportName);
+        return await this.generateDynamicCsv(
+          data,
+          id,
+          reportName,
+          footerConfig,
+        );
 
       default:
         throw new Error(`Unsupported export format: ${format}`);
@@ -1242,6 +1269,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       toDate,
       searchByUserName,
       transactionLimit,
+      path,
       format,
     } = params;
 
@@ -1262,7 +1290,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
         fromDate,
         toDate,
         transactionLimit,
-        path: '0', // todo: dynaic upline  path
+        path, // todo: dynaic upline  path
         searchByUserName,
       },
       true, // isExport
@@ -1274,9 +1302,10 @@ export class ExportsService extends BaseService implements OnModuleInit {
       labelColumn: 'User Name',
       labelText: 'Total',
       values: {
-        'Player P/L': result.totals,
-        'Downline P/L': Number(result.downlineUsers),
-        'Upline P/L': Number(result.totalUplinePl),
+        'Player P/L': Number(Number(result.totals).toFixed(2)),
+        //'Client P/L': Number(Number(result.totalClientPl).toFixed(2)),
+        'Downline P/L': Number(Number(result.totalDownlinePl).toFixed(2)),
+        'Upline P/L': Number(Number(result.totalUplinePl).toFixed(2)),
       },
     };
 
@@ -1284,6 +1313,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       'S.No',
       'User Name',
       'Player P/L',
+      //'Client P/L',
       'Downline P/L',
       'Upline P/L',
     ];
@@ -1305,12 +1335,16 @@ export class ExportsService extends BaseService implements OnModuleInit {
             mappedRow[col] = Number(row.profitLoss) ?? 0;
             break;
 
+          // case 'Client P/L':
+          //   mappedRow[col] = Number(row.clientPl) ?? 0;
+          //   break;
+
           case 'Downline P/L':
-            mappedRow[col] = -(Number(row.profitLoss) ?? 0);
+            mappedRow[col] = Number(row.downlinePl) ?? 0;
             break;
 
           case 'Upline P/L':
-            mappedRow[col] = -(Number(row.profitLoss) ?? 0);
+            mappedRow[col] = Number(row.uplinePl) ?? 0;
             break;
 
           default:
@@ -1365,6 +1399,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       toDate,
       searchByUserName,
       transactionLimit,
+      path,
       format,
     } = params;
 
@@ -1382,7 +1417,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       {
         fromDate,
         toDate,
-        path: '0',
+        path,
         transactionLimit,
         searchByUserName,
       },
@@ -1395,9 +1430,10 @@ export class ExportsService extends BaseService implements OnModuleInit {
       labelColumn: 'User Name',
       labelText: 'Total',
       values: {
-        'Player P/L': Number(result.totals),
-        'Downline P/L': Number(result.downlineUsers),
-        'Upline P/L': Number(result.totalUplinePl),
+        'Player P/L': Number(Number(result.totals).toFixed(2)),
+        'Clint p/l': Number(Number(result.totalClientPl).toFixed(2)),
+        'Downline P/L': Number(Number(result.totalDownlinePl ?? 0).toFixed(2)),
+        'Upline P/L': Number(Number(result.totalUplinePl).toFixed(2)),
       },
     };
 
@@ -1405,6 +1441,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       'S.No',
       'User Name',
       'Player P/L',
+      'Clint p/l',
       'Downline P/L',
       'Upline P/L',
     ];
@@ -1426,12 +1463,16 @@ export class ExportsService extends BaseService implements OnModuleInit {
             mappedRow[col] = Number(row.profitLoss) ?? 0;
             break;
 
+          case 'Clint p/l':
+            mappedRow[col] = Number(row.clientPl) ?? 0;
+            break;
+
           case 'Downline P/L':
-            mappedRow[col] = -(Number(row.profitLoss) ?? 0);
+            mappedRow[col] = Number(row.downlinePl) ?? 0;
             break;
 
           case 'Upline P/L':
-            mappedRow[col] = -(Number(row.profitLoss) ?? 0);
+            mappedRow[col] = Number(row.uplinePl) ?? 0;
             break;
 
           default:
@@ -1505,8 +1546,8 @@ export class ExportsService extends BaseService implements OnModuleInit {
     }
 
     const result = await this.reportsService.getEventProfitLossReport(
-      resolvedUserId,
-      userType ?? UserType.User,
+      searchByUserId ? BigInt(searchByUserId) : resolvedUserId,
+      searchByUserId ? UserType.User : (userType ?? UserType.User),
       {
         fromDate,
         toDate,
@@ -1537,7 +1578,8 @@ export class ExportsService extends BaseService implements OnModuleInit {
           'TotalStake',
           'Player P/L',
           'Downline P/L',
-          'Upline P/L',
+          //'Upline P/L',
+          'Client P/L',
         ];
 
     let data: Record<string, any>[] = [];
@@ -1568,13 +1610,13 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
             case 'Downline P/L':
               if (!searchByUserId) {
-                mappedRow[col] = -(Number(row.totalProfitLoss) ?? 0);
+                mappedRow[col] = Number(row.downlineProfitLoss) ?? 0;
               }
               break;
 
-            case 'Upline P/L':
+            case 'Client P/L':
               if (!searchByUserId) {
-                mappedRow[col] = -(Number(row.totalProfitLoss) ?? 0);
+                mappedRow[col] = Number(row.uplineProfitLoss) ?? 0;
               }
               break;
 
@@ -1610,11 +1652,11 @@ export class ExportsService extends BaseService implements OnModuleInit {
               break;
 
             case 'Downline P/L':
-              mappedRow[col] = -(Number(row.totalProfitLoss) ?? 0);
+              mappedRow[col] = Number(row.downlineProfitLoss) ?? 0;
               break;
 
-            case 'Upline P/L':
-              mappedRow[col] = -(Number(row.totalProfitLoss) ?? 0);
+            case 'Client P/L':
+              mappedRow[col] = Number(row.uplineProfitLoss) ?? 0;
               break;
 
             default:
@@ -1827,14 +1869,12 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? 'MA';
+            mappedRow[col] = row.uplineDetails?.name ?? 'MA';
             break;
 
           case 'Parent':
             mappedRow[col] =
-              row.uplineDetails?.MASTER ??
-              row.uplineDetails?.['SUPER MASTER'] ??
-              '-';
+              row.uplineDetails?.name ?? row.uplineDetails?.['name'] ?? '-';
             break;
 
           case 'User Name':
@@ -1944,7 +1984,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-';
+            mappedRow[col] = row.uplineDetails?.name ?? '-';
             break;
 
           case 'User Name':
@@ -2044,7 +2084,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-';
+            mappedRow[col] = row.uplineDetails?.name ?? '-';
             break;
 
           // case 'Parent':
@@ -2146,7 +2186,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-'; // Always MASTER
+            mappedRow[col] = row.uplineDetails?.name ?? '-'; // Always MASTER
             break;
 
           case 'User Name':
@@ -2240,7 +2280,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-'; // Always MASTER if present
+            mappedRow[col] = row.uplineDetails?.name ?? '-'; // Always MASTER if present
             break;
 
           case 'User Name':
@@ -2350,7 +2390,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-'; // Always MASTER
+            mappedRow[col] = row.uplineDetails?.name ?? '-'; // Always MASTER
             break;
 
           case 'User Name':
@@ -2412,6 +2452,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       status,
       fromDate,
       toDate,
+      path,
       format,
     } = params;
 
@@ -2427,7 +2468,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
     const result = await this.usersService.getSubUsers(
       resolvedUserId,
-      '0', // todo: add path(upline path) if required
+      path, // todo: add path(upline path) if required
       {
         status,
         rollId,
@@ -2463,7 +2504,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             break;
 
           case 'Parent':
-            mappedRow[col] = row.uplineDetails?.MASTER ?? '-';
+            mappedRow[col] = row.uplineDetails?.name ?? '-';
             break;
 
           case 'Username':
@@ -2723,8 +2764,8 @@ export class ExportsService extends BaseService implements OnModuleInit {
     const columns: string[] = [
       'S.No',
       'Date/Time',
-      'Deposit',
-      'Withdraw',
+      'Credit',
+      'Debit',
       'Balance',
       'From',
       'To',
@@ -2745,12 +2786,12 @@ export class ExportsService extends BaseService implements OnModuleInit {
               : '-';
             break;
 
-          case 'Deposit':
+          case 'Credit':
             mappedRow[col] =
               row.type === 'Credit' ? Number(row.amount ?? '0') : Number('0');
             break;
 
-          case 'Withdraw':
+          case 'Debit':
             mappedRow[col] =
               row.type === 'Debit' ? Number(row.amount ?? '0') : Number('0');
             break;
@@ -2802,7 +2843,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       status,
       category,
       releaseType,
-
+      approvalType,
       search,
       searchbyuserId,
       searchbyusername,
@@ -2821,6 +2862,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       search,
       userId: searchbyuserId ? Number(searchbyuserId) : undefined,
       username: searchbyusername,
+      approvalType,
       startDate: fromDate?.toISOString(),
       endDate: toDate?.toISOString(),
       isExport: true,
@@ -3042,7 +3084,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
       return mappedRow;
     });
 
-    const reportName = `Downline_Game_Transaction_Report`;
+    const reportName = `Game_Transaction_Report`;
 
     switch (format) {
       case ExportFormat.Excel:
@@ -3846,7 +3888,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             transactionLimit: filters.transactionLimit ?? undefined,
             fromDate: filters.fromDate ? new Date(filters.fromDate) : undefined,
             toDate: filters.toDate ? new Date(filters.toDate) : undefined,
-
+            path: filters.path ?? '0',
             format: request.format,
             timezone: request.timezone ?? undefined,
           });
@@ -3870,7 +3912,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             transactionLimit: filters.transactionLimit ?? undefined,
             fromDate: filters.fromDate ? new Date(filters.fromDate) : undefined,
             toDate: filters.toDate ? new Date(filters.toDate) : undefined,
-
+            path: filters.path ?? '0',
             format: request.format,
             timezone: request.timezone ?? undefined,
           });
@@ -3918,7 +3960,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
 
             fromDate: filters.fromDate ? new Date(filters.fromDate) : undefined,
             toDate: filters.toDate ? new Date(filters.toDate) : undefined,
-
+            path: filters.path ?? '0',
             format: request.format,
             timezone: request.timezone ?? undefined,
           });
@@ -4073,6 +4115,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             fromDate: filters.fromDate ? new Date(filters.fromDate) : undefined,
             toDate: filters.toDate ? new Date(filters.toDate) : undefined,
             format: request.format,
+            path: filters.path ?? '0',
             timezone: request.timezone ?? undefined,
           });
           break;
@@ -4135,6 +4178,7 @@ export class ExportsService extends BaseService implements OnModuleInit {
             status: filters.status ?? undefined,
             category: filters.category ?? undefined,
             releaseType: filters.releaseType ?? undefined,
+            approvalType: filters.approvalType ?? undefined,
             search: filters.search ?? undefined,
             searchbyuserId: filters.searchbyuserId ?? undefined,
             searchbyusername: filters.searchbyusername ?? undefined,

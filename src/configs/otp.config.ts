@@ -7,4 +7,6 @@ export const otpConfigFactory = registerAs('otp', () => ({
   maxRetries: 5,
   timeout: 120000, // 2 min
   blockTimeout: 86400000, // 24 hr
+
+  provider: process.env.MSG_PROVIDER || 'SMS',
 }));

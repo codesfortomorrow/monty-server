@@ -7,12 +7,8 @@ import { ConfigType } from '@nestjs/config';
 // import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PrismaService } from 'src/prisma';
-import {
-  ICompetition,
-  RemoteResponse,
-  RemoteSeries,
-} from './competitions.type';
-import { Provider, ProviderType, SportType, StatusType } from '@prisma/client';
+import { RemoteResponse, RemoteSeries } from './competitions.type';
+import { ResultProvider, SportType, StatusType } from '@prisma/client';
 import { getSportEnum } from 'src/utils/sports';
 import { AlertService } from 'src/alert/alert.service';
 
@@ -46,24 +42,10 @@ export class CompetitionsProcessor extends BaseService {
     this.logger.info('✅ Sports Data Processor completed successfully.');
   }
 
-  /**
-   * Run every 5 hours
-   */
-  /**
-   * Fetch Competitions of others provider
-   */
-  // @Cron(CronExpression.EVERY_5_HOURS)
-  async handleCompetitionSync() {
-    if (!this.utils.isMaster()) return;
-    this.logger.info('🏁 Competition sync started');
-    await this.syncOtherProviderCompetitions();
-    this.logger.info('✅ Competition sync finished');
-  }
-
-  async fetchRaceMarketCompttionAndEvents() {
+  async fetchRaceMarketCompetitionAndEvents() {
     if (!this.utils.isMaster()) return;
     this.logger.info('🏁 Race Competition sync started');
-    await this.syncRaceMarketCompttionAndEvents();
+    await this.syncRaceMarketCompetitionAndEvents();
     this.logger.info('✅  Race  Competition sync finished');
   }
 
@@ -89,7 +71,7 @@ export class CompetitionsProcessor extends BaseService {
       },
     );
   }
-  async syncRaceMarketCompttionAndEvents() {
+  async syncRaceMarketCompetitionAndEvents() {
     const baseUrl = this.sportConfig.sportBaseUrl;
     const sports = this.sportConfig.sports;
 
@@ -114,46 +96,6 @@ export class CompetitionsProcessor extends BaseService {
     );
   }
 
-  async syncOtherProviderCompetitions() {
-    const baseUrl = this.sportConfig.sportBaseUrl;
-    const sports = this.sportConfig.sports;
-
-    if (!baseUrl || !sports)
-      throw new Error(
-        'Base Url or Sports are not configured, aborting competition sync',
-      );
-
-    // fetch providers (exclude Sat Sports & BetFair)
-    const providers = await this.prisma.provider.findMany({
-      where: {
-        providerType: ProviderType.Sports,
-        isActive: true,
-        name: { notIn: ['Sat Sports', 'BetFair'] },
-      },
-    });
-
-    this.logger.info(`Found ${providers.length} providers to sync`);
-    await this.utils.batchable(providers, async (provider) => {
-      await this.utils.batchable(
-        Object.entries(sports),
-        async ([sportName, sportId]) => {
-          if (sportId == 7 || sportId == 4339) {
-            return;
-          }
-
-          await this.utils.rerunnable(async () => {
-            await this.processOtherCompetition(
-              baseUrl,
-              sportName,
-              sportId,
-              provider,
-            );
-          }, 3);
-        },
-      );
-    });
-  }
-
   private async processSport(
     baseUrl: string,
     sportName: string,
@@ -173,7 +115,7 @@ export class CompetitionsProcessor extends BaseService {
         );
         return res.data;
       }, 3);
-    } catch (error) {
+    } catch (error: any) {
       // Call Alert Service
       this.alertService.notifyApiFailure({
         url,
@@ -215,14 +157,16 @@ export class CompetitionsProcessor extends BaseService {
         );
         return res.data;
       }, 3);
-    } catch (error) {
+    } catch (error: any) {
       // Call Alert Service
-      // this.alertService.notifyApiFailure({
-      //  //portName,
-      //   //sportId,
-      //   url,
-      //   error: error.message,
-      // });
+      this.alertService.notifyApiFailure({
+        url,
+        meta: {
+          'Sport Name': sportName,
+          'Sport Id': sportId,
+        },
+        error: error.message,
+      });
     }
 
     const competitions = response?.data ?? [];
@@ -270,145 +214,142 @@ export class CompetitionsProcessor extends BaseService {
             ? StatusType.Inactive
             : StatusType.Active;
 
-        await this.utils.batchable(
-          matches,
-          async (m) => {
-            await this.prisma.event.upsert({
-              where: {
-                competitionId_externalId: {
-                  competitionId: competition.id,
-                  externalId: m.event.id,
-                },
-                NOT: {
-                  status: StatusType.Closed,
-                },
-              },
-              update: {
+        const externalIds = matches.map((m) => m.event.id);
+
+        // 🔹 1. Fetch all existing events in ONE query
+        const existingEvents = await this.prisma.event.findMany({
+          where: {
+            competitionId: competition.id,
+            externalId: { in: externalIds },
+          },
+          select: {
+            id: true,
+            externalId: true,
+            status: true,
+            statusUpdatedBy: true,
+          },
+        });
+
+        const existingMap = new Map(
+          existingEvents.map((e) => [e.externalId, e]),
+        );
+
+        const updates: any[] = [];
+        const creates: any[] = [];
+
+        for (const m of matches) {
+          const existing = existingMap.get(m.event.id);
+
+          const matchStatus = m.isInactive
+            ? StatusType.Inactive
+            : StatusType.Active;
+
+          if (existing) {
+            let shouldUpdateStatus = true;
+
+            // ❌ Rule 1: Closed → never update
+            if (existing.status === StatusType.Closed) {
+              shouldUpdateStatus = false;
+            }
+
+            // ⚠️ Rule 2: Panel override
+            else if (existing.statusUpdatedBy === ResultProvider.Panel) {
+              if (matchStatus !== StatusType.Inactive) {
+                shouldUpdateStatus = false;
+              }
+            }
+
+            updates.push({
+              where: { id: existing.id },
+              data: {
                 startTime: new Date(m.event.openDate),
                 sport: getSportEnum(sportName),
-                status: status,
+                inplay: m.isLive,
                 updatedAt: new Date(),
-              },
-              create: {
-                externalId: m.event.id,
-                name: m.event.name,
-                startTime: new Date(m.event.openDate),
-                sport: getSportEnum(sportName),
-                competitionId: competition.id,
-                providerId,
-                status: status,
-                isFancy: false,
-                isBookmaker: false,
-                isPopular: false,
+                ...(shouldUpdateStatus && {
+                  status: matchStatus,
+                  statusUpdatedBy: ResultProvider.Webhook,
+                }),
               },
             });
+          } else {
+            creates.push({
+              externalId: m.event.id,
+              name: m.event.name,
+              startTime: new Date(m.event.openDate),
+              sport: getSportEnum(sportName),
+              competitionId: competition.id,
+              providerId,
+              status: status,
+              statusUpdatedBy: ResultProvider.Webhook,
+              inplay: m.isLive,
+              isFancy: false,
+              isBookmaker: false,
+              isPopular: false,
+            });
+          }
+        }
+
+        // 🔹 2. Execute updates in parallel batches
+        await this.utils.batchable(
+          updates,
+          async (u) => {
+            await this.prisma.event.update(u);
           },
           os.availableParallelism() / 2,
         );
+
+        // 🔹 3. Bulk create (fastest way)
+        if (creates.length) {
+          await this.prisma.event.createMany({
+            data: creates,
+            skipDuplicates: true,
+          });
+        }
+
+        // await this.utils.batchable(
+        //   matches,
+        //   async (m) => {
+        //     await this.prisma.event.upsert({
+        //       where: {
+        //         competitionId_externalId: {
+        //           competitionId: competition.id,
+        //           externalId: m.event.id,
+        //         },
+        //         NOT: {
+        //           status: StatusType.Closed,
+        //         },
+        //       },
+        //       update: {
+        //         startTime: new Date(m.event.openDate),
+        //         sport: getSportEnum(sportName),
+        //         // status: status,
+        //         updatedAt: new Date(),
+        //       },
+        //       create: {
+        //         externalId: m.event.id,
+        //         name: m.event.name,
+        //         startTime: new Date(m.event.openDate),
+        //         sport: getSportEnum(sportName),
+        //         competitionId: competition.id,
+        //         providerId,
+        //         status: status,
+        //         isFancy: false,
+        //         isBookmaker: false,
+        //         isPopular: false,
+        //       },
+        //     });
+        //   },
+        //   os.availableParallelism() / 2,
+        // );
       }
 
       this.logger.info(
         `Synced ${matches.length} Events (Sprot = ${sportName}) for competition ${competition.externalId}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Error to upsert competition & event. error: ${error.message}`,
-      );
-    }
-  }
-
-  async processOtherCompetition(
-    baseUrl: string,
-    sportName: string,
-    sportId: number,
-    provider: Provider,
-  ) {
-    if (!provider.externalId) {
-      this.logger.warn(
-        `Skipping provider ${provider.name} (id=${provider.id}) - missing externalId`,
-      );
-      return;
-    }
-    // const url = `${baseUrl}/competition/by-providerId?sportId=${sportId}&providerId=${provider.externalId}`;
-    const url = `${baseUrl}/event/by-provider?sportId=${sportId}&providerId=${provider.externalId}&competitionId=%20`;
-
-    try {
-      // use utils.rerunnable to call the 3rd party (with exponential backoff)
-      let response: RemoteResponse | null = null;
-
-      try {
-        response = await this.utils.rerunnable(async () => {
-          const resp = await firstValueFrom(
-            this.http
-              .get<RemoteResponse>(url)
-              .pipe(timeout(this.REQUEST_TIMEOUT_MS)),
-          );
-          return resp.data;
-        }, 3);
-      } catch (error) {
-        // Call Alert Service
-        this.alertService.notifyApiFailure({
-          url,
-          meta: {
-            'Sport Name': sportName,
-            'Sport Id': sportId,
-          },
-          error: error.message,
-        });
-
-        this.logger.error(
-          `Error to call third party api (Sport = ${sportName}), (url = ${url}) ${error.message}`,
-        );
-      }
-
-      this.logger.info(
-        `Third party response for ${provider.name} (Sport = ${sportName}) ${JSON.stringify(response, null, 2)}`,
-      );
-
-      const competitions = response?.data ?? [];
-
-      if (!Array.isArray(competitions)) {
-        this.logger.warn(
-          `Provider ${provider.name} (${provider.externalId}) returned non-array for sport ${sportName}: ${JSON.stringify(
-            competitions,
-          )}`,
-        );
-        return;
-      }
-
-      // batch upsert using utils.batchable - concurrency tuned by utils.batchable implementation
-      await this.utils.batchable(competitions, async (comp) => {
-        // Use upsert with unique constraint (externalId + name)
-        // await this.prisma.competition.upsert({
-        //   where: {
-        //     externalId_name: {
-        //       externalId: comp.competitionId,
-        //       name: comp.competitionName,
-        //     },
-        //   },
-        //   create: {
-        //     externalId: comp.competitionId,
-        //     name: comp.competitionName,
-        //     sport: getSportEnum(comp.sportName),
-        //     status: StatusType.Active,
-        //     providerId: provider.id,
-        //   },
-        //   update: {
-        //     sport: getSportEnum(comp.sportName),
-        //     status: StatusType.Active,
-        //   },
-        // });
-
-        await this.upsertCompetitionAndEvents(sportName, comp, provider.id);
-        await this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
-      });
-
-      this.logger.info(
-        `Synced ${competitions.length} competitions for provider ${provider.name} (sport=${sportName})`,
-      );
-    } catch (err: any) {
-      this.logger.error(
-        `Failed to sync competitions for provider ${provider.name} (sport=${sportName}): ${err?.message ?? err}`,
       );
     }
   }

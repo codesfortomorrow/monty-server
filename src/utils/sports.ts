@@ -6,7 +6,7 @@ const sportNameToEnumMap: Record<string, SportType> = {
   Tennis: SportType.Tennis,
   Basketball: SportType.Basketball,
   HorseRacing: SportType.HorseRacing,
-  GreyhoundRacing: SportType.GreyhoundRacing,
+  Greyhound: SportType.Greyhound,
   Soccer: SportType.Soccer,
   Other: SportType.Other,
 };
@@ -108,4 +108,18 @@ export const getBetTypeEnum = (name: string): BetType => {
   );
 
   return matched ? matched[1] : BetType.Back;
+};
+
+const gliveSports = {
+  Cricket: 'CRICKET',
+  Soccer: 'FOOTBALL',
+  Tennis: 'TENNIS',
+};
+
+export const getGliveSportName = (sport: string) => {
+  const normalized = sport.trim().toLowerCase();
+  const matched = Object.entries(gliveSports).find(
+    ([key]) => key.toLowerCase() === normalized,
+  );
+  return matched ? matched[1] : null;
 };

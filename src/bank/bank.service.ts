@@ -47,9 +47,9 @@ export class BankService extends BaseService {
       throw new Error('Account number must be 9 to 18 digits.');
     }
 
-    if (!iban || !/^[A-Z0-9]{15,34}$/.test(iban)) {
-      throw new Error('Invalid IBAN code.');
-    }
+    // if (!iban || !/^[A-Z0-9]{15,34}$/.test(iban)) {
+    //   throw new Error('Invalid IBAN code.');
+    // }
 
     if (!accountHolder || !/^[A-Za-z\s]{3,25}$/.test(accountHolder)) {
       throw new Error(
@@ -61,7 +61,7 @@ export class BankService extends BaseService {
       throw new Error('Branch name is required.');
     }
 
-    if (!distict || distict.length < 2) {
+    if (!distict || distict.length < 3) {
       throw new Error('District is required.');
     }
 

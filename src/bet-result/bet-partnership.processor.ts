@@ -134,6 +134,13 @@ export class SettledBetBatchProcessor
       where: {
         status: { in: [BetStatusType.Won, BetStatusType.Lost] },
         isPlCalculated: false,
+        user: {
+          role: {
+            NOT: {
+              name: 'DEMO',
+            },
+          },
+        },
       },
       take: BATCH_SIZE,
       orderBy: { id: 'asc' },
@@ -276,6 +283,7 @@ export class SettledBetBatchProcessor
             where: { id: existing.id },
             data: {
               uplinePl: apAmount,
+              totalPl: forwardUpAmount,
               updatedAt: new Date(),
             },
           });
@@ -307,6 +315,7 @@ export class SettledBetBatchProcessor
         },
         update: {
           uplinePl: Math.round(apAmount),
+          totalPl: forwardUpAmount,
           updatedAt: new Date(),
         },
         create: {

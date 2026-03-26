@@ -8,5 +8,6 @@ import { PrismaModule } from 'src/prisma';
   imports: [PrismaModule, HttpModule],
   controllers: [SportsProviderController],
   providers: [SportsProviderService],
+  exports: [SportsProviderService],
 })
 export class SportsProviderModule {}

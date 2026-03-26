@@ -21,7 +21,6 @@ import {
 } from 'src/market-mapper/market.type';
 import { PrismaService } from 'src/prisma';
 import { targetMarkets } from 'src/utils/market';
-import e from 'express';
 
 @Injectable()
 export class OddsService {
@@ -59,14 +58,11 @@ export class OddsService {
     if (!events?.length) return [];
 
     const enrichedEvents = await this.utils.batchable(events, async (event) => {
-      const eventStart = Date.now();
       const eventId = event.externalId;
 
       // ------------------------------------------------
       // 1️⃣ BUILD REDIS KEYS (NO KEYS COMMAND ❌)
       // ------------------------------------------------
-      const keyBuildStart = Date.now();
-
       const marketKeys = event.markets.map(
         (m) => `odds:${eventId}:${m.externalId}`,
       );
@@ -87,14 +83,11 @@ export class OddsService {
       // ------------------------------------------------
       // 2️⃣ REDIS MGET IN BATCHES (40–50) 🔥
       // ------------------------------------------------
-      const redisStart = Date.now();
-
       const BATCH_SIZE = 50;
       const redisValues: (string | null)[] = [];
 
       for (let i = 0; i < allKeys.length; i += BATCH_SIZE) {
         const batch = allKeys.slice(i, i + BATCH_SIZE);
-        const batchStart = Date.now();
 
         const res = await this.redis.client.mget(...batch);
         redisValues.push(...res);
@@ -115,7 +108,6 @@ export class OddsService {
       // ------------------------------------------------
       // 3️⃣ PARSE REDIS DATA
       // ------------------------------------------------
-      const parseStart = Date.now();
       const parsed = new Map<string, any>();
 
       allKeys.forEach((key, idx) => {
@@ -135,32 +127,30 @@ export class OddsService {
       // ------------------------------------------------
       // 4️⃣ MAP MARKETS
       // ------------------------------------------------
-      const mapStart = Date.now();
-
       const mainMarkets: MainMarketData[] = this.mapMainMarket(
         event.externalId,
         event.markets,
         parsed,
       );
 
-      const extraMarkets: ExtraMarketData[] = [];
+      // const extraMarkets: ExtraMarketData[] = [];
       const fancyMarkets: FancyMarketData[] = [];
 
-      if (parsed.has(extraKey)) {
-        const extra = parsed.get(extraKey) as { data: ExtraMarket[] };
-        if (Array.isArray(extra?.data)) {
-          extraMarkets.push(
-            ...extra.data
-              .map(this.mapExtraMarket)
-              .filter(
-                (m) =>
-                  m.marketId &&
-                  !m.status?.toLowerCase().startsWith('close') &&
-                  m.runners,
-              ),
-          );
-        }
-      }
+      // if (parsed.has(extraKey)) {
+      //   const extra = parsed.get(extraKey) as { data: ExtraMarket[] };
+      //   if (Array.isArray(extra?.data)) {
+      //     extraMarkets.push(
+      //       ...extra.data
+      //         .map(this.mapExtraMarket)
+      //         .filter(
+      //           (m) =>
+      //             m.marketId &&
+      //             !m.status?.toLowerCase().startsWith('close') &&
+      //             m.runners,
+      //         ),
+      //     );
+      //   }
+      // }
 
       if (parsed.has(fancyKey)) {
         const fancy = parsed.get(fancyKey) as { data: FancyMarket[] };
@@ -216,7 +206,7 @@ export class OddsService {
           mainMarkets.length > 0
             ? this.groupBy(mainMarkets, 'marketName')
             : this.groupBy(mappedDbMarket, 'marketName'),
-        premiumMarket: this.groupBy(extraMarkets, 'category', 'marketName'),
+        // premiumMarket: this.groupBy(extraMarkets, 'category', 'marketName'),
         fancyMarkets: this.groupBy(fancyMarkets, 'marketCategory'),
       };
     });
@@ -291,7 +281,7 @@ export class OddsService {
           marketName: market.name || odds?.data?.marketName,
           eventId: eventId,
           inplay: odds?.data?.inplay,
-          marketStartTime: odds?.data?.marketStartTime, // ISO date string
+          marketStartTime: odds?.data?.marketStartTime || market.startTime, // ISO date string
           status: odds?.data?.status || market.status,
           marketType: odds?.data?.marketType,
           runners: this.mergeRunners(market.runner, odds?.data?.runners),
@@ -387,7 +377,7 @@ export class OddsService {
             m.name && preferredMarkets.has(m.name.toLowerCase()),
         ) ?? event.markets?.[0];
 
-      const key = `odds:${event.externalId}:${market.externalId}`;
+      const key = `fixtureodds:${event.externalId}:${market.externalId}`;
       keys.push(key);
       eventMarketMap.set(key, { event, market });
     }
@@ -602,5 +592,63 @@ export class OddsService {
       },
       {} as Record<string, T[]>,
     );
+  }
+
+  async filterRaceMarket(
+    events: (Event & { markets: Market[]; competition?: Competition | null })[],
+  ) {
+    if (!events?.length) return [];
+
+    const enrichedEvents = await this.utils.batchable(events, async (event) => {
+      const eventId = event.externalId;
+      const marketKeys = event.markets.map(
+        (m) => `odds:${eventId}:${m.externalId}`,
+      );
+      if (!marketKeys.length) return null;
+
+      const BATCH_SIZE = 50;
+      const redisValues: (string | null)[] = [];
+
+      for (let i = 0; i < marketKeys.length; i += BATCH_SIZE) {
+        const batch = marketKeys.slice(i, i + BATCH_SIZE);
+
+        const res = await this.redis.client.mget(...batch);
+        redisValues.push(...res);
+      }
+
+      const parsed = new Map<string, any>();
+
+      marketKeys.forEach((key, idx) => {
+        const val = redisValues[idx];
+        if (!val) return;
+        try {
+          parsed.set(key, JSON.parse(val));
+        } catch {}
+      });
+
+      const mainMarkets: MainMarketData[] = this.mapMainMarket(
+        event.externalId,
+        event.markets,
+        parsed,
+      );
+
+      return {
+        id: event.id,
+        externalId: event.externalId,
+        name: event.name,
+        competitionId: event.competitionId,
+        startTime: event.startTime,
+        status: event.status,
+        sport: event.sport,
+        // inplay,
+        competition: event.competition,
+        markets: mainMarkets.map((market) => ({
+          externalId: market.marketId,
+          name: market.marketName,
+          startTime: market.marketStartTime,
+        })),
+      };
+    });
+    return enrichedEvents.filter((e) => e !== null);
   }
 }

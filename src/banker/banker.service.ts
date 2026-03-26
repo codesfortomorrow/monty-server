@@ -463,7 +463,11 @@ export class BankerService extends BaseService {
       where,
       include: {
         bank: true,
-        crypto: true,
+        crypto: {
+          include: {
+            network: true,
+          },
+        },
         digitalPayment: true,
       },
       orderBy: { id: 'desc' },
@@ -499,7 +503,6 @@ export class BankerService extends BaseService {
     status: WalletTransactionStatus,
     bankerId: bigint,
     userType: UserType,
-    transactionCode: string,
     remark?: string,
   ) {
     // try {
@@ -562,21 +565,6 @@ export class BankerService extends BaseService {
         }
       }
 
-      let creator;
-      let creatorMeta;
-      if (userType === UserType.User) {
-        creator = await this.userService.getById(bankerId);
-        creatorMeta = await this.userService.getMetaById(bankerId);
-      } else {
-        creator = await this.prisma.admin.findUnique({
-          where: { id: bankerId },
-          include: { role: true },
-        });
-        creatorMeta = await this.adminService.getMetaById(bankerId);
-      }
-      if (!creatorMeta || creatorMeta.transactionCode !== transactionCode)
-        throw new Error('Wrong transaction code');
-
       const user = await this.userService.getById(request.userId);
       let banker;
       let username;
@@ -601,7 +589,7 @@ export class BankerService extends BaseService {
         if (!bankerWallet) {
           throw new Error('Admin wallet not found.');
         }
-        username = 'Admin';
+        username = 'Owner';
       } else {
         banker = await this.userService.getById(bankerId);
         if (!banker) {
@@ -682,10 +670,10 @@ export class BankerService extends BaseService {
                     context: WalletTransactionContext.WithdrawalApproval,
                     entityId: requestId,
                     fromAccount: user.username ?? 'User',
-                    toAccount: username ?? 'Admin',
+                    toAccount: username ?? 'Owner',
                     meta: {
                       fromAccount: user.username ?? 'User',
-                      toAccount: username ?? 'Admin',
+                      toAccount: username ?? 'Owner',
                     },
                     narration: `Money Withdrawal Approved`,
                   },
@@ -701,10 +689,10 @@ export class BankerService extends BaseService {
                     context: WalletTransactionContext.WithdrawalApproval,
                     entityId: requestId,
                     fromAccount: user.username ?? 'User',
-                    toAccount: username ?? 'Admin',
+                    toAccount: username ?? 'Owner',
                     meta: {
                       fromAccount: user.username ?? 'User',
-                      toAccount: username ?? 'Admin',
+                      toAccount: username ?? 'Owner',
                     },
                     narration: `Money Withdrawal Approved`,
                   },
@@ -721,10 +709,10 @@ export class BankerService extends BaseService {
                   context: WalletTransactionContext.Withdrawal,
                   entityId: requestId,
                   fromAccount: user.username ?? 'User',
-                  toAccount: username ?? 'Admin',
+                  toAccount: username ?? 'Owner',
                   meta: {
                     fromAccount: user.username ?? 'User',
-                    toAccount: username ?? 'Admin',
+                    toAccount: username ?? 'Owner',
                   },
                   narration: `Money Withdrawal`,
                 },
@@ -790,10 +778,10 @@ export class BankerService extends BaseService {
                   tx,
                   context: WalletTransactionContext.Deposit,
                   entityId: requestId,
-                  fromAccount: username ?? 'Admin',
+                  fromAccount: username ?? 'Owner',
                   toAccount: user.username ?? 'User',
                   meta: {
-                    fromAccount: username ?? 'Admin',
+                    fromAccount: username ?? 'Owner',
                     toAccount: user.username ?? 'User',
                   },
                   narration: `Money Deposit`,
@@ -809,10 +797,10 @@ export class BankerService extends BaseService {
                     tx,
                     context: WalletTransactionContext.DepositApproval,
                     entityId: requestId,
-                    fromAccount: username ?? 'Admin',
+                    fromAccount: username ?? 'Owner',
                     toAccount: user.username ?? 'User',
                     meta: {
-                      fromAccount: username ?? 'Admin',
+                      fromAccount: username ?? 'Owner',
                       toAccount: user.username ?? 'User',
                     },
                     narration: `Money Deposit Approved`,
@@ -828,10 +816,10 @@ export class BankerService extends BaseService {
                     tx,
                     context: WalletTransactionContext.DepositApproval,
                     entityId: requestId,
-                    fromAccount: username ?? 'Admin',
+                    fromAccount: username ?? 'Owner',
                     toAccount: user.username ?? 'User',
                     meta: {
-                      fromAccount: username ?? 'Admin',
+                      fromAccount: username ?? 'Owner',
                       toAccount: user.username ?? 'User',
                     },
                     narration: `Money Deposit Approved`,
@@ -1445,7 +1433,7 @@ export class BankerService extends BaseService {
   async exportDepositWithdraw(
     loggedInUserId: bigint,
     userType: UserType,
-    options: GetDepositWithdrawQueryDto,
+    options: ExportDepositWithdrawQueryDto,
   ) {
     const isAdmin = userType === UserType.Admin;
     const exportEntry = await this.prisma.export.create({
@@ -1456,6 +1444,7 @@ export class BankerService extends BaseService {
         status: 'Pending',
         userId: isAdmin ? undefined : loggedInUserId,
         adminId: isAdmin ? loggedInUserId : undefined,
+        timezone: options.timezone,
         name: options.fileName ?? 'Deposit/Withdraw Request',
         filters: {
           userType,
@@ -1470,7 +1459,10 @@ export class BankerService extends BaseService {
               ? options.toDate.toISOString()
               : options.toDate,
           isUpi: options.isUpi ?? undefined,
+          paymentMode: options.paymentMode ?? undefined,
           isBank: options.isBank ?? undefined,
+          iscripto: options.isCrypto ?? undefined,
+          iswallet: options.isWallet ?? undefined,
           search: options.search ?? undefined,
         },
       },
@@ -1635,8 +1627,7 @@ export class BankerService extends BaseService {
 
       Crypto = await this.prisma.crypto.findMany({
         where: {
-          userId: null,
-          adminId: { not: null },
+          userId: uplineId,
           status: StatusType.Active,
           deletedAt: null,
           network: {

@@ -18,12 +18,4 @@ export class UpdateDepositWithdrawStatusDto {
   @IsString()
   @IsOptional()
   remark?: string;
-
-  @ApiProperty({
-    description: 'Transaction code for verification',
-    example: '12345',
-  })
-  @IsString()
-  @IsNotEmpty()
-  transactionCode: string;
 }

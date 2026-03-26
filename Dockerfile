@@ -1,7 +1,7 @@
 # base image
 FROM node:22 AS base
 
-WORKDIR /rebel-exchchange
+WORKDIR /monty-server
 
 ARG PORT
 
@@ -20,12 +20,12 @@ COPY . .
 EXPOSE ${PORT}
 
 # development image
-FROM base AS rebel-exchchange-dev
+FROM base AS monty-server-dev
 
 CMD ["npm", "run", "start:dev"]
 
 # production image
-FROM base AS rebel-exchchange
+FROM base AS monty-server
 
 RUN npm run build
 

@@ -22,6 +22,13 @@ export class GetDepositWithdrawQueryDto extends DateFilterWithPaginationRequest 
   @IsEnum(WalletTransactionStatus)
   status?: WalletTransactionStatus;
 
+  @ApiPropertyOptional({
+    enum: ExportFormat,
+  })
+  @IsOptional()
+  @IsEnum(ExportFormat)
+  exportFormat?: ExportFormat;
+
   @ApiPropertyOptional({ enum: WalletTransactionType, example: 'Credit' })
   @IsOptional()
   @IsEnum(WalletTransactionType)
@@ -33,6 +40,11 @@ export class GetDepositWithdrawQueryDto extends DateFilterWithPaginationRequest 
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  fileName?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -56,4 +68,16 @@ export class GetDepositWithdrawQueryDto extends DateFilterWithPaginationRequest 
   @IsOptional()
   @IsBoolean()
   isCrypto?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  isUpi?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Timezone in Asia/Kolkata format ',
+  })
+  @IsString()
+  @IsOptional()
+  timezone?: string;
 }

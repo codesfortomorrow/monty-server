@@ -1,3 +1,4 @@
+import { PaginationRequest } from '@Common';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
@@ -8,7 +9,7 @@ import {
 } from 'class-validator';
 import { ReportType } from 'src/reports/dto';
 
-export class UserWiseBreakDownRequest {
+export class UserWiseBreakDownRequest extends PaginationRequest {
   @ApiProperty({ description: 'Event ID', example: 98765 })
   @IsNumber()
   @IsNotEmpty()
@@ -24,6 +25,11 @@ export class UserWiseBreakDownRequest {
   @IsOptional()
   userId: number;
 
+  @ApiPropertyOptional({ description: 'Search by username' })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
   @ApiPropertyOptional({ enum: ReportType })
   @IsEnum(ReportType)
   @IsOptional()
@@ -32,7 +38,7 @@ export class UserWiseBreakDownRequest {
   @IsString()
   @IsOptional()
   @IsNotEmpty()
-  userType: string;
+  userType?: string;
 
   @IsString()
   @IsOptional()

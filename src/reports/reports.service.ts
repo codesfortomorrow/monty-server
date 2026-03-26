@@ -15,7 +15,12 @@ import { PrismaService } from 'src/prisma';
 import { RedisService } from 'src/redis';
 import { UsersService } from 'src/users';
 import { CasinoBetReportsRequest } from './dto/casino-bet-reports.request';
-import { ExportFormat, ExportStatus, ExportType, Prisma } from '@prisma/client';
+import {
+  ExportFormat,
+  ExportStatus,
+  ExportType,
+  SportType,
+} from '@prisma/client';
 
 @Injectable()
 export class ReportsService extends BaseService {
@@ -103,12 +108,17 @@ export class ReportsService extends BaseService {
             b.placed_at AS "placedAt",
             b.settled_at AS "settledAt",
             u.username,
-            um.upline
+            um.upline,
+            CASE
+              WHEN rt.result_selection IS NOT NULL THEN rt.result_selection
+              ELSE rt.result
+            END AS result
           FROM bet b
           JOIN event e ON e.id = b.event_id
           JOIN user_meta um ON um.user_id = b.user_id
           JOIN "user" u ON u.id = b.user_id
           JOIN role r ON r.id = u.role_id
+          LEFT JOIN result rt ON rt.event_id = b.event_id AND rt.market_external_id = b.market_id
           WHERE 
             r.name != 'DEMO'
             AND ($1::text IS NULL OR e.name ILIKE '%' || $1 || '%'
@@ -129,6 +139,10 @@ export class ReportsService extends BaseService {
           ORDER BY b.placed_at DESC
           ${reportLimit};
       `;
+
+      let sport = null;
+      if (query.sport) sport = query.sport?.toLowerCase();
+      if (query.sport === SportType.HorseRacing) sport = 'horse_racing';
       const params = [
         query.search || null,
         query.searchByUserName || null,
@@ -141,7 +155,7 @@ export class ReportsService extends BaseService {
         query.marketId || null,
         query.market || null,
         query.status?.toLowerCase() || null,
-        query.sport?.toLowerCase() || null,
+        sport,
         query.searchByUserId || null,
         skip,
         limit,
@@ -171,6 +185,7 @@ export class ReportsService extends BaseService {
           settledAt: Date | null;
           username: string | null;
           upline: string | null;
+          result: string | null;
         }[]
       >(sqlQuery, ...params);
 
@@ -223,7 +238,7 @@ export class ReportsService extends BaseService {
         query.marketId || null,
         query.market || null,
         query.status?.toLowerCase() || null,
-        query.sport?.toLowerCase() || null,
+        sport,
         query.searchByUserId || null,
       ];
 
@@ -306,6 +321,58 @@ export class ReportsService extends BaseService {
     }
     return map;
   }
+
+  private async getDirectUplineDetails(userIds: bigint[]) {
+    const map = new Map<bigint, Record<string, string>>();
+    for (const userId of userIds) {
+      const redisKey = `upline:direct:${userId}`;
+      const data = await this.redis.client.get(redisKey);
+      if (data) {
+        try {
+          const uplineDetails = JSON.parse(data) as Record<string, string>;
+          map.set(userId, uplineDetails);
+          continue;
+        } catch (error) {
+          this.logger.warn(
+            `Error to parse redis upline data for userId ${userId}, Error: ${error.message}`,
+          );
+        }
+      }
+      const uplinePath = await this.userService.getUplinePathById(userId);
+      if (!uplinePath) continue;
+      const uplineIds = uplinePath.split('.');
+      uplineIds.shift(); // Remove Owner
+      uplineIds.pop(); // Remove Self
+      const ownRole = await this.userService.getRoleByUserId(userId);
+
+      const uplineMap: Record<string, string> = {};
+      for (let i = uplineIds.length - 1; i >= 0; i++) {
+        const uplineId = uplineIds[i];
+        const user = await this.userService.getRoleAndUsernameByUserId(
+          BigInt(uplineId),
+        );
+        if (
+          user.role &&
+          ownRole &&
+          ownRole.name !== user.role.name &&
+          user.username
+        ) {
+          uplineMap.name = user.username;
+          uplineMap.role = user.role.name;
+          break;
+        }
+      }
+
+      await this.redis.client.setex(
+        redisKey,
+        5 * 60,
+        JSON.stringify(uplineMap),
+      );
+      map.set(userId, uplineMap);
+    }
+    return map;
+  }
+
   async getPlayerProfitLoss(
     userId: bigint,
     userType: UserType,
@@ -374,6 +441,10 @@ export class ReportsService extends BaseService {
       )`;
     }
 
+    let sportFilter = null;
+    if (sport) sportFilter = sport?.toLowerCase();
+    if (sport === SportType.HorseRacing) sportFilter = 'horse_racing';
+
     const sql = `
         WITH base_bets AS (
           SELECT 
@@ -431,7 +502,7 @@ export class ReportsService extends BaseService {
       fromDate || null, // $3: startDate
       toDate || null, // $4: endDate
       searchByUsername || null, // $5: search by username
-      sport?.toLowerCase() || null, // $6: sport filter
+      sportFilter, // $6: sport filter
       searchByUserId || null, // $7: search by user id
       transactionLimit || null, // $8: transaction limit per user
       limit, // $9: pagination limit
@@ -439,7 +510,7 @@ export class ReportsService extends BaseService {
     );
 
     const userIds = new Set(result.map((profitLoss) => profitLoss.userId));
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedProfitLoss = result.map((profitLoss) => {
       const uplineDetails = uplineMap.get(profitLoss.userId);
@@ -474,7 +545,7 @@ export class ReportsService extends BaseService {
       uplinePath,
       fromDate || null,
       toDate || null,
-      sport?.toLowerCase() || null,
+      sportFilter,
       userId,
       searchByUsername || null,
       searchByUserId || null,
@@ -840,7 +911,7 @@ export class ReportsService extends BaseService {
     const userIds = new Set(
       casinoProfitLoss.map((profitLoss) => profitLoss.userId),
     );
-    const uplineMap = await this.getUplineDetails([...userIds]);
+    const uplineMap = await this.getDirectUplineDetails([...userIds]);
 
     const mappedProfitLoss = casinoProfitLoss.map((profitLoss) => {
       const uplineDetails = uplineMap.get(profitLoss.userId);
@@ -965,7 +1036,7 @@ export class ReportsService extends BaseService {
         // owner mapping
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
-
+        timezone: query.timezone,
         filters: {
           searchByUserName: query.searchByUserName,
           searchByUserId: query.searchByUserId?.toString(),
@@ -993,6 +1064,7 @@ export class ReportsService extends BaseService {
   async exportCasinoPlayerProfitLossReports(
     userId: bigint,
     userType: UserType,
+    path: string,
     query: CasinoProfitLossReportsRequest,
   ) {
     const isAdmin = userType === UserType.Admin;
@@ -1006,12 +1078,14 @@ export class ReportsService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Profit/Loss by Casino Players',
+        timezone: query.timezone,
         filters: {
           userType,
           searchByUserName: query.searchByUserName,
           searchByUserId: query.searchByUserId,
           transactionLimit: query.transactionLimit,
           reportType: query.reportType,
+          path: path,
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
         },
@@ -1030,6 +1104,7 @@ export class ReportsService extends BaseService {
   async exportCasinoDownlineProfitLossReports(
     userId: bigint,
     userType: UserType,
+    path: string,
     query: CasinoProfitLossReportsRequest,
   ) {
     const isAdmin = userType === UserType.Admin;
@@ -1042,13 +1117,14 @@ export class ReportsService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Profit/Loss by Casino Downline',
-
+        timezone: query.timezone,
         filters: {
           userType,
           searchByUserName: query.searchByUserName,
-          searchByUserId: query.searchByUserName,
+          searchByUserId: query.searchByUserId,
           reportType: query.reportType,
           transactionLimit: query.transactionLimit,
+          path: path,
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
         },
@@ -1080,6 +1156,7 @@ export class ReportsService extends BaseService {
         // owner mapping
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
+        timezone: query.timezone,
 
         filters: {
           searchByUsername: query.searchByUsername,
@@ -1119,6 +1196,7 @@ export class ReportsService extends BaseService {
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
         name: query.fileName ?? 'Profit/Loss Report by Event',
+        timezone: query.timezone,
         filters: {
           searchByEvent: query.searchByEvent,
           userType,
@@ -1145,6 +1223,7 @@ export class ReportsService extends BaseService {
   async exportDownlineProfitLossReports(
     userId: bigint,
     userType: UserType,
+    path: string,
     query: DownlineProfitLossRequest,
   ) {
     const isAdmin = userType === UserType.Admin;
@@ -1158,6 +1237,7 @@ export class ReportsService extends BaseService {
 
         userId: isAdmin ? undefined : userId,
         adminId: isAdmin ? userId : undefined,
+        timezone: query.timezone,
         name: query.fileName ?? 'Profit & Loss Report By Downline',
         filters: {
           userType,
@@ -1165,6 +1245,7 @@ export class ReportsService extends BaseService {
           transactionLimit: query.transactionLimit,
           fromDate: query.fromDate?.toISOString(),
           toDate: query.toDate?.toISOString(),
+          path: path,
         },
       },
     });
@@ -1189,7 +1270,7 @@ export class ReportsService extends BaseService {
     const limit = query.limit ?? 10;
 
     let uplinePath: string | null = '0';
-    let ap: number = 0;
+    let ap: number = 100;
     if (userType === UserType.User) {
       uplinePath = await this.userService.getUplinePathById(userId);
       const user = await this.userService.getPartnership(BigInt(userId));
@@ -1233,26 +1314,38 @@ export class ReportsService extends BaseService {
           query.toDate ?? null,
         );
         console.log(plSummary, 'plSummary');
-        const profitLoss = Number(plSummary[0]?.totalPl ?? 0);
-        const plProfit = Number(plSummary[0]?.uplinePl ?? 0);
+        let profitLoss = Number(plSummary[0]?.totalPl ?? 0);
+        const clientPl =
+          usr.role === 'USER'
+            ? (profitLoss * (100 - ap)) / 100
+            : Number(plSummary[0]?.uplinePl ?? 0);
         const partnership = Number(usr.partnership ?? 0);
-        console.log('console.log(partnership,ap)', partnership, ap);
-        //const playerPl = plProfit;
-        const uplinePl = profitLoss * ((partnership - ap) / 100);
-        const downlinePl = profitLoss * (partnership / 100);
+        const uplinePl =
+          usr.role === 'USER'
+            ? (profitLoss * ap) / 100
+            : (profitLoss * partnership) / 100;
 
+        const downlinePl = usr.role === 'USER' ? 0 : profitLoss - uplinePl;
+        console.log(
+          'usr.role',
+          usr.role,
+          'downlinePl',
+          downlinePl,
+          Number(plSummary[0]?.uplinePl ?? 0),
+        );
+        profitLoss = profitLoss * -1;
         users.push({
           ...usr,
           profitLoss,
-          //playerPl,
+          clientPl,
           uplinePl,
           downlinePl,
         });
       }
 
       // Totals
-      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0) * -1;
-      const totalPlayerPl = users.reduce((sum, u) => sum + u.playerPl, 0);
+      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0);
+      const totalClientPl = users.reduce((sum, u) => sum + u.clientPl, 0);
       const totalUplinePl = users.reduce((sum, u) => sum + u.uplinePl, 0);
       const totalDownlinePl = users.reduce((sum, u) => sum + u.downlinePl, 0);
 
@@ -1260,7 +1353,7 @@ export class ReportsService extends BaseService {
         downlineUsers: users,
         pagination,
         totals,
-        totalPlayerPl,
+        totalClientPl,
         totalUplinePl,
         totalDownlinePl,
       };
@@ -1290,7 +1383,9 @@ export class ReportsService extends BaseService {
       const skip = (page - 1) * limit;
 
       const paginationSql = isExport ? `` : `OFFSET ${skip} LIMIT ${limit}`;
-
+      let sport = null;
+      if (query.sport) sport = query.sport?.toLowerCase();
+      if (query.sport === SportType.HorseRacing) sport = 'horse_racing';
       /* ============================================================
        🟢 SPORTS
     ============================================================ */
@@ -1334,12 +1429,24 @@ export class ReportsService extends BaseService {
         ${paginationSql};
       `;
 
-        const eventRows = await this.prisma.$queryRawUnsafe(
+        const eventRows = await this.prisma.$queryRawUnsafe<
+          {
+            eventId: bigint | number | null;
+            eventName: string | null;
+            sport: string | null;
+            totalBets: number | bigint | null;
+            totalProfitLoss: number | null;
+            uplineProfitLoss: number | null;
+            downlineProfitLoss: number | null;
+            totalStake: number | null;
+            lastBetTime: Date | string | null;
+          }[]
+        >(
           dataSql,
           query.searchByEvent || null,
           query.fromDate || null,
           query.toDate || null,
-          query.sport?.toLowerCase() || null,
+          sport,
         );
 
         /* ---------- COUNT ---------- */
@@ -1362,13 +1469,18 @@ export class ReportsService extends BaseService {
           query.searchByEvent || null,
           query.fromDate || null,
           query.toDate || null,
-          query.sport?.toLowerCase() || null,
+          sport,
         );
 
         const totalItems = Number(countRes?.[0]?.total ?? 0);
 
+        const modified = eventRows.map((e) => ({
+          ...e,
+          totalProfitLoss: (e.totalProfitLoss ?? 0) * -1,
+        }));
+
         return {
-          eventRows,
+          eventRows: modified,
           pagination: {
             currentPage: page,
             limit,
@@ -1419,7 +1531,19 @@ export class ReportsService extends BaseService {
       ${paginationSql};
     `;
 
-      const casinoRows = await this.prisma.$queryRawUnsafe(
+      const casinoRows = await this.prisma.$queryRawUnsafe<
+        {
+          gameId: bigint | number | null;
+          gameName: string | null;
+          category: string | null;
+          gameProviderName: string | null;
+          totalRounds: bigint | number | null;
+          totalProfitLoss: number | null;
+          uplineProfitLoss: number | null;
+          downlineProfitLoss: number | null;
+          lastBetTime: Date | string | null;
+        }[]
+      >(
         casinoSql,
         query.searchByEvent || null,
         query.fromDate || null,
@@ -1453,8 +1577,13 @@ export class ReportsService extends BaseService {
 
       const totalItems = Number(casinoCount?.[0]?.total ?? 0);
 
+      const modified = casinoRows.map((c) => ({
+        ...c,
+        totalProfitLoss: (c.totalProfitLoss ?? 0) * -1,
+      }));
+
       return {
-        eventRows: casinoRows,
+        eventRows: modified,
         pagination: {
           currentPage: page,
           limit,
@@ -1520,26 +1649,38 @@ export class ReportsService extends BaseService {
           query.fromDate ?? null,
           query.toDate ?? null,
         );
-
-        const profitLoss = Number(plSummary[0]?.totalPl ?? 0);
-        const plProfit = Number(plSummary[0]?.uplinePl ?? 0);
+        let profitLoss = Number(plSummary[0]?.totalPl ?? 0);
+        const clientPl =
+          usr.role === 'USER'
+            ? (profitLoss * (100 - ap)) / 100
+            : Number(plSummary[0]?.uplinePl ?? 0);
         const partnership = Number(usr.partnership ?? 0);
+        const uplinePl =
+          usr.role === 'USER'
+            ? (profitLoss * ap) / 100
+            : (profitLoss * partnership) / 100;
 
-        const uplinePl = profitLoss * ((partnership - ap) / 100);
-        const downlinePl = profitLoss * (partnership / 100);
-
+        const downlinePl = usr.role === 'USER' ? 0 : profitLoss - uplinePl;
+        console.log(
+          'usr.role',
+          usr.role,
+          'downlinePl',
+          downlinePl,
+          Number(plSummary[0]?.uplinePl ?? 0),
+        );
+        profitLoss = profitLoss * -1;
         users.push({
           ...usr,
           profitLoss,
-          //playerPl,
+          clientPl,
           uplinePl,
           downlinePl,
         });
       }
 
       // Totals
-      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0) * -1;
-      const totalPlayerPl = users.reduce((sum, u) => sum + u.playerPl, 0);
+      const totals = users.reduce((sum, u) => sum + u.profitLoss, 0);
+      const totalClientPl = users.reduce((sum, u) => sum + u.clientPl, 0);
       const totalUplinePl = users.reduce((sum, u) => sum + u.uplinePl, 0);
       const totalDownlinePl = users.reduce((sum, u) => sum + u.downlinePl, 0);
 
@@ -1547,7 +1688,7 @@ export class ReportsService extends BaseService {
         downlineUsers: users,
         pagination,
         totals,
-        totalPlayerPl,
+        totalClientPl,
         totalUplinePl,
         totalDownlinePl,
       };
@@ -1599,6 +1740,9 @@ export class ReportsService extends BaseService {
 
     const fromDateSafe = normalizeDate(query?.fromDate);
     const toDateSafe = normalizeDate(query?.toDate);
+    let sportFilter = null;
+    if (sport) sportFilter = sport?.toLowerCase();
+    if (sport === SportType.HorseRacing) sportFilter = 'horse_racing';
 
     // -----------------------------
     // 4️⃣ Market-wise PL SQL
@@ -1669,7 +1813,7 @@ bpl.upline_pl,
       searchByMarket, // $2
       fromDateSafe, // $3 ✅ Date | null
       toDateSafe, // $4 ✅ Date | null
-      sport?.toLowerCase(), // $5
+      sportFilter, // $5
       transactionLimit, // $6
       skip, // $7
       limit, // $8
@@ -1710,7 +1854,7 @@ bpl.upline_pl,
       searchByMarket,
       fromDateSafe,
       toDateSafe,
-      sport?.toLowerCase(),
+      sportFilter,
     ];
 
     const countRes = await this.prisma.$queryRawUnsafe<{ total: number }[]>(
@@ -1720,11 +1864,16 @@ bpl.upline_pl,
 
     const totalItems = Number(countRes?.[0]?.total ?? 0);
 
+    const modified = markets.map((m) => ({
+      ...m,
+      totalProfitLoss: (m.totalProfitLoss ?? 0) * -1,
+    }));
+
     // -----------------------------
     // 7️⃣ Response
     // -----------------------------
     return {
-      markets,
+      markets: modified,
       pagination: {
         currentPage: page,
         limit,

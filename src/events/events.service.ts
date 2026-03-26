@@ -1,28 +1,44 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma';
 import { RedisService } from 'src/redis';
-import { Event, Prisma, StatusType } from '@prisma/client';
+import {
+  Event,
+  GliveEvent,
+  Prisma,
+  SportType,
+  StatusType,
+} from '@prisma/client';
 import { EventRequest, EventStatusChangeRequest } from './dto';
 import { ConfigType } from '@nestjs/config';
-import { sportConfigFactory } from '@Config';
+import { scorecardConfigFactory, sportConfigFactory } from '@Config';
 import { BaseService, Pagination, UtilsService } from '@Common';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
-import { getSportEnum, getStatusEnum } from 'src/utils/sports';
+import { firstValueFrom, timeout } from 'rxjs';
+import { getSportEnum } from 'src/utils/sports';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import stringSimilarity from 'string-similarity';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ScorecardFn, ScorecardResponse, TvFn } from './events.type';
+import { SportsProviderService } from 'src/sports-provider/sports-provider.service';
+
+dayjs.extend(utc);
 
 @Injectable()
 export class EventsService extends BaseService {
   private readonly CACHE_TTL = 60 * 1; // 1 minutes
+  private readonly REQUEST_TIMEOUT_MS = 10000; // 10 seconds
   constructor(
     private readonly http: HttpService,
     private readonly prisma: PrismaService,
     private readonly utils: UtilsService,
     private readonly redis: RedisService,
+    private readonly sportsProviderService: SportsProviderService,
     @Inject(sportConfigFactory.KEY)
     private readonly sportConfig: ConfigType<typeof sportConfigFactory>,
+    @Inject(scorecardConfigFactory.KEY)
+    private readonly scorecardConfig: ConfigType<typeof scorecardConfigFactory>,
     @InjectQueue('close-event')
     private readonly closeEventQueue: Queue,
     @InjectQueue('active-event')
@@ -64,6 +80,9 @@ export class EventsService extends BaseService {
           break;
         case 'INACTIVE':
           where.status = StatusType.Inactive;
+          where.startTime = {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          };
           break;
         case 'UPCOMING':
           where.status = {
@@ -223,47 +242,366 @@ export class EventsService extends BaseService {
     return { pagianatedEvent, pagination };
   }
 
-  async getScorecard(eventId: number) {
-    const redisKey = `scorecard:${eventId}`;
-    const data = await this.redis.client.get(redisKey);
-    if (data) {
-      return JSON.parse(data || '{}');
-    }
+  // async getScorecard(eventId: number) {
+  //   const redisKey = `scorecard:${eventId}`;
+  //   const data = await this.redis.client.get(redisKey);
+  //   if (data) {
+  //     const parsed = JSON.parse(data || '{}');
+  //     if (parsed.data && parsed.data?.score_url) return parsed;
+  //   }
 
+  //   const event = await this.prisma.event.findUnique({
+  //     where: { id: eventId },
+  //   });
+  //   if (!event) throw new Error('Event not found');
+  //   if (event.providerId || !event.inplay)
+  //     throw new Error('Scorecard not available for this match');
+
+  //   const url = `${this.sportConfig.sportBaseUrl}/event/scorecards?matchId=${event.externalId}`;
+
+  //   try {
+  //     const response = await this.utils.rerunnable(async () => {
+  //       const res = await firstValueFrom(
+  //         this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+  //       );
+  //       return res.data;
+  //     }, 3);
+  //     if (!response) {
+  //       this.logger.warn(`⚠️ No scorecard data found for ${event.name}`);
+  //       return null;
+  //     }
+
+  //     let liveTv;
+  //     console.log(event.providerId, event.inplay);
+  //     const sports = this.sportConfig.sports;
+  //     const sportId = getSportId(sports, event.sport);
+  //     if (event.providerId || !event.inplay) liveTv = null;
+  //     // else liveTv = `https://video.starrexch.me/?eventid=${event.externalId}`;
+  //     else
+  //       liveTv = `https://e765432.diamondcricketid.com/dtv.php?id=${event.externalId}&sportid=${sportId}`;
+  //     response._eventInfo.liveStreamUrl = liveTv;
+
+  //     await this.redis.client.setex(
+  //       redisKey,
+  //       2 * 24 * 60 * 60,
+  //       JSON.stringify(response),
+  //     );
+  //     return response;
+  //   } catch (error) {
+  //     this.logger.error(
+  //       `Failed to get scorecard data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
+  //     );
+  //     return null;
+  //   }
+  // }
+
+  async getScorecard(eventId: number, user: { id: bigint; ip?: string }) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
     if (!event) throw new Error('Event not found');
-    if (event.providerId || !event.inplay)
-      throw new Error('Scorecard not available for this match');
+
+    const scorecardProvider = this.scorecardConfig.activeScorecardProvider;
+    const tvProvider = this.scorecardConfig.activeTvProvider;
+    const raceTvProvider = this.scorecardConfig.activeRaceTvProvider;
+
+    const getScorecard = this.getScorecardStrategy(scorecardProvider);
+    const getTv = this.getTvStrategy(
+      this.isRaceEvent(event.sport) ? raceTvProvider : tvProvider,
+    );
+
+    const scorecardUrl = await getScorecard(event);
+
+    const liveTvUrl = await getTv(event, {
+      id: Number(user.id),
+      ip: user.ip ?? '',
+    });
+
+    return {
+      scorecardUrl,
+      liveTvUrl,
+    };
+  }
+
+  satScorecard: ScorecardFn = async (event) => {
+    const redisKey = `scorecard:${event.id}`;
+    const data = await this.redis.client.get(redisKey);
+    if (data) {
+      const parsed: ScorecardResponse = JSON.parse(data || '{}');
+      if (parsed.scorecardUrl) return parsed.scorecardUrl;
+    }
+    if (event.providerId || !event.inplay) return null;
+    // throw new Error('Scorecard not available for this match');
 
     const url = `${this.sportConfig.sportBaseUrl}/event/scorecards?matchId=${event.externalId}`;
 
     try {
       const response = await this.utils.rerunnable(async () => {
-        const res = await firstValueFrom(this.http.get(url));
+        const res = await firstValueFrom(
+          this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+        );
         return res.data;
       }, 3);
       if (!response) {
         this.logger.warn(`⚠️ No scorecard data found for ${event.name}`);
         return null;
       }
-      let liveTv;
-      // console.log(event.providerId, event.inplay);
-      // if (event.providerId || !event.inplay) liveTv = null;
-      // else liveTv = `https://video.starrexch.me/?eventid=${event.externalId}`;
+
       await this.redis.client.setex(
         redisKey,
         2 * 24 * 60 * 60,
-        JSON.stringify({ response, liveTv }),
+        JSON.stringify({
+          liveTvUrl: response._eventInfo.liveStreamUrl,
+          scorecardUrl: response?.data?.score_url,
+        }),
       );
-      return { response, liveTv };
-    } catch (error) {
+
+      return response?.data?.score_url ?? null;
+    } catch (error: any) {
       this.logger.error(
         `Failed to get scorecard data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
       );
       return null;
     }
+  };
+
+  satLiveTv: TvFn = async (event) => {
+    const redisKey = `scorecard:${event.id}`;
+    const data = await this.redis.client.get(redisKey);
+    if (data) {
+      const parsed: ScorecardResponse = JSON.parse(data || '{}');
+      if (parsed.liveTvUrl) return parsed.liveTvUrl;
+    }
+    if (event.providerId || !event.inplay) return null;
+    // throw new Error('Scorecard not available for this match');
+
+    const url = `${this.sportConfig.sportBaseUrl}/event/scorecards?matchId=${event.externalId}`;
+
+    try {
+      const response = await this.utils.rerunnable(async () => {
+        const res = await firstValueFrom(
+          this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+        );
+        return res.data;
+      }, 3);
+      if (!response) {
+        this.logger.warn(`⚠️ No scorecard data found for ${event.name}`);
+        return null;
+      }
+
+      await this.redis.client.setex(
+        redisKey,
+        2 * 24 * 60 * 60,
+        JSON.stringify({
+          liveTvUrl: response._eventInfo.liveStreamUrl,
+          scorecardUrl: response?.data?.score_url,
+        }),
+      );
+
+      return response?._eventInfo?.liveStreamUrl ?? null;
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to get Live data for event ${event.name} (sport=${event.sport}): ${error?.message ?? error}`,
+      );
+      return null;
+    }
+  };
+
+  raviScorecard: ScorecardFn = async (event) => {
+    let sportRadarId = null;
+    const provider =
+      await this.sportsProviderService.getProviderByProviderName('SportRadar');
+    if (event.providerId == provider.id) {
+      const idBreakdown = event.externalId.split(':');
+      if (idBreakdown.length > 0)
+        sportRadarId = idBreakdown[idBreakdown.length - 1];
+    }
+    if (event.providerId == null) {
+      const res = await this.prisma.betfairSportsRadarEvents.findFirst({
+        where: { betfairEventId: event.id },
+        include: {
+          sportsRadarEvent: true,
+        },
+      });
+      if (res && res.sportsRadarEvent) {
+        const idBreakdown = res.sportsRadarEvent.externalId.split(':');
+        if (idBreakdown.length > 0)
+          sportRadarId = idBreakdown[idBreakdown.length - 1];
+      }
+    }
+
+    if (!sportRadarId) {
+      const url = `${this.sportConfig.sportBaseUrl}/event/sr-eventid-by-bf-eventid/${event.externalId}`;
+      try {
+        const response = await this.utils.rerunnable(async () => {
+          const res = await firstValueFrom(
+            this.http.get(url).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+          );
+          return res.data;
+        }, 3);
+        if (!response) {
+          this.logger.warn(`⚠️ No Sport Radar id found for ${event.name}`);
+          return null;
+        }
+        const idBreakdown = response?.secondaryEventId?.split(':');
+        if (idBreakdown && idBreakdown.length > 0)
+          sportRadarId = idBreakdown[idBreakdown.length - 1];
+      } catch (error: any) {
+        this.logger.error(
+          `Error to get betfair event to sportradar event id, Error = ${error.message}`,
+        );
+      }
+    }
+
+    if (!sportRadarId) return null;
+    const raviScorecardBaseUrl = this.scorecardConfig.raviScorecardUrl;
+    return `${raviScorecardBaseUrl}/${sportRadarId}`;
+  };
+
+  raviTv: TvFn = async (event) => {
+    if (this.isRaceEvent(event.sport)) {
+      const raviRaceTvBaseUrl = this.scorecardConfig.raviTvUrlForRace;
+      let sport = '';
+      if (event.sport === SportType.Greyhound) sport = 'dog';
+      if (event.sport === SportType.HorseRacing) sport = 'horse';
+      return `${raviRaceTvBaseUrl}?eventid=${event.externalId}&sport=${sport}`;
+    }
+    const raviTvBaseUrl = this.scorecardConfig.raviTvUrl;
+    return `${raviTvBaseUrl}?eventid=${event.externalId}`;
+  };
+
+  gliveTv: TvFn = async (event, user?: { id: number; ip: string }) => {
+    if (!user) {
+      this.logger.warn(`User details not found`);
+      return null;
+    }
+
+    let gliveEvent: {
+      matchId: string;
+      channel: string;
+      name: string;
+      similarity: number;
+    } | null = null;
+
+    const redisKey = `gliveevent:${event.id}`;
+    const data = await this.redis.client.get(redisKey);
+    if (data) {
+      try {
+        gliveEvent = JSON.parse(data);
+      } catch (error: any) {
+        this.logger.warn(
+          `Error to parse glive event from redis, Error= ${error.message}`,
+        );
+      }
+    }
+
+    if (!gliveEvent) {
+      const todayGliveEvents = await this.prisma.gliveEvent.findMany({
+        where: {
+          startTime: {
+            gte: dayjs().subtract(1, 'day').toDate(),
+            lte: dayjs().endOf('day').toDate(),
+          },
+          isLive: '1',
+        },
+      });
+
+      gliveEvent = this.findGliveMatch(event.name, todayGliveEvents);
+
+      if (gliveEvent)
+        await this.redis.client.setex(
+          redisKey,
+          5 * 60,
+          JSON.stringify(gliveEvent),
+        );
+    }
+
+    if (!gliveEvent) return null;
+
+    const baseUrl = this.scorecardConfig.gliveTvUrl;
+    const apiUserId = this.scorecardConfig.gliveUserId;
+    const apiKey = this.scorecardConfig.gliveApiKey;
+    const brand = this.scorecardConfig.brand;
+
+    if (!baseUrl || !apiUserId || !apiKey || !brand)
+      throw new Error('Glive base url is not configured');
+
+    const url = `${baseUrl}/api.php?action=geth5link&apiuser=${apiUserId}&key=${apiKey}&ip=${user.ip}&uid=${user.id}&matchid=${gliveEvent.matchId}&brand=${brand}`;
+
+    try {
+      const res = await firstValueFrom(
+        this.http
+          .get<{ Status: string; H5LINKROW: string }>(url)
+          .pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+      );
+      return res.data.H5LINKROW;
+    } catch (error: any) {
+      this.logger.error(`Error to get glive tv url, Error = ${error.message}`);
+      return null;
+    }
+  };
+
+  scorecardStrategies: Record<string, ScorecardFn> = {
+    SAT: this.satScorecard,
+    RAVI: this.raviScorecard,
+  };
+
+  tvStrategies: Record<string, TvFn> = {
+    SAT: this.satLiveTv,
+    RAVI: this.raviTv,
+    GLIVE: this.gliveTv,
+  };
+
+  getScorecardStrategy = (provider: string): ScorecardFn =>
+    this.scorecardStrategies[provider] ?? (async () => null);
+
+  getTvStrategy = (provider: string): TvFn =>
+    this.tvStrategies[provider] ?? (async () => null);
+
+  isRaceEvent = (sport: SportType): boolean => {
+    return sport === SportType.HorseRacing || sport === SportType.Greyhound;
+  };
+
+  normalize(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/vs|v/gi, '-')
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  findGliveMatch(providerEvent: string, gliveEvents: GliveEvent[]) {
+    const normalizedProvider = this.normalize(providerEvent);
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const event of gliveEvents) {
+      const normalizedGlive = this.normalize(event.eventName);
+
+      const score = stringSimilarity.compareTwoStrings(
+        normalizedProvider,
+        normalizedGlive,
+      );
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = event;
+      }
+    }
+
+    if (bestScore >= 0.7 && bestMatch) {
+      // Match 70%
+      return {
+        matchId: bestMatch.matchId,
+        channel: bestMatch.channel,
+        name: bestMatch.eventName,
+        similarity: bestScore,
+      };
+    }
+
+    return null;
   }
 
   async closedEvent(eventExternalId: string, sport: string) {
@@ -283,7 +621,7 @@ export class EventsService extends BaseService {
           status: StatusType.Closed,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Error to closed event by mqtt updates: ${error.message}`,
       );
@@ -303,7 +641,7 @@ export class EventsService extends BaseService {
       try {
         const events = JSON.parse(data) as Event[] | null;
         return events ? events?.[0] : null;
-      } catch (error) {
+      } catch (error: any) {
         this.logger.warn(
           `Error to parse event (${externalId}), error: ${error.message}`,
         );
@@ -323,7 +661,7 @@ export class EventsService extends BaseService {
       try {
         const events = JSON.parse(data) as Event[] | null;
         return events;
-      } catch (error) {
+      } catch (error: any) {
         this.logger.warn(
           `Error to parse event (${externalId}), error: ${error.message}`,
         );

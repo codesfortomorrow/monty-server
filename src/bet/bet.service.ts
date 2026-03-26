@@ -1,7 +1,7 @@
 import { BaseService, Pagination, UtilsService } from '@Common';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma';
-import { BetHistoryRequest, BetPlaceRequest } from './dto';
+import { BetHistoryRequest, BetPlaceRequest, DownlineBetsRequest } from './dto';
 import {
   BetStatusType,
   BetType,
@@ -116,9 +116,9 @@ export class BetService extends BaseService {
       if (wallets.length === 0) throw new Error('User wallet not found');
 
       const wallet = wallets.find((w) => w.type === WalletType.Main);
-      const bonusWallet = wallets.find((w) => w.type === WalletType.Bonus);
+      // const bonusWallet = wallets.find((w) => w.type === WalletType.Bonus);
 
-      if (!wallet || !bonusWallet) throw new Error('User wallet not found');
+      if (!wallet) throw new Error('User wallet not found');
 
       if (data.marketType === 'FANCY' && data.fancyPercentage === undefined)
         throw new Error('Percentage is required');
@@ -213,6 +213,7 @@ export class BetService extends BaseService {
 
       const validation = await this.validateBetPlacement({
         marketType: data.marketType,
+        marketName: data.marketName,
         betOn: data.betOn,
         eventId: event.externalId,
         marketId: data.marketId,
@@ -235,7 +236,7 @@ export class BetService extends BaseService {
         const exposureUpdate = await this.updateBetExposure({
           user,
           wallet,
-          bonusWallet,
+          // bonusWallet,
           sportId,
           eventId: event.id,
           eventExternalId: event.externalId,
@@ -277,7 +278,7 @@ export class BetService extends BaseService {
             selectionId: data.selectionId,
             selection: data.runnerName,
             amount: data.stake,
-            bonusUsages: exposureUpdate.deductFromBonus,
+            // bonusUsages: exposureUpdate.deductFromBonus,
             odds: data.rate,
             percentage: data.fancyPercentage,
             payout: 0,
@@ -323,6 +324,7 @@ export class BetService extends BaseService {
 
   private async validateBetPlacement(data: {
     marketType: 'NORMAL' | 'FANCY' | 'PREMIUM';
+    marketName: string;
     betOn: 'BACK' | 'LAY';
     eventId: string;
     marketId: string;
@@ -396,7 +398,7 @@ export class BetService extends BaseService {
 
         let updatedOdd: number;
         // external validator API
-        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}`;
+        const apiUrl = `${baseUrl}/validator/validate?marketId=${data.marketId}&sid=${data.selectionId}&odds=${data.price}&betOn=${data.betOn}&marketType=${data.marketType}&eventId=${data.eventId}&marketName=${data.marketName}`;
         const result = await this.utils.rerunnable(async () => {
           const apiRes = await firstValueFrom(
             this.http.get(apiUrl).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
@@ -404,7 +406,7 @@ export class BetService extends BaseService {
           return apiRes.data;
         }, 3);
 
-        console.log('Validator result:', result, apiUrl);
+        console.log('Validator result:', JSON.stringify(result), apiUrl);
         updatedOdd = result.updatedOdds;
 
         if (!result.status || result.status == 3 || result.status == 9) {
@@ -448,7 +450,34 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
-          } else {
+          }
+          // else if (data.acceptOddsChange) {
+          //   const allPrices = currentPrice;
+
+          //   if (
+          //     data.position !== undefined &&
+          //     data.position >= 0 &&
+          //     data.position < allPrices.length
+          //   ) {
+          //     const positionPrice = allPrices[data.position];
+          //     return {
+          //       success: true,
+          //       updatedPrice: Number(positionPrice),
+          //       message: `Odds changed. Using price from position ${data.position}`,
+          //     };
+          //   }
+
+          //   const fallbackPrice = updatedOdd
+          //     ? Number(updatedOdd)
+          //     : Number(allPrices[0]);
+
+          //   return {
+          //     success: true,
+          //     updatedPrice: fallbackPrice,
+          //     message: `Odds changed. Price updated to ${fallbackPrice}`,
+          //   };
+          // }
+          else {
             return {
               success: false,
               message: 'Oops! Bet not allowed due to market price change',
@@ -542,7 +571,34 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
-          } else {
+          }
+          // else if (data.acceptOddsChange) {
+          //   const allPrices = currentPrice;
+
+          //   if (
+          //     data.position !== undefined &&
+          //     data.position >= 0 &&
+          //     data.position < allPrices.length
+          //   ) {
+          //     const positionPrice = allPrices[data.position];
+          //     return {
+          //       success: true,
+          //       updatedPrice: Number(positionPrice),
+          //       message: `Odds changed. Using price from position ${data.position}`,
+          //     };
+          //   }
+
+          //   const fallbackPrice = updatedOdd
+          //     ? Number(updatedOdd)
+          //     : Number(allPrices[0]);
+
+          //   return {
+          //     success: true,
+          //     updatedPrice: fallbackPrice,
+          //     message: `Odds changed. Price updated to ${fallbackPrice}`,
+          //   };
+          // }
+          else {
             return {
               success: false,
               message: 'Oops! Bet not allowed due to market price change',
@@ -639,7 +695,34 @@ export class BetService extends BaseService {
               updatedPrice: fallbackPrice,
               message: `Odds changed. Price updated to ${fallbackPrice}`,
             };
-          } else {
+          }
+          // else if (data.acceptOddsChange) {
+          //   const allPrices = currentPrice;
+
+          //   if (
+          //     data.position !== undefined &&
+          //     data.position >= 0 &&
+          //     data.position < allPrices.length
+          //   ) {
+          //     const positionPrice = allPrices[data.position];
+          //     return {
+          //       success: true,
+          //       updatedPrice: Number(positionPrice),
+          //       message: `Odds changed. Using price from position ${data.position}`,
+          //     };
+          //   }
+
+          //   const fallbackPrice = updatedOdd
+          //     ? Number(updatedOdd)
+          //     : Number(allPrices[0]);
+
+          //   return {
+          //     success: true,
+          //     updatedPrice: fallbackPrice,
+          //     message: `Odds changed. Price updated to ${fallbackPrice}`,
+          //   };
+          // }
+          else {
             return {
               success: false,
               message: 'Oops! Bet not allowed due to market price change',
@@ -895,7 +978,7 @@ export class BetService extends BaseService {
   private updateBetExposure = async (data: {
     user: User;
     wallet: Wallet;
-    bonusWallet: Wallet;
+    // bonusWallet: Wallet;
     sportId: number;
     eventId: bigint;
     eventExternalId: string;
@@ -925,7 +1008,7 @@ export class BetService extends BaseService {
       // if (!market) throw new Error(`Market not found: ${marketExternalId}`);
 
       const { amount: balance, exposureAmount, lockedAmount } = data.wallet;
-      const { amount: bonusBalance } = data.bonusWallet;
+      // const { amount: bonusBalance } = data.bonusWallet;
 
       // ---------------------------------------------------------
       // 1️⃣ CALCULATE UPDATED EXPOSURE (IN MEMORY)
@@ -990,10 +1073,10 @@ export class BetService extends BaseService {
         Number(balance) +
         Number(exposureAmount) +
         Number(minPrevExposure) -
-        Number(lockedAmount) +
-        Number(bonusBalance);
+        Number(lockedAmount);
+      // + Number(bonusBalance);
 
-      const totalBalanceWithoutBonus = availableCredit - Number(bonusBalance);
+      // const totalBalanceWithoutBonus = availableCredit - Number(bonusBalance);
 
       if (
         availableCredit < 0 ||
@@ -1002,11 +1085,11 @@ export class BetService extends BaseService {
         throw new Error('Insufficient balance');
       }
 
-      let deductFromBonus = 0;
-      if (totalBalanceWithoutBonus < Math.abs(minUpdatedExposure)) {
-        deductFromBonus =
-          Math.abs(minUpdatedExposure) - totalBalanceWithoutBonus;
-      }
+      // let deductFromBonus = 0;
+      // if (totalBalanceWithoutBonus < Math.abs(minUpdatedExposure)) {
+      //   deductFromBonus =
+      //     Math.abs(minUpdatedExposure) - totalBalanceWithoutBonus;
+      // }
 
       // if (market.exposureLimit) {
       //   if (Math.abs(minUpdatedExposure) > Number(market.exposureLimit))
@@ -1051,7 +1134,7 @@ export class BetService extends BaseService {
         );
       }
 
-      return { success: true, error: null, deductFromBonus };
+      return { success: true, error: null };
     } catch (err: any) {
       this.logger.error('updateBetExposure Error:', err);
       return { success: false, error: err.message ?? 'Unknown error' };
@@ -1194,6 +1277,7 @@ export class BetService extends BaseService {
         update: {
           amount,
           updatedAt: new Date(),
+          isUplineExposureCalculated: false,
         },
         create: {
           eventId,
@@ -1203,6 +1287,7 @@ export class BetService extends BaseService {
           userId,
           selectionId,
           amount,
+          isUplineExposureCalculated: false,
           status: StatusType.Active,
         },
       });
@@ -1239,9 +1324,15 @@ export class BetService extends BaseService {
       userId: userId,
       status: BetStatusType.Pending,
     };
+    let orderBy: Prisma.BetOrderByWithRelationInput = {
+      placedAt: 'desc',
+    };
     if (filter.betTime === 'PAST') {
       where.status = {
         not: BetStatusType.Pending,
+      };
+      orderBy = {
+        settledAt: 'desc',
       };
     }
 
@@ -1283,9 +1374,7 @@ export class BetService extends BaseService {
       },
       take,
       skip,
-      orderBy: {
-        placedAt: 'desc',
-      },
+      orderBy,
     });
 
     const pagination: Pagination = {
@@ -1565,6 +1654,7 @@ export class BetService extends BaseService {
       };
     }
 
+    console.log('Bet WHere condition', JSON.stringify(where));
     const count = await this.prisma.bet.count({ where });
     const bets = await this.prisma.bet.findMany({
       where,
@@ -1613,5 +1703,170 @@ export class BetService extends BaseService {
         payout: true,
       },
     });
+  }
+
+  // Downline Bet List
+  async getDownlineBets(
+    eventId: number,
+    userPath: string,
+    query: DownlineBetsRequest,
+  ) {
+    try {
+      const page =
+        query.page && Number(query.page) > 0 ? Number(query.page) : 1;
+      const limit = Number(query.limit || 10);
+      const skip = (page - 1) * limit;
+
+      const sqlQuery = `
+        SELECT
+          b.id,
+          b.user_id AS "userId",
+          b.event_id AS "eventId",
+          b.sport,
+          b.market_id AS "marketId",
+          b.market_name AS "marketName",
+          b.market_type AS "marketType",
+          b.amount AS stake,
+          b.odds,
+          b.bet_on AS "betOn",
+          b.selection,
+          b.selection_id AS "selectionId",
+          b.placed_at AS "placedAt",
+          u.username,
+          um.upline::text AS upline
+        FROM bet b
+        JOIN "user" u ON b.user_id = u.id
+        JOIN user_meta um ON u.id = um.user_id
+        WHERE um.upline <@ text2ltree($1::text)
+          AND ($2::bigint IS NULL OR b.event_id = $2::bigint)
+          AND ($3::text IS NULL OR b.market_id = $3::text)
+        ORDER BY b.placed_at DESC
+        OFFSET $4 LIMIT $5;
+      `;
+
+      const params = [
+        userPath,
+        eventId || null,
+        query.marketId || null,
+        skip,
+        limit,
+      ];
+
+      const countQuery = `
+        SELECT
+          COUNT(*) AS count
+        FROM bet b
+        JOIN "user" u ON b.user_id = u.id
+        JOIN user_meta um ON u.id = um.user_id
+        WHERE um.upline <@ text2ltree($1::text)
+          AND ($2::bigint IS NULL OR b.event_id = $2::bigint)
+          AND ($3::text IS NULL OR b.market_id = $3::text)
+      `;
+
+      const countParams = [userPath, eventId || null, query.marketId || null];
+
+      const [bets, count] = await Promise.all([
+        this.prisma.$queryRawUnsafe<
+          {
+            id: bigint | number | null;
+            userId: bigint;
+            eventId: bigint | number | null;
+            sport: string | null;
+            marketId: string | null;
+            marketName: string | null;
+            marketType: string | null;
+            stake: number | null;
+            odds: number | null;
+            betOn: string | null;
+            selection: string | null;
+            selectionId: string | null;
+            username: string | null;
+            upline: string | null;
+            placedAt: Date | string | null;
+          }[]
+        >(sqlQuery, ...params),
+
+        this.prisma.$queryRawUnsafe<
+          {
+            count: bigint | number | null;
+          }[]
+        >(countQuery, ...countParams),
+      ]);
+
+      const userIds = new Set(bets.map((bet) => bet.userId));
+      const uplineMap = await this.getUplineDetails([...userIds]);
+
+      const mappedBet = bets.map((bet) => {
+        const uplineDetails = uplineMap.get(bet.userId);
+        return {
+          ...bet,
+          uplineDetails,
+        };
+      });
+
+      const total = Number(count?.[0]?.count ?? 0);
+
+      const pagination: Pagination = {
+        currentPage: page,
+        limit,
+        totalItems: total,
+        totalPage: Math.ceil(total / limit),
+      };
+
+      return { bets: mappedBet, pagination };
+    } catch (error: any) {
+      this.logger.error(
+        `Error to generate downline bet list. Error: ${error.message}`,
+      );
+      throw new Error('Internal server error');
+    }
+  }
+
+  private async getUplineDetails(userIds: bigint[]) {
+    const map = new Map<bigint, Record<string, string>>();
+    for (const userId of userIds) {
+      const redisKey = `upline:${userId}`;
+      const data = await this.redis.client.get(redisKey);
+      if (data) {
+        try {
+          const uplineDetails = JSON.parse(data) as Record<string, string>;
+          map.set(userId, uplineDetails);
+          continue;
+        } catch (error) {
+          this.logger.warn(
+            `Error to parse redis upline data for userId ${userId}, Error: ${error.message}`,
+          );
+        }
+      }
+      const uplinePath = await this.userService.getUplinePathById(userId);
+      if (!uplinePath) continue;
+      const uplineIds = uplinePath.split('.');
+      uplineIds.shift(); // Remove Owner
+      uplineIds.pop(); // Remove Self
+      const ownRole = await this.userService.getRoleByUserId(userId);
+
+      const uplineMap: Record<string, string> = {};
+      for (const uplineId of uplineIds) {
+        const user = await this.userService.getRoleAndUsernameByUserId(
+          BigInt(uplineId),
+        );
+        if (
+          user.role &&
+          ownRole &&
+          ownRole.name !== user.role.name &&
+          user.username
+        ) {
+          uplineMap[user.role.name] = user.username;
+        }
+      }
+
+      await this.redis.client.setex(
+        redisKey,
+        5 * 60,
+        JSON.stringify(uplineMap),
+      );
+      map.set(userId, uplineMap);
+    }
+    return map;
   }
 }

@@ -288,6 +288,7 @@ export class UsersController extends BaseController {
     const ctx = this.getContext(req);
     return await this.usersService.exportSubUserReport(
       ctx.user.id,
+      query.upline || String(ctx.user.path),
       ctx.user.type,
       query,
     );

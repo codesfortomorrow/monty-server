@@ -18,14 +18,14 @@ export class FixtureService extends BaseService {
     super({ loggerDefaultMeta: { service: FixtureService.name } });
   }
 
-  async getFixtureDetails(query: FixtureRequest, isMapOdds: boolean) {
+  async getFixtureDetails(query: FixtureRequest) {
     const apiStart = Date.now();
 
     try {
       const { sport, search, inplay, competitionId, matchTime } = query;
 
       const cacheKey = `fixture:${sport || 'all'}:${search || 'all'}:${inplay || 'all'}:${competitionId || 'all'}:${matchTime || 'all'}`;
-      const cacheTTL = 120; // 2 minutes
+      const cacheTTL = 30; // 30 Sec
 
       // 🔴 IMPORTANT: null rakho, [] mat rakho
       let events: any[] | null = null;
@@ -185,6 +185,11 @@ export class FixtureService extends BaseService {
       console.log('⏱ Odds mapping:', Date.now() - oddsStart, 'ms');
 
       console.log('🚀 TOTAL API TIME:', Date.now() - apiStart, 'ms');
+      // let final = enriched;
+      // if (inplay === 'true') {
+      //   final = enriched.filter((e) => e.inplay === true);
+      // }
+      // return final;
       return enriched;
     } catch (error) {
       console.error('❌ getFixtureDetails error:', error);
@@ -192,7 +197,7 @@ export class FixtureService extends BaseService {
     }
   }
 
-  async getRaceFixtureDetails(query: FixtureRequest, isMapOdds: boolean) {
+  async getRaceFixtureDetails(query: FixtureRequest) {
     const apiStart = Date.now();
 
     try {
@@ -201,11 +206,10 @@ export class FixtureService extends BaseService {
       const cacheKey = `fixture:${sport || 'all'}:${search || 'all'}:${inplay || 'all'}:${competitionId || 'all'}:${matchTime || 'all'}`;
       const cacheTTL = 120;
 
-      let events: any[] | null = null;
+      let events: any[] | null = null; // -----------------------------
+      // :mag: REDIS CACHE (WITH TIMEOUT)
+      // -----------------------------
 
-      // -----------------------------
-      // 🔍 REDIS CACHE (WITH TIMEOUT)
-      // -----------------------------
       const redisStart = Date.now();
       let cached: string | null = null;
 
@@ -218,17 +222,14 @@ export class FixtureService extends BaseService {
         ]);
       } catch {
         cached = null;
-      }
-
-      // console.log('⏱ Redis fixture get:', Date.now() - redisStart, 'ms');
+      } // console.log(':stopwatch: Redis fixture get:', Date.now() - redisStart, 'ms');
 
       if (cached) {
         events = JSON.parse(cached);
-      }
+      } // -----------------------------
+      // :brain: DB QUERY (WILL RUN PROPERLY)
+      // -----------------------------
 
-      // -----------------------------
-      // 🧠 DB QUERY (WILL RUN PROPERLY)
-      // -----------------------------
       if (!events || events.length === 0) {
         const where: Prisma.EventWhereInput = {
           startTime: {
@@ -246,13 +247,6 @@ export class FixtureService extends BaseService {
           competition: {
             deletedAt: null,
           },
-          OR: [
-            { betfairMapping: { isNot: null } },
-            {
-              betfairMapping: null,
-              sportsRadarMapping: null,
-            },
-          ],
         };
 
         if (sport) where.sport = sport;
@@ -317,9 +311,6 @@ export class FixtureService extends BaseService {
             },
 
             markets: {
-              where: {
-                NOT: { type: MarketType.Premium },
-              },
               select: {
                 id: true,
                 name: true,
@@ -330,32 +321,21 @@ export class FixtureService extends BaseService {
             },
           },
           take: 500,
-        });
+        }); // console.log(':stopwatch: Prisma query:', Date.now() - dbStart, 'ms');
+        // console.log(':package: Events count:', events.length, sport);
 
-        // console.log('⏱ Prisma query:', Date.now() - dbStart, 'ms');
-        // console.log('📦 Events count:', events.length, sport);
         await this.redis.client.setex(
           cacheKey,
           cacheTTL,
           JSON.stringify(events),
         );
-        return events;
       }
-
-      if (isMapOdds) {
-        const oddsStart = Date.now();
-        const enriched = await this.oddsService.mapEventsWithMatchOdds(events);
-        console.log('⏱ Odds mapping:', Date.now() - oddsStart, 'ms');
-
-        console.log('🚀 TOTAL API TIME:', Date.now() - apiStart, 'ms');
-        return enriched;
-      }
-
-      console.log('🚀 TOTAL API TIME:', Date.now() - apiStart, 'ms');
-      // console.log('🚀 TOTAL API TIME:', Date.now() - apiStart, 'ms');
-      return events;
+      console.log('Before filter race market', JSON.stringify(events));
+      const enriched = await this.oddsService.filterRaceMarket(events);
+      console.log('After filter race market', JSON.stringify(enriched));
+      return enriched;
     } catch (error) {
-      console.error('❌ getFixtureDetails error:', error);
+      console.error(':x: getFixtureDetails error:', error);
       throw error;
     }
   }

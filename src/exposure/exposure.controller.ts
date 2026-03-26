@@ -125,6 +125,30 @@ export class ExposureController extends BaseController {
     );
   }
 
+  // @ApiBearerAuth()
+  // @Get('/get-userwise-breakdown')
+  // @UseGuards(JwtAuthGuard)
+  // async GetUserWiseBreakdown(
+  //   @Query() dto: UserWiseBreakDownRequest,
+  //   @Req() req: AuthenticatedRequest,
+  // ) {
+  //   const ctx = this.getContext(req);
+  //   const { rows, pagination } =
+  //     await this.exposureService.GetDownlineWiseBreakdown(
+  //       dto,
+  //       dto.uplineId ? BigInt(dto.uplineId) : ctx.user.id,
+  //       dto.userType ? (dto.userType as UserType) : ctx.user.type,
+  //     );
+
+  //   return {
+  //     success: true,
+  //     message: 'Userwise exposure breakdown fetched successfully',
+  //     downlines: rows,
+  //     pagination,
+  //     // uplines,
+  //   };
+  // }
+
   @ApiBearerAuth()
   @Get('/get-userwise-breakdown')
   @UseGuards(JwtAuthGuard)
@@ -136,8 +160,8 @@ export class ExposureController extends BaseController {
     const { data, uplines } =
       await this.exposureService.GetDownlineWiseBreakdown(
         dto,
-        dto.uplineId ? BigInt(dto.uplineId) : ctx.user.id,
-        dto.userType ? (dto.userType as UserType) : ctx.user.type,
+        Number(dto.uplineId) ? BigInt(dto.uplineId) : ctx.user.id,
+        Number(dto.uplineId) ? UserType.User : ctx.user.type,
       );
 
     return {

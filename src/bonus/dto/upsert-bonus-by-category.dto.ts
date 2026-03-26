@@ -95,6 +95,7 @@ export class UpsertBonusDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
+  @Min(1)
   maxBonusAmount?: number;
 
   @ApiPropertyOptional({ enum: ReleaseType })

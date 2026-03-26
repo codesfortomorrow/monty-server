@@ -80,6 +80,7 @@ export class UserWalletsController extends BaseController {
     @Body() body: CreditLimitRequest,
   ) {
     const ctx = this.getContext(req);
+    console.log('Controller crerdit amoumnt', body.creditLimit);
     await this.walletsService.giveCreditLimitToUser({
       userId,
       creatorId: ctx.user.id,
@@ -98,6 +99,6 @@ export class UserWalletsController extends BaseController {
     @Body() dto: AmountTransferDto,
   ) {
     const ctx = this.getContext(req);
-    return this.walletsService.amountTransfer(ctx.user.id, dto);
+    return this.walletsService.amountTransfer(ctx.user.id, ctx.user.type, dto);
   }
 }

@@ -25,6 +25,10 @@ export class CompetitionsService extends BaseService {
     const where: Prisma.CompetitionWhereInput = {
       events: {
         some: {
+          startTime: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            lte: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+          },
           status: {
             in: [
               StatusType.Active,
@@ -47,7 +51,7 @@ export class CompetitionsService extends BaseService {
     if (query.search) {
       where.name = { contains: query.search, mode: 'insensitive' };
     }
-
+    console.log('Where in competition', where);
     // ✅ Fetch from DB
     const competitions = await this.prisma.competition.findMany({
       where,

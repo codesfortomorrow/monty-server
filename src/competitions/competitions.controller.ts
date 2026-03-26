@@ -18,16 +18,16 @@ export class CompetitionsController {
   @Post('/event/default/provider')
   async fetchCompetitionAndEventsOfDefaultProvider() {
     await this.competitionProcessor.syncDefaultProvider();
-    await this.competitionProcessor.fetchRaceMarketCompttionAndEvents();
+    await this.competitionProcessor.fetchRaceMarketCompetitionAndEvents();
     return 'Successfully fetched';
   }
 
-  @ApiOperation({ summary: 'Only For Manual Fetch' })
-  @Post('/other/provider')
-  async fetchCompetitionOfOtherProvider() {
-    await this.competitionProcessor.handleCompetitionSync();
-    return 'Successfully fetched';
-  }
+  // @ApiOperation({ summary: 'Only For Manual Fetch' })
+  // @Post('/other/provider')
+  // async fetchCompetitionOfOtherProvider() {
+  //   await this.competitionProcessor.handleCompetitionSync();
+  //   return 'Successfully fetched';
+  // }
 
   // UI APIs
   @Get()

@@ -2,7 +2,7 @@ import { BaseProcessor } from '@Common';
 import { Processor } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { RedisService } from 'src/redis';
-import { StatusType } from '@prisma/client';
+import { ResultProvider, StatusType } from '@prisma/client';
 import { PrismaService } from 'src/prisma';
 
 @Processor('close-event', {
@@ -31,12 +31,13 @@ export class CloseEventProcessor extends BaseProcessor {
         },
         data: {
           status: StatusType.Closed,
+          statusUpdatedBy: ResultProvider.Webhook,
         },
       });
 
       if (updateCount.count > 0) {
         this.logger.info(`Closed event for eventId ${eventExternalId}`);
-        await this.redis.client.setex(existsKey, 1 * 24 * 60 * 60, 1);
+        await this.redis.client.setex(existsKey, 30 * 60, 1);
 
         // Redis clear
         const fixtureKeys = `fixture:*`;
@@ -45,7 +46,7 @@ export class CloseEventProcessor extends BaseProcessor {
         await this.redis.deleteKeysByPattern(fixtureKeys);
         await this.redis.deleteKeysByPattern(marketKeys);
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Error to closed event based on market status: ${error.message}`,
       );

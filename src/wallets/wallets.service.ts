@@ -230,7 +230,7 @@ export class WalletsService {
       const wallet = await this.getByUserId(userId, walletType, {
         tx: prismaClient,
       });
-      let newCredit;
+      let newCredit = wallet.creditAmount;
       if (wallet.user && wallet.user.isSelfRegistered) {
         newCredit = new Prisma.Decimal(0);
       } else {
@@ -354,7 +354,7 @@ export class WalletsService {
       const wallet = await this.getByUserId(userId, walletType, {
         tx: options.tx,
       });
-      let newCredit;
+      let newCredit = wallet.creditAmount;
       if (wallet.user && wallet.user.isSelfRegistered) {
         newCredit = new Prisma.Decimal(0);
       } else {
@@ -544,6 +544,8 @@ export class WalletsService {
   ) {
     const prismaClient = options.tx;
 
+    console.log('Add crerdit amoumnt', amount);
+
     // Remove sign
     amount = amount.abs();
     if (amount.eq(0)) {
@@ -554,6 +556,8 @@ export class WalletsService {
       const wallet = await this.getByUserId(userId, walletType, {
         tx: options.tx,
       });
+
+      console.log('Add crerdit amoumnt', wallet.creditAmount, amount);
       const updatedWallet = await prismaClient.wallet.update({
         data: {
           creditAmount: {
@@ -620,8 +624,11 @@ export class WalletsService {
     const mainWallet = await tx.wallet.findFirst({
       where: { userId, type: WalletType.Main },
     });
+    const bonusWallet = await tx.wallet.findFirst({
+      where: { userId, type: WalletType.Bonus },
+    });
 
-    if (!mainWallet) throw new Error('MAIN_WALLET_NOT_FOUND');
+    if (!mainWallet || !bonusWallet) throw new Error('WALLET_NOT_FOUND');
 
     // Step 2: Recalculate total required exposure (always negative)
     const refreshedExposureAmount =
@@ -630,7 +637,9 @@ export class WalletsService {
 
     // Step 3: Calculate MAIN & BONUS exposure distribution
     const mainAvailable =
-      Number(mainWallet.amount) - Number(mainWallet.lockedAmount);
+      Number(mainWallet.amount) +
+      Number(bonusWallet.amount) -
+      Number(mainWallet.lockedAmount);
     let mainExposure = 0;
     let remainingExposure = totalRequiredExposure;
 
@@ -665,7 +674,6 @@ export class WalletsService {
 
     return { updatedWallet: updatedMainWallet };
   }
-
   async addExposure(
     userId: bigint,
     amount: Prisma.Decimal,
@@ -805,6 +813,11 @@ export class WalletsService {
       );
     }
 
+    console.log(
+      'Service give credit limit to user before add balance amoumnt',
+      data.amount,
+    );
+
     // if (roll === 'USER') {
     await this.addBalance(data.userId, data.amount, WalletType.Main, false, {
       tx,
@@ -813,6 +826,10 @@ export class WalletsService {
       toAccount: data.options.toAccount,
       narration: `Deposit from system`,
     });
+    console.log(
+      'Service give credit limit to user before crerdit amoumnt',
+      data.amount,
+    );
     // } else {
     await this.addCreditAmount(data.userId, data.amount, WalletType.Main, {
       tx,
@@ -827,19 +844,11 @@ export class WalletsService {
     userType: UserType;
     body: CreditLimitRequest;
   }) {
-    let userMeta;
-    if (data.userType === UserType.Admin) {
-      userMeta = await this.prisma.adminMeta.findUnique({
-        where: { adminId: data.creatorId },
-      });
-    } else {
-      userMeta = await this.prisma.userMeta.findUnique({
-        where: { userId: data.creatorId },
-      });
-    }
-    if (!userMeta || userMeta.transactionCode !== data.body.transactionCode)
-      throw new Error('Wrong transaction code');
     console.log('Before start: ', data.userType);
+    console.log(
+      'Service give credit limit to user crerdit amoumnt',
+      data.body.creditLimit,
+    );
     return this.prisma.$transaction(async (tx) => {
       return await this.giveCreditLimit({
         userId: data.userId,
@@ -987,18 +996,6 @@ export class WalletsService {
     userType: UserType,
     data: UpdateBalanceRequest,
   ) {
-    let uplineMeta;
-    if (userType === UserType.Admin) {
-      uplineMeta = await this.prisma.adminMeta.findUnique({
-        where: { adminId: uplineId },
-      });
-    } else {
-      uplineMeta = await this.prisma.userMeta.findUnique({
-        where: { userId: uplineId },
-      });
-    }
-    if (!uplineMeta || uplineMeta.transactionCode !== data.transactionCode)
-      throw new Error('Wrong transaction code');
     return await this.prisma.$transaction(async (tx) => {
       await this.addBalance(
         BigInt(userId),
@@ -1024,7 +1021,7 @@ export class WalletsService {
           uplineId,
           new Prisma.Decimal(data.amount).toDP(2),
           WalletType.Main,
-          false,
+          true,
           {
             tx,
             context: WalletTransactionContext.PointIssue,
@@ -1067,18 +1064,15 @@ export class WalletsService {
     userType: UserType,
     data: UpdateBalanceRequest,
   ) {
-    let uplineMeta;
-    if (userType === UserType.Admin) {
-      uplineMeta = await this.prisma.adminMeta.findUnique({
-        where: { adminId: uplineId },
-      });
-    } else {
-      uplineMeta = await this.prisma.userMeta.findUnique({
-        where: { userId: uplineId },
-      });
-    }
-    if (!uplineMeta || uplineMeta.transactionCode !== data.transactionCode)
-      throw new Error('Wrong transaction code');
+    const userWallet = await this.getByUserId(userId, WalletType.Main);
+    const withdrawableBalance =
+      Number(userWallet.amount) +
+      Number(userWallet.exposureAmount) -
+      Number(userWallet.lockedAmount);
+
+    if (data.amount > withdrawableBalance)
+      throw new Error('Insufficient balance');
+
     return await this.prisma.$transaction(async (tx) => {
       await this.subtractBalance(
         userId,
@@ -1104,7 +1098,7 @@ export class WalletsService {
           uplineId,
           new Prisma.Decimal(data.amount).toDP(2),
           WalletType.Main,
-          false,
+          true,
           {
             tx,
             context: WalletTransactionContext.PointRemove,
@@ -1181,8 +1175,45 @@ export class WalletsService {
     });
   }
 
+  private async getDownlineSummaryForUser(userId: bigint, uplinePath: string) {
+    const result = await this.prisma.$queryRawUnsafe<
+      {
+        total_downline_balance: number;
+        player_balance: number;
+        player_exposure: number;
+      }[]
+    >(
+      `
+    WITH downline AS (
+      SELECT
+        w.amount,
+        w.exposure_amount,
+        r.name AS role
+      FROM wallets w
+      JOIN user_meta um ON um.user_id = w.user_id
+      JOIN "user" u ON u.id = w.user_id
+      JOIN role r ON r.id = u.role_id
+      WHERE w.type = 'main'
+        AND um.upline <@ text2ltree($1::text)
+        AND um.user_id != $2::bigint
+        AND r.name != 'DEMO'
+    )
+    SELECT
+      COALESCE(SUM(amount), 0) AS total_downline_balance,
+      COALESCE(SUM(amount) FILTER (WHERE role = 'USER'), 0) AS player_balance,
+      COALESCE(SUM(exposure_amount) FILTER (WHERE role = 'USER'), 0) AS player_exposure
+    FROM downline
+  `,
+      uplinePath,
+      userId,
+    );
+
+    return result[0];
+  }
+
   async amountTransfer(
     senderId: bigint,
+    userType: UserType,
     dto: {
       userIds: bigint[];
       remark?: string;
@@ -1190,16 +1221,40 @@ export class WalletsService {
   ) {
     const { userIds, remark } = dto;
 
+    let uplineMeta: any;
+    if (userType === UserType.Admin) {
+      uplineMeta = await this.prisma.adminMeta.findUnique({
+        where: { adminId: senderId },
+        include: {
+          admin: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+    } else {
+      uplineMeta = await this.prisma.userMeta.findUnique({
+        where: { userId: senderId },
+        include: {
+          user: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+    }
+
     return this.prisma.$transaction(
       async (tx) => {
         /**
          * 🔐 Sender MAIN wallet
          */
-        const senderWallet = await this.getByUserId(
-          BigInt(senderId),
-          WalletType.Main,
-          { tx },
-        );
+        const senderWallet =
+          userType === UserType.User
+            ? await this.getByUserId(BigInt(senderId), WalletType.Main, { tx })
+            : await this.getByAdminId(BigInt(senderId), { tx });
 
         let senderBalance = new Decimal(senderWallet.amount);
 
@@ -1226,12 +1281,23 @@ export class WalletsService {
           if (!userWallet) continue;
 
           const creditLimit = new Decimal(userWallet.creditAmount || 0);
+          if (creditLimit.lte(0)) continue;
           const currentBalance = new Decimal(userWallet.amount);
+          const meta = await tx.$queryRawUnsafe<{ upline: string }[]>(
+            `SELECT upline::text FROM user_meta WHERE user_id = $1`,
+            user.id,
+          );
+
+          const upline = meta?.[0]?.upline || '';
+          const summary = await this.getDownlineSummaryForUser(user.id, upline);
+
+          const downlineBalance = Decimal(summary?.total_downline_balance || 0);
+
+          const totalBalance = downlineBalance.plus(userWallet.amount || 0);
 
           // Skip users without credit limit
-          if (creditLimit.lte(0)) continue;
 
-          const diff = creditLimit.minus(currentBalance);
+          const diff = creditLimit.minus(totalBalance);
           if (diff.eq(0)) continue;
 
           const absAmount = diff.abs();
@@ -1246,26 +1312,65 @@ export class WalletsService {
             // ❌ Sender insufficient balance
             if (senderBalance.lt(absAmount)) {
               throw new Error(
-                `Settlement failed. Insufficient sender balance to settle user ${user.id}`,
+                `Settlement failed. Insufficient sender balance to settle user ${user.username}`,
               );
             }
 
             // 🔻 Sender debit
-            await this.subtractBalance(
-              senderId,
-              absAmount,
-              WalletType.Main,
-              settlement,
-              {
-                tx,
-                context: WalletTransactionContext.Withdrawal,
-                entityId: BigInt(user.id),
-                narration:
-                  remark ??
-                  `Settlement debit from admin account for user ${user.id}`,
-              },
-            );
-
+            if (userType === UserType.User) {
+              await this.subtractBalance(
+                senderId,
+                absAmount,
+                WalletType.Main,
+                settlement,
+                {
+                  tx,
+                  context: WalletTransactionContext.Withdrawal,
+                  entityId: BigInt(user.id),
+                  narration: remark ?? `Settlement debit`,
+                  fromAccount: user.username
+                    ? user.username
+                    : user.id.toString(),
+                  toAccount:
+                    userType === UserType.User
+                      ? uplineMeta?.user?.role?.name
+                      : uplineMeta?.admin?.role?.name,
+                  meta: {
+                    reference: `Settlement for user ${user.username}`,
+                    fromAccount: user.username
+                      ? user.username
+                      : user.id.toString(),
+                    toAccount:
+                      userType === UserType.User
+                        ? uplineMeta?.user?.role?.name
+                        : uplineMeta?.admin?.role?.name,
+                  },
+                },
+              );
+            } else {
+              await this.subtractBalanceFromOwner(
+                senderId,
+                absAmount,
+                WalletType.Main,
+                {
+                  tx,
+                  context: WalletTransactionContext.Withdrawal,
+                  entityId: BigInt(user.id),
+                  narration: remark ?? `Settlement debit`,
+                  fromAccount: user.username
+                    ? user.username
+                    : user.id.toString(),
+                  toAccount: uplineMeta?.admin?.role?.name || 'Admin',
+                  meta: {
+                    reference: `Settlement for user ${user.username}`,
+                    fromAccount: user.username
+                      ? user.username
+                      : user.id.toString(),
+                    toAccount: uplineMeta?.admin?.role?.name || 'Admin',
+                  },
+                },
+              );
+            }
             // 🔺 User credit
             await this.addBalance(
               user.id,
@@ -1276,6 +1381,19 @@ export class WalletsService {
                 tx,
                 context: WalletTransactionContext.Deposit,
                 entityId: BigInt(senderId),
+                fromAccount:
+                  userType === UserType.User
+                    ? uplineMeta?.user?.role?.name
+                    : uplineMeta?.admin?.role?.name,
+                toAccount: user.username ? user.username : user.id.toString(),
+                meta: {
+                  reference: `Settlement for user ${user.username}`,
+                  fromAccount:
+                    userType === UserType.User
+                      ? uplineMeta?.user?.role?.name
+                      : uplineMeta?.admin?.role?.name,
+                  toAccount: user.username ? user.username : user.id.toString(),
+                },
                 narration:
                   remark ?? `Settlement credit applied to match credit limit`,
               },
@@ -1291,7 +1409,7 @@ export class WalletsService {
             // ❌ User insufficient balance
             if (currentBalance.lt(absAmount)) {
               throw new Error(
-                `Settlement failed. User ${user.id} has insufficient balance`,
+                `Settlement failed. User ${user.username} has insufficient balance`,
               );
             }
 
@@ -1305,6 +1423,21 @@ export class WalletsService {
                 tx,
                 context: WalletTransactionContext.Withdrawal,
                 entityId: BigInt(senderId),
+                fromAccount: user.username ? user.username : user.id.toString(),
+                toAccount:
+                  userType === UserType.User
+                    ? uplineMeta?.user?.role?.name
+                    : uplineMeta?.admin?.role?.name,
+                meta: {
+                  reference: `Settlement for user ${user.username}`,
+                  fromAccount: user.username
+                    ? user.username
+                    : user.id.toString(),
+                  toAccount:
+                    userType === UserType.User
+                      ? uplineMeta?.user?.role?.name
+                      : uplineMeta?.admin?.role?.name,
+                },
                 narration:
                   remark ??
                   `Settlement debit. Excess balance withdrawn from user`,
@@ -1312,20 +1445,56 @@ export class WalletsService {
             );
 
             // 🔺 Sender credit
-            await this.addBalance(
-              senderId,
-              absAmount,
-              WalletType.Main,
-              settlement,
-              {
-                tx,
-                context: WalletTransactionContext.Deposit,
-                entityId: BigInt(user.id),
-                narration:
-                  remark ??
-                  `Settlement refund received from user balance adjustment`,
-              },
-            );
+            if (userType === UserType.User) {
+              await this.addBalance(
+                senderId,
+                absAmount,
+                WalletType.Main,
+                settlement,
+                {
+                  tx,
+                  context: WalletTransactionContext.Deposit,
+                  entityId: BigInt(user.id),
+                  narration: remark ?? `Settlement credit`,
+                  fromAccount:
+                    userType === UserType.User
+                      ? uplineMeta?.user?.role?.name
+                      : uplineMeta?.admin?.role?.name,
+                  toAccount: user.username ? user.username : user.id.toString(),
+                  meta: {
+                    reference: `Settlement for user ${user.username}`,
+                    fromAccount:
+                      userType === UserType.User
+                        ? uplineMeta?.user?.role?.name
+                        : uplineMeta?.admin?.role?.name,
+                    toAccount: user.username
+                      ? user.username
+                      : user.id.toString(),
+                  },
+                },
+              );
+            } else {
+              await this.addBalanceToOwner(
+                senderId,
+                absAmount,
+                WalletType.Main,
+                {
+                  tx,
+                  context: WalletTransactionContext.Deposit,
+                  entityId: BigInt(user.id),
+                  narration: remark ?? `Settlement credit`,
+                  fromAccount: uplineMeta?.admin?.role?.name,
+                  toAccount: user.username ? user.username : user.id.toString(),
+                  meta: {
+                    reference: `Settlement for user ${user.username}`,
+                    fromAccount: uplineMeta?.admin?.role?.name,
+                    toAccount: user.username
+                      ? user.username
+                      : user.id.toString(),
+                  },
+                },
+              );
+            }
 
             senderBalance = senderBalance.plus(absAmount);
           }
@@ -1337,7 +1506,8 @@ export class WalletsService {
         };
       },
       {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+        timeout: 20000,
       },
     );
   }

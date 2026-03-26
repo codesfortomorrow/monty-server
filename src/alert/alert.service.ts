@@ -57,4 +57,25 @@ export class AlertService extends BaseService {
       this.logger.error(`Error to sending mail alert: ${error.message}`);
     }
   }
+
+  async notifySportSyncFailure(payload: { meta: object; error?: string }) {
+    try {
+      await this.mailService.send({
+        to: `${this.config.email}`,
+        subject: `🚨 Sport Sync Failure`,
+        mailBodyOrTemplate: `
+                  Sport syncing failed.
+  
+                  ${Object.entries(payload.meta).map(
+                    ([key, value]) => `${key}: ${value}`,
+                  )}
+                  Error: ${payload.error ?? 'Scheduler failed'}
+  
+                  Time: ${new Date().toISOString()}
+              `,
+      });
+    } catch (error) {
+      this.logger.error(`Error to sending mail alert: ${error.message}`);
+    }
+  }
 }

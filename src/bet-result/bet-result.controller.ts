@@ -91,16 +91,6 @@ export class BetResultController {
     };
   }
 
-  @Get('getHierarchy')
-  async getHierarchy(@Query('userId') userId: number) {
-    const hierarchy = await this.betResultService.getHierarchy(BigInt(userId));
-    return {
-      success: true,
-      message: 'Hierarchy fetched successfully',
-      data: hierarchy,
-    };
-  }
-
   @ApiOperation({ summary: 'Create Result Manager' })
   @ApiBearerAuth()
   @Post('/user')
