@@ -467,7 +467,7 @@ export class EventsService extends BaseService {
       return `${raviRaceTvBaseUrl}?eventid=${event.externalId}&sport=${sport}`;
     }
     const raviTvBaseUrl = this.scorecardConfig.raviTvUrl;
-    return `${raviTvBaseUrl}?eventid=${event.externalId}`;
+    return `${raviTvBaseUrl}?eventid=${event.externalId}&sport=${event.sport.toLowerCase()}`;
   };
 
   gliveTv: TvFn = async (event, user?: { id: number; ip: string }) => {

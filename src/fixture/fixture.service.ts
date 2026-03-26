@@ -244,6 +244,13 @@ export class FixtureService extends BaseService {
           competition: {
             deletedAt: null,
           },
+          markets: {
+            some: {
+              status: {
+                in: [StatusType.Active, StatusType.Open, StatusType.Suspended],
+              },
+            },
+          },
         };
 
         if (sport) where.sport = sport;
