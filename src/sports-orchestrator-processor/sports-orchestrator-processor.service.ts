@@ -21,8 +21,10 @@ export class SportsOrchestratorProcessorService
   private isRunningCompetition = false;
   private isRunningDuplicateEvent = false;
   private isRunningMarket = false;
+  private isRunningAllMarket = false;
   private readonly COMPETITION_KEY = 'competitionTimestamp';
   private readonly MARKET_KEY = 'marketTimestamp';
+  private readonly ALL_MARKET_KEY = 'marketTimestamp';
   private readonly DUPLICATE_EVENT_KEY = 'duplicateEventTimestamp';
 
   constructor(
@@ -81,6 +83,7 @@ export class SportsOrchestratorProcessorService
     const now = Date.now();
     const competitionTimestamp = now + 10 * 60 * 1000;
     const marketTimestamp = now + 2 * 60 * 60 * 1000;
+    const allMarketTimestamp = now + 4 * 60 * 60 * 1000;
     // const duplicateEventTimestamp = now + 2 * 60 * 60 * 1000;
 
     let storedCompetitionTimestamp = Number(
@@ -88,6 +91,9 @@ export class SportsOrchestratorProcessorService
     );
     let storedMarketTimestamp = Number(
       (await this.redis.client.get(this.MARKET_KEY)) ?? 0,
+    );
+    let storedAllMarketTimestamp = Number(
+      (await this.redis.client.get(this.ALL_MARKET_KEY)) ?? 0,
     );
     // let storedDuplicateEventTimestamp = Number(
     //   (await this.redis.client.get(this.DUPLICATE_EVENT_KEY)) ?? 0,
@@ -103,6 +109,14 @@ export class SportsOrchestratorProcessorService
     if (!storedMarketTimestamp) {
       storedMarketTimestamp = now;
       await this.redis.client.set(this.MARKET_KEY, storedMarketTimestamp);
+    }
+
+    if (!storedAllMarketTimestamp) {
+      storedAllMarketTimestamp = now;
+      await this.redis.client.set(
+        this.ALL_MARKET_KEY,
+        storedAllMarketTimestamp,
+      );
     }
 
     // if (!storedDuplicateEventTimestamp) {
@@ -197,6 +211,33 @@ export class SportsOrchestratorProcessorService
         this.isRunningMarket = false;
       }
     }
+
+    if (storedAllMarketTimestamp <= now) {
+      try {
+        if (!this.isRunningAllMarket) {
+          this.isRunningAllMarket = true;
+          await this.syncMarkets('All');
+          await this.redis.client.set(this.ALL_MARKET_KEY, allMarketTimestamp);
+        } else {
+          this.logger.warn(
+            `All Market sync skipped (another job already running)`,
+          );
+        }
+      } catch (error: any) {
+        this.logger.error(
+          `Error During All Market Syncing, Error: ${error.message}`,
+        );
+        this.alertService.notifySportSyncFailure({
+          meta: {
+            'Sync Type': 'Markets',
+            Source: SportsOrchestratorProcessorService.name,
+          },
+          error: error.message,
+        });
+      } finally {
+        this.isRunningAllMarket = false;
+      }
+    }
   }
 
   @UseFilters(SentryExceptionFilter)
@@ -231,9 +272,9 @@ export class SportsOrchestratorProcessorService
 
   @UseFilters(SentryExceptionFilter)
   // @Cron(CronExpression.EVERY_2_HOURS, { name: 'markets-sync' })
-  async syncMarkets() {
+  async syncMarkets(sport: 'Cricket' | 'All' = 'Cricket') {
     try {
-      await this.marketsProcessor.syncMarkets();
+      await this.marketsProcessor.syncMarkets(sport);
     } catch (error: any) {
       this.logger.error(
         `Error to fetch markets for sports, Error = ${error.message}`,
