@@ -24,7 +24,7 @@ export class SportsOrchestratorProcessorService
   private isRunningAllMarket = false;
   private readonly COMPETITION_KEY = 'competitionTimestamp';
   private readonly MARKET_KEY = 'marketTimestamp';
-  private readonly ALL_MARKET_KEY = 'marketTimestamp';
+  private readonly ALL_MARKET_KEY = 'allMarketTimestamp';
   private readonly DUPLICATE_EVENT_KEY = 'duplicateEventTimestamp';
 
   constructor(
