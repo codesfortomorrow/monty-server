@@ -14,6 +14,7 @@ import { MarketProcessor } from 'src/market/market.processor';
 import { targetMarkets } from 'src/utils/market';
 import { kafkaConfigFactory } from '@Config';
 import { ConfigType } from '@nestjs/config';
+import { ResultProvider } from '@prisma/client';
 
 export type OddsMarketOutcome = {
   id: string;
@@ -291,11 +292,11 @@ export class KafkaService
     // Close Event
     if (data?.status?.toLowerCase()?.startsWith('close')) {
       if (targetMarkets.includes(data?.marketName?.toLowerCase()))
-        this.eventService.checkAndCloseEvent(eventID);
+        this.eventService.checkAndCloseEvent(eventID, ResultProvider.Webhook);
     } else {
       // Active Event
       if (targetMarkets.includes(data?.marketName?.toLowerCase())) {
-        this.eventService.checkAndActiveEvent(eventID);
+        this.eventService.checkAndActiveEvent(eventID, ResultProvider.Webhook);
         await this.redis.client.setex(
           `fixtureodds:${eventID}:${data.marketId}`,
           5 * 60, // 5 mins

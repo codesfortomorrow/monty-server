@@ -247,13 +247,12 @@ export class CompetitionsProcessor extends BaseService {
           if (existing) {
             let shouldUpdateStatus = true;
 
-            // ❌ Rule 1: Closed → never update
-            if (existing.status === StatusType.Closed) {
+            if (
+              existing.status === StatusType.Closed &&
+              existing.statusUpdatedBy === ResultProvider.Panel
+            ) {
               shouldUpdateStatus = false;
-            }
-
-            // ⚠️ Rule 2: Panel override
-            else if (existing.statusUpdatedBy === ResultProvider.Panel) {
+            } else if (existing.statusUpdatedBy === ResultProvider.Panel) {
               if (matchStatus !== StatusType.Inactive) {
                 shouldUpdateStatus = false;
               }
