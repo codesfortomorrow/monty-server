@@ -16,7 +16,7 @@ export class CloseEventProcessor extends BaseProcessor {
     super(1, { loggerDefaultMeta: { processor: CloseEventProcessor.name } });
   }
   async process(job: Job) {
-    const { eventExternalId } = job.data;
+    const { eventExternalId, closedBy } = job.data;
 
     const existsKey = `event:closed:${eventExternalId}`;
     const isExists = await this.redis.client.exists(existsKey);
@@ -31,7 +31,7 @@ export class CloseEventProcessor extends BaseProcessor {
         },
         data: {
           status: StatusType.Closed,
-          statusUpdatedBy: ResultProvider.Webhook,
+          statusUpdatedBy: closedBy ?? ResultProvider.Webhook,
         },
       });
 

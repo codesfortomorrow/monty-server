@@ -7,6 +7,7 @@ import {
   OnApplicationShutdown,
 } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
+import { ResultProvider } from '@prisma/client';
 import { connect, IClientOptions, MqttClient } from 'mqtt';
 import { Sentry } from 'src/configs/sentry.config';
 import { EventsService } from 'src/events/events.service';
@@ -442,7 +443,10 @@ export class MqttService
     // Close Event
     if (data?.status?.toLowerCase()?.startsWith('close')) {
       if (targetMarkets.includes(data?.marketName?.toLowerCase()))
-        await this.eventService.checkAndCloseEvent(eventID);
+        await this.eventService.checkAndCloseEvent(
+          eventID,
+          ResultProvider.Webhook,
+        );
     }
     // else {
     //   // Active Event
