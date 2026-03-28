@@ -5,6 +5,7 @@ import {
   Event,
   GliveEvent,
   Prisma,
+  ResultProvider,
   SportType,
   StatusType,
 } from '@prisma/client';
@@ -680,7 +681,9 @@ export class EventsService extends BaseService {
       where: { id: eventId },
     });
     if (!event) throw new Error('Event not found');
-    const update: Prisma.EventUpdateInput = {};
+    const update: Prisma.EventUpdateInput = {
+      statusUpdatedBy: ResultProvider.Panel,
+    };
     if (data.status)
       update.status =
         data.status === 'ACTIVE' ? StatusType.Active : StatusType.Inactive;
@@ -790,12 +793,13 @@ export class EventsService extends BaseService {
     return events;
   }
 
-  async checkAndCloseEvent(externalId: string) {
+  async checkAndCloseEvent(externalId: string, closedBy?: ResultProvider) {
     try {
       await this.closeEventQueue.add(
         'event-close',
         {
           eventExternalId: externalId,
+          closedBy: closedBy,
         },
         {
           jobId: `close-${externalId}`,
@@ -805,12 +809,13 @@ export class EventsService extends BaseService {
       this.logger.error(`Error to initialize close event job, ${error}`);
     }
   }
-  async checkAndActiveEvent(externalId: string) {
+  async checkAndActiveEvent(externalId: string, activatedBy?: ResultProvider) {
     try {
       await this.activeEventQueue.add(
         'event-active',
         {
           eventExternalId: externalId,
+          activatedBy: activatedBy,
         },
         {
           jobId: `active-${externalId}`,

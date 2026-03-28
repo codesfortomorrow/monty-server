@@ -404,7 +404,10 @@ export class BetResultService extends BaseService {
         // // Clean Redis Keys
         // const marketKeys = `market:exists:${result.eventId}:*`;
         // await this.redisService.deleteKeysByPattern(marketKeys);
-        await this.eventService.checkAndCloseEvent(result.eventId);
+        await this.eventService.checkAndCloseEvent(
+          result.eventId,
+          ResultProvider.Webhook,
+        );
         this.logger.info(`Event ${result.eventId} marked as Closed`);
       }
 
@@ -572,7 +575,10 @@ export class BetResultService extends BaseService {
       // // Clean Redis Keys
       // const marketKeys = `market:exists:${result.eventId}:*`;
       // await this.redisService.deleteKeysByPattern(marketKeys);
-      await this.eventService.checkAndCloseEvent(event.externalId);
+      await this.eventService.checkAndCloseEvent(
+        event.externalId,
+        ResultProvider.Panel,
+      );
       this.logger.info(`Event ${result.eventId} marked as Closed`);
     }
 

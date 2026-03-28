@@ -4,7 +4,12 @@ import { HttpService } from '@nestjs/axios';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 // import { Cron, CronExpression } from '@nestjs/schedule';
-import { Competition, SportType, StatusType } from '@prisma/client';
+import {
+  Competition,
+  ResultProvider,
+  SportType,
+  StatusType,
+} from '@prisma/client';
 import { firstValueFrom, timeout } from 'rxjs';
 import { PrismaService } from 'src/prisma';
 import { getSportEnum, getSportId, getStatusEnum } from 'src/utils/sports';
@@ -57,7 +62,7 @@ export class EventsProcessor extends BaseService {
         await this.utils.sleep(2000);
       });
       this.logger.info('✅ Event fetch scheduler completed successfully');
-    } catch (err) {
+    } catch (err: any) {
       this.logger.error(`❌ Scheduler failed: ${err.message}`);
     }
   }
@@ -90,7 +95,7 @@ export class EventsProcessor extends BaseService {
         );
         await this.utils.sleep(2000);
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to sync events for competition ${competition.name} (sport=${competition.sport}): ${error?.message ?? error}`,
       );
@@ -140,7 +145,7 @@ export class EventsProcessor extends BaseService {
 
       // const redisKey = `event:exists:${event.eventId}`;
       // await this.redis.client.setex(redisKey, this.CACHE_TTL, '1'); // 2-day TTL
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error to upsert event. error: ${error.message}`);
     }
   }
@@ -180,7 +185,7 @@ export class EventsProcessor extends BaseService {
       this.logger.info(
         '✅ Duplicate event mapping fetch scheduler completed successfully',
       );
-    } catch (err) {
+    } catch (err: any) {
       this.logger.error(`❌ Scheduler failed: ${err.message}`);
     }
   }
@@ -219,7 +224,7 @@ export class EventsProcessor extends BaseService {
           sportsRadarEventId: sportsRadarEvent.id,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to sync events mapping for event ${betfairEventEXternalId}: ${error?.message ?? error}`,
       );
@@ -256,10 +261,13 @@ export class EventsProcessor extends BaseService {
 
         await this.utils.batchable(response, async (event) => {
           this.logger.debug(`Close Event - ${JSON.stringify(event, null, 2)}`);
-          await this.eventService.checkAndCloseEvent(event?.externalId);
+          await this.eventService.checkAndCloseEvent(
+            event?.externalId,
+            ResultProvider.Webhook,
+          );
         });
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error to process close event: ${error.message}`);
     } finally {
       this.isRunning = false;

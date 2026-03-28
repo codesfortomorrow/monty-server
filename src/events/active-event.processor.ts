@@ -16,7 +16,7 @@ export class ActiveEventProcessor extends BaseProcessor {
     super(1, { loggerDefaultMeta: { processor: ActiveEventProcessor.name } });
   }
   async process(job: Job) {
-    const { eventExternalId } = job.data;
+    const { eventExternalId, activatedBy } = job.data;
 
     const existsKey = `event:active:${eventExternalId}`;
     const isExists = await this.redis.client.exists(existsKey);
@@ -35,7 +35,7 @@ export class ActiveEventProcessor extends BaseProcessor {
         },
         data: {
           status: StatusType.Active,
-          statusUpdatedBy: ResultProvider.Webhook,
+          statusUpdatedBy: activatedBy ?? ResultProvider.Webhook,
         },
       });
       if (updated.count > 0) {
