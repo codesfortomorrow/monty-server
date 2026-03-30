@@ -310,6 +310,14 @@ export class PaymentService extends BaseService {
     const [payments, totalItems] = await Promise.all([
       this.prisma.digitalPayment.findMany({
         where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+            },
+          },
+        },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
