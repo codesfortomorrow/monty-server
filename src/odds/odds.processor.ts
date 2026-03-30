@@ -132,7 +132,7 @@ export class OddsProcessor
       where: {
         startTime: {
           gte: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // past 1 days
-          lte: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // next 2 days
+          lte: new Date(Date.now() + 60 * 1000), // next 2 days
         },
         status: {
           in: [
@@ -155,33 +155,41 @@ export class OddsProcessor
     // 2️⃣ Map odds from Redis
     const enriched = await this.oddsService.mapEventsWithOdds(events);
 
-    // Reset all previously inplay events to false (optional)
-    await this.prisma.event.updateMany({
-      where: { inplay: true },
-      data: { inplay: false },
-    });
-
     // 3️⃣ Extract inplay event IDs (those having at least one market inplay)
     const inplayEventIds = enriched
       .filter((e) => {
-        return e.inplay;
+        return e.inplay === true;
       })
       .map((e) => e.id);
 
-    if (!inplayEventIds.length) {
-      return { updated: 0, message: 'No inplay events found' };
-    }
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Reset all previously inplay events to false (optional)
+        await tx.event.updateMany({
+          where: {
+            inplay: true,
+            NOT: { id: { in: inplayEventIds } },
+          },
+          data: { inplay: false },
+        });
 
-    // 4️⃣ Update those events’ inplay flag in DB in parallel (batchable)
-    const BATCH_SIZE = 10; // adjust for DB throughput
-    const batches = _.chunk(inplayEventIds, BATCH_SIZE);
+        if (!inplayEventIds.length) {
+          return { updated: 0, message: 'No inplay events found' };
+        }
 
-    await this.utils.batchable(batches, async (batch) => {
-      await this.prisma.event.updateMany({
-        where: { id: { in: batch } },
-        data: { inplay: true },
-      });
-    });
+        // 4️⃣ Update those events’ inplay flag in DB in parallel (batchable)
+        const BATCH_SIZE = 10; // adjust for DB throughput
+        const batches = _.chunk(inplayEventIds, BATCH_SIZE);
+
+        await this.utils.batchable(batches, async (batch) => {
+          await tx.event.updateMany({
+            where: { id: { in: batch } },
+            data: { inplay: true },
+          });
+        });
+      },
+      { timeout: 30_000, maxWait: 5_000 },
+    );
 
     // const statusUpdates: { id: bigint; status: StatusType }[] = [];
 
