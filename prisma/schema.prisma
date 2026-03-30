@@ -1669,6 +1669,7 @@ model ActiveBanker {
 
 model DigitalPayment {
   id          BigInt      @id @default(autoincrement()) @map("id")
+  name        String?
   userId      BigInt?     @map("user_id")
   adminId     BigInt?     @map("admin_id")
   paymentMode PaymentMode @map("payment_mode")

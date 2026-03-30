@@ -106,6 +106,7 @@ export class PaymentService extends BaseService {
 
     const payment = await this.prisma.digitalPayment.create({
       data: {
+        name: data.name,
         paymentMode: data.paymentMode,
         accountType: data.accountType || AccountType.Personal,
         number,
