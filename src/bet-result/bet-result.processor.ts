@@ -306,7 +306,7 @@ export class BetResultProccessor
 
           this.logger.debug('TOTAL PAYOUT:', totalPayout.toString());
 
-          if (totalPayout.gte(0)) {
+          if (totalPayout.toDecimalPlaces(2).gte(0)) {
             await this.walletService.addBalance(
               user.userId,
               totalPayout.toDecimalPlaces(2),
@@ -322,7 +322,7 @@ export class BetResultProccessor
           } else {
             await this.walletService.subtractBalance(
               user.userId,
-              totalPayout.toDecimalPlaces(2),
+              totalPayout.abs().toDecimalPlaces(2),
               WalletType.Main,
               true,
               {

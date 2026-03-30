@@ -406,7 +406,7 @@ export class BetResultService extends BaseService {
         // await this.redisService.deleteKeysByPattern(marketKeys);
         await this.eventService.checkAndCloseEvent(
           result.eventId,
-          ResultProvider.Webhook,
+          ResultProvider.Panel,
         );
         this.logger.info(`Event ${result.eventId} marked as Closed`);
       }
