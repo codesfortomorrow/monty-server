@@ -59,8 +59,8 @@ export class KafkaService
   private topicQueues: Record<string, TopicQueue> = {};
 
   private readonly CACHE_TTL = 2 * 60 * 60; // 2 hours
-  private readonly CACHE_TTL_FANCY = 4 * 60 * 60; // 4 hours
-  private readonly CACHE_TTL_BOOKMAKER = 24 * 60 * 60; // 24 hours
+  private readonly CACHE_TTL_FANCY = 60; // 4 hours
+  private readonly CACHE_TTL_BOOKMAKER = 60; // 24 hours
   private readonly MAX_RECONNECT_ATTEMPTS = 10;
   private readonly BASE_RECONNECT_DELAY = 1000; // 1 second
 
