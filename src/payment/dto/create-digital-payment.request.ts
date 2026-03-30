@@ -10,6 +10,11 @@ import {
 import { PaymentMode, AccountType } from '@prisma/client';
 
 export class CreateDigitalPaymentDto {
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  name: string;
+
   @ApiProperty({
     description: 'Payment mode (bkash, rocket, nagad, bank)',
     enum: PaymentMode,
