@@ -5,7 +5,7 @@ import { MarketRequest, UpdateMarketBetSetting } from './dto';
 import { Prisma, StatusType } from '@prisma/client';
 import { BaseService } from '@Common';
 import { FancyMarketPayload } from 'src/market-mapper/market.type';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 
 @Injectable()
 export class MarketService extends BaseService {
@@ -180,5 +180,37 @@ export class MarketService extends BaseService {
         `Error to initialize subscribe market job, ${error.message}`,
       );
     }
+  }
+
+  @OnEvent('market.closed')
+  async handleMarketClosed(payload: any) {
+    const { marketId, eventId, sport, marketName } = payload;
+
+    const redisKey = `market_closed_${marketId}`;
+    const isFirstTime = await this.redis.client.set(
+      redisKey,
+      '1',
+      'EX',
+      60 * 60,
+      'NX',
+    );
+
+    if (!isFirstTime) {
+      console.log(`⚠️ Duplicate close ignored: ${marketId}`);
+      return;
+    }
+
+    console.log(`✅ Processing market close: ${marketId}`);
+    await this.closeMarket(marketId);
+  }
+
+  async closeMarket(marketId: string) {
+    await this.prisma.market.updateMany({
+      data: { status: StatusType.Closed },
+      where: { externalId: marketId },
+    });
+
+    const redisKey = `market:exists:*:${marketId}`;
+    await this.redis.deleteKeysByPattern(redisKey);
   }
 }
