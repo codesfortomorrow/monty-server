@@ -15,6 +15,7 @@ import { targetMarkets } from 'src/utils/market';
 import { kafkaConfigFactory } from '@Config';
 import { ConfigType } from '@nestjs/config';
 import { ResultProvider } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 export type OddsMarketOutcome = {
   id: string;
@@ -70,6 +71,7 @@ export class KafkaService
     private readonly mapper: MarketMapperService,
     private readonly marketProcessor: MarketProcessor,
     private readonly eventService: EventsService,
+    private readonly eventEmitter: EventEmitter2,
     @Inject(kafkaConfigFactory.KEY)
     private readonly kafkaConfig: ConfigType<typeof kafkaConfigFactory>,
   ) {
@@ -197,8 +199,8 @@ export class KafkaService
       for (const market of markets) {
         // const marketId =
         //   market?.data?.marketId || market?.marketId || market?.id;
-        // const eventID =
-        //   market?.data?.eventID || market?.eventID || market?.data?.matchId;
+        const eventID =
+          market?.data?.eventID || market?.eventID || market?.data?.matchId;
 
         const marketName = market?.marketName || market?.data?.marektName;
 
@@ -207,6 +209,16 @@ export class KafkaService
         // if (marketName === '1x2') {
         //   console.log(market, marketName, topic);
         // }
+
+        const status = market?.data?.status?.toLowerCase();
+        // ✅ GLOBAL CLOSED CHECK (IMPORTANT)
+        if (status === 'closed') {
+          this.eventEmitter.emit('market.closed', {
+            marketId: market?.data?.marketId,
+            eventId: eventID,
+            marketName,
+          });
+        }
 
         if (
           market?.marketName === 'match odds' &&
