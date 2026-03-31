@@ -201,16 +201,16 @@ export class MarketService extends BaseService {
     }
 
     console.log(`✅ Processing market close: ${marketId}`);
-    await this.closeMarket(marketId);
+    await this.closeMarket(marketId, eventId);
   }
 
-  async closeMarket(marketId: string) {
+  async closeMarket(marketId: string, eventId: string) {
     await this.prisma.market.updateMany({
       data: { status: StatusType.Closed },
-      where: { externalId: marketId },
+      where: { externalId: marketId, event: { externalId: eventId } },
     });
 
-    const redisKey = `market:exists:*:${marketId}`;
+    const redisKey = `market:exists:${eventId}:${marketId}`;
     await this.redis.deleteKeysByPattern(redisKey);
   }
 }
