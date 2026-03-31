@@ -11,6 +11,7 @@ import { RemoteResponse, RemoteSeries } from './competitions.type';
 import { ResultProvider, SportType, StatusType } from '@prisma/client';
 import { getSportEnum } from 'src/utils/sports';
 import { AlertService } from 'src/alert/alert.service';
+import { RedisService } from 'src/redis';
 
 @Injectable()
 export class CompetitionsProcessor extends BaseService {
@@ -22,6 +23,7 @@ export class CompetitionsProcessor extends BaseService {
     private readonly prisma: PrismaService,
     private readonly utils: UtilsService,
     private readonly alertService: AlertService,
+    private readonly redisService: RedisService,
     @Inject(sportConfigFactory.KEY)
     private readonly sportConfig: ConfigType<typeof sportConfigFactory>,
   ) {
@@ -263,8 +265,8 @@ export class CompetitionsProcessor extends BaseService {
               data: {
                 startTime: new Date(m.event.openDate),
                 sport: getSportEnum(sportName),
-                inplay: m.isLive,
                 updatedAt: new Date(),
+                inplay: m.isLive,
                 ...(shouldUpdateStatus && {
                   status: matchStatus,
                   statusUpdatedBy: ResultProvider.Webhook,
@@ -288,6 +290,17 @@ export class CompetitionsProcessor extends BaseService {
             });
           }
         }
+
+        const redisKey = `competitionEvent:${sportName}:${Date.now()}`;
+        await this.redisService.client.setex(
+          redisKey,
+          60 * 60,
+          JSON.stringify({
+            response: comp,
+            updates,
+            creates,
+          }),
+        );
 
         // 🔹 2. Execute updates in parallel batches
         await this.utils.batchable(
