@@ -84,7 +84,9 @@ export class SportsPermissionService extends BaseService {
       JSON.stringify(permission.permission),
     ) as PermissionDto[];
     const gamePermission = userPermissions.find(
-      (p: PermissionDto) => p.name.toLowerCase() === sport.toLowerCase(),
+      (p: PermissionDto) =>
+        p.name.replace(/\s+/g, '').toLowerCase() ===
+        sport.replace(/\s+/g, '').toLowerCase(),
     );
     if (!gamePermission) return true;
     if (gamePermission.allowed) return true;
