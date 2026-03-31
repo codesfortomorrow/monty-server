@@ -9,7 +9,13 @@ import {
   Odds,
   RunnerOdds,
 } from './odds.type';
-import { Competition, Event, Market, MarketType } from '@prisma/client';
+import {
+  Competition,
+  Event,
+  Market,
+  MarketType,
+  SportType,
+} from '@prisma/client';
 import { UtilsService } from '@Common';
 import {
   ExtraMarket,
@@ -131,6 +137,8 @@ export class OddsService {
         event.externalId,
         event.markets,
         parsed,
+        event.sport === SportType.HorseRacing ||
+          event.sport === SportType.Greyhound,
       );
 
       // const extraMarkets: ExtraMarketData[] = [];
@@ -247,6 +255,7 @@ export class OddsService {
     eventId: string,
     dbMarkets: Market[],
     parsedData: Map<string, unknown>,
+    isRacingEvent = false,
   ): MainMarketData[] => {
     return dbMarkets
       .map((market) => {
@@ -255,7 +264,11 @@ export class OddsService {
         const key = `odds:${eventId}:${market.externalId}`;
         const odds = parsedData.get(key) as { data: MarketData };
 
-        if (!odds && !targetMarkets.includes(market.name.toLowerCase()))
+        if (
+          !odds &&
+          !isRacingEvent &&
+          !targetMarkets.includes(market.name.toLowerCase())
+        )
           return null;
 
         const maxBetAmount = odds?.data?.inplay
