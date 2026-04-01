@@ -41,7 +41,7 @@ export class OddsProcessor
       try {
         await Promise.allSettled([
           this.triggerInplay(),
-          this.triggerMarketNameSync(),
+          // this.triggerMarketNameSync(),
         ]);
       } catch (err) {
         this.logger.error(`Sprots inplay syncing loop error ${err}`);
