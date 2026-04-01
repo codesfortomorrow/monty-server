@@ -135,10 +135,14 @@ export class CompetitionsProcessor extends BaseService {
       return;
     }
 
-    await this.utils.batchable(competitions, async (comp) => {
-      await this.upsertCompetitionAndEvents(sportName, comp);
-      await this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
-    });
+    await this.utils.batchable(
+      competitions,
+      async (comp) => {
+        await this.upsertCompetitionAndEvents(sportName, comp);
+        await this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
+      },
+      4,
+    );
   }
   private async processRaceSport(
     baseUrl: string,
@@ -177,10 +181,14 @@ export class CompetitionsProcessor extends BaseService {
       return;
     }
 
-    await this.utils.batchable(competitions, async (comp) => {
-      await this.upsertCompetitionAndEvents(sportName, comp);
-      await this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
-    });
+    await this.utils.batchable(
+      competitions,
+      async (comp) => {
+        await this.upsertCompetitionAndEvents(sportName, comp);
+        await this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
+      },
+      4,
+    );
   }
   private async upsertCompetitionAndEvents(
     sportName: string,
@@ -303,13 +311,16 @@ export class CompetitionsProcessor extends BaseService {
         );
 
         // 🔹 2. Execute updates in parallel batches
-        await this.utils.batchable(
-          updates,
-          async (u) => {
-            await this.prisma.event.update(u);
-          },
-          os.availableParallelism() / 2,
-        );
+        // await this.utils.batchable(
+        //   updates,
+        //   async (u) => {
+        //     await this.prisma.event.update(u);
+        //   },
+        //   os.availableParallelism() / 2,
+        // );
+        for (const u of updates) {
+          await this.prisma.event.update(u);
+        }
 
         // 🔹 3. Bulk create (fastest way)
         if (creates.length) {
