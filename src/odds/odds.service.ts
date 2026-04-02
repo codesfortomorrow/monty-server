@@ -206,6 +206,7 @@ export class OddsService {
         externalId: event.externalId,
         eventName: event.name,
         competitionId: event.competitionId,
+        cometitionName: event.competition?.name,
         startTime: event.startTime,
         status: event.status,
         sport: event.sport,

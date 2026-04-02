@@ -1396,6 +1396,14 @@ export class BetService extends BaseService {
             liability = Number(bet.amount) * (Number(bet.percentage) * 0.01);
             potentialProfit = Number(bet.amount);
           }
+        } else if (bet.isBookmaker) {
+          if (bet.betOn === BetType.Back) {
+            liability = Number(bet.amount);
+            potentialProfit = Number(bet.amount) * (Number(bet.odds) * 0.01);
+          } else {
+            liability = Number(bet.amount) * (Number(bet.odds) * 0.01);
+            potentialProfit = Number(bet.amount);
+          }
         } else {
           if (bet.betOn === BetType.Back) {
             liability = Number(bet.amount);
