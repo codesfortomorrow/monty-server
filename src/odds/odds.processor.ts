@@ -165,7 +165,7 @@ export class OddsProcessor
     const leagueEventIds = enriched
       .filter((e) => {
         return (
-          e.cometitionName?.trim()?.toLowerCase() ===
+          e.competitionName?.trim()?.toLowerCase() ===
           e.eventName.trim().toLowerCase()
         );
       })
