@@ -41,7 +41,7 @@ export class OddsProcessor
       try {
         await Promise.allSettled([
           this.triggerInplay(),
-          this.triggerMarketNameSync(),
+          // this.triggerMarketNameSync(),
         ]);
       } catch (err) {
         this.logger.error(`Sprots inplay syncing loop error ${err}`);
@@ -162,13 +162,22 @@ export class OddsProcessor
       })
       .map((e) => e.id);
 
+    const leagueEventIds = enriched
+      .filter((e) => {
+        return (
+          e.cometitionName?.trim()?.toLowerCase() ===
+          e.eventName.trim().toLowerCase()
+        );
+      })
+      .map((e) => e.id);
+
     await this.prisma.$transaction(
       async (tx) => {
         // Reset all previously inplay events to false (optional)
         await tx.event.updateMany({
           where: {
             inplay: true,
-            NOT: { id: { in: inplayEventIds } },
+            NOT: { id: { in: [...inplayEventIds, ...leagueEventIds] } },
           },
           data: { inplay: false },
         });

@@ -50,4 +50,23 @@ export class RedisService implements OnModuleInit, OnApplicationShutdown {
       }
     } while (cursor !== '0');
   }
+
+  async scanKeys(pattern: string): Promise<string[]> {
+    let cursor = '0';
+    const keys: string[] = [];
+
+    do {
+      const [nextCursor, batch] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        1000,
+      );
+      cursor = nextCursor;
+      keys.push(...batch);
+    } while (cursor !== '0');
+
+    return keys;
+  }
 }

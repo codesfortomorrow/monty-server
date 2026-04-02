@@ -206,6 +206,7 @@ export class OddsService {
         externalId: event.externalId,
         eventName: event.name,
         competitionId: event.competitionId,
+        cometitionName: event.competition?.name,
         startTime: event.startTime,
         status: event.status,
         sport: event.sport,
@@ -421,6 +422,17 @@ export class OddsService {
 
     // console.log('⏱ Redis mget odds (chunked):', Date.now() - redisStart, 'ms');
 
+    const [extraKeys, fancyKeys, bookmakerKeys] = await Promise.all([
+      this.redis.scanKeys('extra:*'),
+      this.redis.scanKeys('fancy:*'),
+      this.redis.scanKeys('bookmaker:*'),
+    ]);
+
+    // Step 2: Extract event IDs
+    const extractIds = (keys: string[]) => keys.map((key) => key.split(':')[1]);
+    const extraIds = new Set(extractIds(extraKeys));
+    const fancyIds = new Set(extractIds(fancyKeys));
+    const bookmakerIds = new Set(extractIds(bookmakerKeys));
     // -----------------------------------
     // RESPONSE
     // -----------------------------------
@@ -444,9 +456,9 @@ export class OddsService {
         status: liveData?.status || event.status,
         inplay: event.inplay,
 
-        isFancy: event.isFancy,
-        isBookmaker: event.isBookmaker,
-        isPremiumFancy: event.isPremiumFancy,
+        isFancy: fancyIds.has(event.externalId),
+        isBookmaker: bookmakerIds.has(event.externalId),
+        isPremiumFancy: extraIds.has(event.externalId),
         isPopular: event.isPopular,
 
         competition: event.competition && {

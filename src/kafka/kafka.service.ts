@@ -261,6 +261,7 @@ export class KafkaService
   private async handleFancy(raw: any) {
     const mapped = this.mapper.mapFancyMarketPayload(raw);
     if (!mapped) return;
+    if (mapped.data.length <= 0) return;
 
     const key = `fancy:${mapped.eventID}`;
     await this.redis.client.setex(
