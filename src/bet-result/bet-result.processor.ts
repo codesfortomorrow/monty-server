@@ -277,7 +277,8 @@ export class BetResultProccessor
 
             this.logger.debug(`resolve_${bet.id}`);
             const { payout, bonusPayout, status } =
-              marketType === 'FANCY'
+              marketType === 'FANCY' &&
+              bet.marketName.toLowerCase() !== 'session'
                 ? this.resolveFancy({ bet, result: data.result })
                 : this.resolveNormal({
                     bet,

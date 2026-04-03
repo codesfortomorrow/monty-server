@@ -70,6 +70,7 @@ export class CompetitionsProcessor extends BaseService {
         await this.utils.rerunnable(async () => {
           await this.processSport(baseUrl, sportName, sportId);
         }, 3);
+        this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
       },
     );
   }
@@ -94,6 +95,8 @@ export class CompetitionsProcessor extends BaseService {
         await this.utils.rerunnable(async () => {
           await this.processRaceSport(baseUrl, sportName, sportId);
         }, 3);
+
+        this.utils.sleep(this.SLEEP_BETWEEN_REQUESTS_MS);
       },
     );
   }

@@ -272,6 +272,7 @@ export class MarketProcessor
       data: { isSubscribed: true, status: StatusType.Active },
     });
 
+    this.utils.sleep(2000);
     if (updated.status === StatusType.Active)
       this.logger.info(`Activated event for eventId ${externalEventId}`);
   }

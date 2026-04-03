@@ -266,6 +266,7 @@ export class EventsProcessor extends BaseService {
             ResultProvider.Webhook,
           );
         });
+        this.utils.sleep(2000);
       });
     } catch (error: any) {
       this.logger.error(`Error to process close event: ${error.message}`);
