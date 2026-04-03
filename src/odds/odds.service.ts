@@ -375,6 +375,10 @@ export class OddsService {
     const keys: string[] = [];
     const eventMarketMap = new Map<string, { event: any; market: any }>();
 
+    const extraIds: Set<string> = new Set();
+    const fancyIds: Set<string> = new Set();
+    const bookmakerIds: Set<string> = new Set();
+
     for (const event of events) {
       if (!event.markets?.length) continue;
 
@@ -385,6 +389,13 @@ export class OddsService {
         'winner',
         'winner (incl. super over)',
       ]);
+
+      const fancy = `fancy:${event.externalId}`;
+      const bmkey = `bookmaker:${event.externalId}`;
+      const extrakey = `extra:${event.externalId}`;
+      if (fancy) fancyIds.add(event.externalId);
+      if (bmkey) bookmakerIds.add(event.externalId);
+      if (extrakey) extraIds.add(event.externalId);
 
       const market =
         event.markets.find(
@@ -422,17 +433,17 @@ export class OddsService {
 
     // console.log('⏱ Redis mget odds (chunked):', Date.now() - redisStart, 'ms');
 
-    const [extraKeys, fancyKeys, bookmakerKeys] = await Promise.all([
-      this.redis.scanKeys('extra:*'),
-      this.redis.scanKeys('fancy:*'),
-      this.redis.scanKeys('bookmaker:*'),
-    ]);
+    // const [extraKeys, fancyKeys, bookmakerKeys] = await Promise.all([
+    //   this.redis.scanKeys('extra:*'),
+    //   this.redis.scanKeys('fancy:*'),
+    //   this.redis.scanKeys('bookmaker:*'),
+    // ]);
 
     // Step 2: Extract event IDs
-    const extractIds = (keys: string[]) => keys.map((key) => key.split(':')[1]);
-    const extraIds = new Set(extractIds(extraKeys));
-    const fancyIds = new Set(extractIds(fancyKeys));
-    const bookmakerIds = new Set(extractIds(bookmakerKeys));
+    // const extractIds = (keys: string[]) => keys.map((key) => key.split(':')[1]);
+    // const extraIds = new Set(extractIds(extraKeys));
+    // const fancyIds = new Set(extractIds(fancyKeys));
+    // const bookmakerIds = new Set(extractIds(bookmakerKeys));
     // -----------------------------------
     // RESPONSE
     // -----------------------------------
@@ -453,7 +464,7 @@ export class OddsService {
             ? event.startTime.toISOString()
             : event.startTime,
 
-        status: event.status,
+        status: liveData?.status || event.status,
         inplay: event.inplay,
 
         isFancy: fancyIds.has(event.externalId),

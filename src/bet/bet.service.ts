@@ -174,6 +174,7 @@ export class BetService extends BaseService {
         rate: data.rate,
         percentage: data.fancyPercentage,
         stake: data.stake,
+        marketExtenralId: data.marketId,
       });
       console.log('isValid', isValid);
 
@@ -746,6 +747,7 @@ export class BetService extends BaseService {
     rate: number;
     percentage?: number;
     stake: number;
+    marketExtenralId: string;
   }) {
     if (data.marketId) {
       // Market wise validation
@@ -754,16 +756,6 @@ export class BetService extends BaseService {
         market.inPlayMinBetAmount !== null &&
         market.offPlayMinBetAmount !== null
       ) {
-        console.log('stage 1', {
-          inplayMinBet: market.inPlayMinBetAmount,
-          inplayMaxBet: market.inPlayMaxBetAmount,
-          offplayMinBet: market.offPlayMinBetAmount,
-          offplayMaxBet: market.offPlayMaxBetAmount,
-          stake: data.stake,
-          minReat: market.minRate,
-          maxRate: market.maxRate,
-          inplay: data.event.inplay,
-        });
         if (data.event.inplay) {
           if (
             Number(market.inPlayMinBetAmount) > data.stake ||
@@ -771,6 +763,8 @@ export class BetService extends BaseService {
           )
             return {
               success: false,
+              // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
               message: `Bet amount must be between ${market.inPlayMinBetAmount} and ${market.inPlayMaxBetAmount}`,
             };
         } else {
@@ -780,6 +774,8 @@ export class BetService extends BaseService {
           )
             return {
               success: false,
+              // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
               message: `Bet amount must be between ${market.offPlayMinBetAmount} and ${market.offPlayMaxBetAmount}`,
             };
         }
@@ -789,6 +785,8 @@ export class BetService extends BaseService {
         )
           return {
             success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
             message: `Bet rate must be between ${market.minRate} and ${market.maxRate}`,
           };
         return { success: true, message: '' };
@@ -797,9 +795,56 @@ export class BetService extends BaseService {
     // Event wise or default validation
     const betConfig =
       await this.betConfigService.getbetConfigByEventIdOrDefault(data.event.id);
-    console.log('stage 2', betConfig);
+
     if (data.marketType === 'FANCY' && data.percentage !== undefined) {
-      console.log('stage 3');
+      const fancydata = await this.redis.client.get(
+        `fancy:${data.event.externalId}`,
+      );
+      if (!fancydata) throw new Error('Fancy market data not found in Redis');
+      const fancyMarkets: FancyMarket[] = JSON.parse(fancydata)?.data || [];
+      const fancyMarket = fancyMarkets.find(
+        (fm) => String(fm.marketId) === String(data.marketExtenralId),
+      );
+
+      if (!fancyMarket) throw new Error('Fancy market not found');
+
+      if (fancyMarket.gameType.toLowerCase() !== 'session') {
+        if (data.event.inplay) {
+          if (
+            Number(betConfig.inPlayMinBetAmount) > data.stake ||
+            Number(betConfig.inPlayMaxBetAmount) < data.stake
+          )
+            return {
+              success: false,
+              // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
+              message: `Bet amount must be between ${betConfig.inPlayMinBetAmount} and ${betConfig.inPlayMaxBetAmount}`,
+            };
+        } else {
+          if (
+            Number(betConfig.offPlayMinBetAmount) > data.stake ||
+            Number(betConfig.offPlayMaxBetAmount) < data.stake
+          )
+            return {
+              success: false,
+              // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
+              message: `Bet amount must be between ${betConfig.offPlayMinBetAmount} and ${betConfig.offPlayMaxBetAmount}`,
+            };
+        }
+        if (
+          Number(betConfig.minRate) > data.rate ||
+          Number(betConfig.maxRate) < data.rate
+        )
+          return {
+            success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
+            message: `Bet rate must be between ${betConfig.minRate} and ${betConfig.maxRate}`,
+          };
+        return { success: true, message: '' };
+      }
+
       if (data.event.inplay) {
         if (
           Number(betConfig.sessionInPlayMinBetAmount) > data.stake ||
@@ -807,6 +852,8 @@ export class BetService extends BaseService {
         )
           return {
             success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
             message: `Bet amount must be between ${betConfig.sessionInPlayMinBetAmount} and ${betConfig.sessionInPlayMaxBetAmount}`,
           };
       } else {
@@ -816,6 +863,8 @@ export class BetService extends BaseService {
         )
           return {
             success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
             message: `Bet amount must be between ${betConfig.sessionOffPlayMinBetAmount} and ${betConfig.sessionOffPlayMaxBetAmount}`,
           };
       }
@@ -825,6 +874,8 @@ export class BetService extends BaseService {
       )
         return {
           success: false,
+          // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
           message: `Bet rate must be between ${betConfig.sessionMinRate} and ${betConfig.sessionMaxRate}`,
         };
       return { success: true, message: '' };
@@ -836,6 +887,8 @@ export class BetService extends BaseService {
         )
           return {
             success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
             message: `Bet amount must be between ${betConfig.bookmakerInPlayMinBetAmount} and ${betConfig.bookmakerInPlayMaxBetAmount}`,
           };
       } else {
@@ -845,6 +898,8 @@ export class BetService extends BaseService {
         )
           return {
             success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
             message: `Bet amount must be between ${betConfig.bookmakerOffPlayMinBetAmount} and ${betConfig.bookmakerOffPlayMaxBetAmount}`,
           };
       }
@@ -854,6 +909,8 @@ export class BetService extends BaseService {
       )
         return {
           success: false,
+          // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
           message: `Bet rate must be between ${betConfig.bookmakerMinRate} and ${betConfig.bookmakerMaxRate}`,
         };
       return { success: true, message: '' };
@@ -866,6 +923,8 @@ export class BetService extends BaseService {
         )
           return {
             success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
             message: `Bet amount must be between ${betConfig.inPlayMinBetAmount} and ${betConfig.inPlayMaxBetAmount}`,
           };
       } else {
@@ -875,6 +934,8 @@ export class BetService extends BaseService {
         )
           return {
             success: false,
+            // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
             message: `Bet amount must be between ${betConfig.offPlayMinBetAmount} and ${betConfig.offPlayMaxBetAmount}`,
           };
       }
@@ -884,6 +945,8 @@ export class BetService extends BaseService {
       )
         return {
           success: false,
+          // message: `Bet Not Confirm Reason Min and Max Bet Range Not Valid.`,
+
           message: `Bet rate must be between ${betConfig.minRate} and ${betConfig.maxRate}`,
         };
       return { success: true, message: '' };

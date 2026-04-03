@@ -5,7 +5,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsString,
-  IsStrongPassword,
+  Length,
 } from 'class-validator';
 
 export class RegisterUserRequestDto {
@@ -30,7 +30,9 @@ export class RegisterUserRequestDto {
   email?: string;
 
   @ApiProperty()
-  @IsStrongPassword()
+  // @IsStrongPassword()
+  @IsString()
+  @Length(3, 20)
   password: string;
 
   @ApiPropertyOptional()
