@@ -5,10 +5,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsString,
-  IsStrongPassword,
   Length,
-  Max,
-  Min,
 } from 'class-validator';
 
 export class RegisterUserRequestDto {
