@@ -464,7 +464,7 @@ export class OddsService {
             ? event.startTime.toISOString()
             : event.startTime,
 
-        status: event.status,
+        status: liveData?.status || event.status,
         inplay: event.inplay,
 
         isFancy: fancyIds.has(event.externalId),
