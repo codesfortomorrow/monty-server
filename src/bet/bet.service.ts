@@ -1451,13 +1451,23 @@ export class BetService extends BaseService {
       const modifiedBets = bets.map((bet) => {
         let liability: number, potentialProfit: number;
         if (bet.marketType === 'FANCY' && bet.percentage) {
-          if (bet.betOn === BetType.Back) {
-            liability = Number(bet.amount);
-            potentialProfit =
-              Number(bet.amount) * (Number(bet.percentage) * 0.01);
+          if (!bet.marketName.toLowerCase().includes('session')) {
+            if (bet.betOn === BetType.Back) {
+              liability = Number(bet.amount);
+              potentialProfit = Number(bet.amount) * (Number(bet.odds) - 1);
+            } else {
+              liability = Number(bet.amount) * (Number(bet.odds) - 1);
+              potentialProfit = Number(bet.amount);
+            }
           } else {
-            liability = Number(bet.amount) * (Number(bet.percentage) * 0.01);
-            potentialProfit = Number(bet.amount);
+            if (bet.betOn === BetType.Back) {
+              liability = Number(bet.amount);
+              potentialProfit =
+                Number(bet.amount) * (Number(bet.percentage) * 0.01);
+            } else {
+              liability = Number(bet.amount) * (Number(bet.percentage) * 0.01);
+              potentialProfit = Number(bet.amount);
+            }
           }
         } else if (bet.isBookmaker) {
           if (bet.betOn === BetType.Back) {
