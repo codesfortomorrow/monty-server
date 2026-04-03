@@ -6,6 +6,8 @@ import {
   IsPhoneNumber,
   IsString,
   IsStrongPassword,
+  Max,
+  Min,
 } from 'class-validator';
 
 export class RegisterUserRequestDto {
@@ -30,7 +32,10 @@ export class RegisterUserRequestDto {
   email?: string;
 
   @ApiProperty()
-  @IsStrongPassword()
+  // @IsStrongPassword()
+  @IsString()
+  @Min(3)
+  @Max(20)
   password: string;
 
   @ApiPropertyOptional()
