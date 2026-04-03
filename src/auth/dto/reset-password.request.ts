@@ -5,6 +5,8 @@ import {
   IsPhoneNumber,
   IsString,
   IsStrongPassword,
+  Max,
+  Min,
 } from 'class-validator';
 
 export class ResetPasswordRequestDto {
@@ -13,7 +15,10 @@ export class ResetPasswordRequestDto {
   code: string;
 
   @ApiProperty()
-  @IsStrongPassword()
+  // @IsStrongPassword()
+  @IsString()
+  @Min(3)
+  @Max(20)
   newPassword: string;
 
   @ApiPropertyOptional()
