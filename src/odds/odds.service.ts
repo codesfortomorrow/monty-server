@@ -393,9 +393,14 @@ export class OddsService {
       const fancy = `fancy:${event.externalId}`;
       const bmkey = `bookmaker:${event.externalId}`;
       const extrakey = `extra:${event.externalId}`;
-      if (fancy) fancyIds.add(event.externalId);
-      if (bmkey) bookmakerIds.add(event.externalId);
-      if (extrakey) extraIds.add(event.externalId);
+
+      const fancyExists = await this.redis.client.exists(fancy);
+      const bmExists = await this.redis.client.exists(bmkey);
+      const extraExists = await this.redis.client.exists(extrakey);
+
+      if (fancyExists) fancyIds.add(event.externalId);
+      if (bmExists) bookmakerIds.add(event.externalId);
+      if (extraExists) extraIds.add(event.externalId);
 
       const market =
         event.markets.find(

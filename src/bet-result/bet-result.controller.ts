@@ -54,10 +54,10 @@ export class BetResultController {
     };
   }
 
-  @ApiBearerAuth()
+  // @ApiBearerAuth()
   @Post('/declare')
-  @Roles(UserType.ResultManager)
-  @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
+  // @Roles(UserType.ResultManager)
+  // @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
   async manualResultDeclare(@Body() body: BetResultRequest) {
     await this.betResultService.manualResult(body);
     return {
@@ -66,10 +66,10 @@ export class BetResultController {
     };
   }
 
-  @ApiBearerAuth()
+  // @ApiBearerAuth()
   @Post('/manual/rollback')
-  @Roles(UserType.ResultManager)
-  @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
+  // @Roles(UserType.ResultManager)
+  // @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
   async manualResultRollback(@Body() body: ManualRollbackRequest) {
     await this.betResultService.manualRollback(body);
     return {
