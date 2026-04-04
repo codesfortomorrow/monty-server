@@ -176,7 +176,7 @@ export class BetService extends BaseService {
         stake: data.stake,
         marketExtenralId: data.marketId,
       });
-      console.log('isValid', isValid);
+      // console.log('isValid', isValid);
 
       if (!isValid.success) throw new Error(isValid.message);
 

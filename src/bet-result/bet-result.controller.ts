@@ -21,6 +21,7 @@ import {
 } from '@Common';
 import { CacheTTL } from '@nestjs/cache-manager';
 import { CreateUserForResultPanelRequest } from './dto/create-user-for-result-panel.request';
+import { ResultProvider } from '@prisma/client';
 
 @ApiTags('Bet Result')
 @UseFilters(SentryExceptionFilter)
@@ -54,24 +55,42 @@ export class BetResultController {
     };
   }
 
-  // @ApiBearerAuth()
+  @ApiBearerAuth()
   @Post('/declare')
-  // @Roles(UserType.ResultManager)
-  // @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
+  @Roles(UserType.ResultManager)
+  @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
   async manualResultDeclare(@Body() body: BetResultRequest) {
-    await this.betResultService.manualResult(body);
+    await this.betResultService.manualResult(body, ResultProvider.Panel);
     return {
       success: true,
       message: 'Bet result recevied successfully',
     };
   }
 
-  // @ApiBearerAuth()
+  @ApiBearerAuth()
   @Post('/manual/rollback')
-  // @Roles(UserType.ResultManager)
-  // @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
+  @Roles(UserType.ResultManager)
+  @UseGuards(JwtAuthGuard, AccessGuard, RolesGuard)
   async manualResultRollback(@Body() body: ManualRollbackRequest) {
-    await this.betResultService.manualRollback(body);
+    await this.betResultService.manualRollback(body, ResultProvider.Panel);
+    return {
+      success: true,
+      message: 'Bet result rollbacked successfully',
+    };
+  }
+
+  @Post('/declare/all')
+  async manualResultDeclareAll(@Body() body: BetResultRequest) {
+    await this.betResultService.manualResult(body, ResultProvider.DataServer);
+    return {
+      success: true,
+      message: 'Bet result recevied successfully',
+    };
+  }
+
+  @Post('/manual/all/rollback')
+  async manualResultAllRollback(@Body() body: ManualRollbackRequest) {
+    await this.betResultService.manualRollback(body, ResultProvider.DataServer);
     return {
       success: true,
       message: 'Bet result rollbacked successfully',

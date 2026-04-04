@@ -221,8 +221,9 @@ enum BetType {
 }
 
 enum ResultProvider {
-  Webhook @map("webhook")
-  Panel   @map("panel")
+  Webhook    @map("webhook")
+  Panel      @map("panel")
+  DataServer @map("data_server")
 
   @@map("result_provider")
 }
