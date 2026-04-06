@@ -270,7 +270,8 @@ export class BetResultService extends BaseService {
             b.market_category    AS "marketCategory",
             b.selection    AS "selection",
             b.market_type    AS "marketType",
-            b.placed_at      AS "placedAt"
+            b.placed_at      AS "placedAt",
+            COUNT(*) OVER (PARTITION BY b.event_id, b.market_id) AS "betCount"
         FROM bet b
         JOIN event e ON e.id = b.event_id
         WHERE b.status = 'pending'
@@ -308,6 +309,7 @@ export class BetResultService extends BaseService {
         marketName: string | null;
         marketType: string | null;
         placedAt: string | null;
+        betCount: number | bigint | null;
       }[]
     >(
       sqlQuery,
@@ -532,12 +534,12 @@ export class BetResultService extends BaseService {
       this.logger.info(
         `Event ${result.eventId}, market ${result.marketId} result stored`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error to store result: ${error.message}`);
     }
   }
 
-  async manualResult(result: BetResultRequest) {
+  async manualResult(result: BetResultRequest, providedBy: ResultProvider) {
     // const targetMarkets = [
     //   'match odds',
     //   'bookmaker',
@@ -642,7 +644,7 @@ export class BetResultService extends BaseService {
         selectionId: String(result.selectionId),
         result: String(result.result),
         outcome: JSON.parse(JSON.stringify(result)),
-        providedBy: ResultProvider.Panel,
+        providedBy: providedBy,
         status: isBetExist
           ? ResultStatusType.Pending
           : ResultStatusType.Proceed,
@@ -663,7 +665,10 @@ export class BetResultService extends BaseService {
     // }
   }
 
-  async manualRollback(result: ManualRollbackRequest) {
+  async manualRollback(
+    result: ManualRollbackRequest,
+    providedBy: ResultProvider,
+  ) {
     const event = await this.eventService.getByExternalId(result.eventId);
 
     if (!event) {
@@ -731,7 +736,7 @@ export class BetResultService extends BaseService {
         selectionId: String(result.selectionId),
         result: String(result.result),
         resultSelection: resultSelection,
-        rollbackedBy: ResultProvider.Panel,
+        rollbackedBy: providedBy,
         outcome: JSON.parse(JSON.stringify(result)),
         count: {
           increment: 1,
