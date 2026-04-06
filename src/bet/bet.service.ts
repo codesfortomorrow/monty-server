@@ -147,8 +147,11 @@ export class BetService extends BaseService {
           // const marketTypeOrName = mainMarket.data.marketType?.length
           //   ? mainMarket.data.marketType.toLowerCase()
           //   : mainMarket.data.marketName.toLowerCase();
-          isBookmaker = differentMarket.includes(
-            mainMarket?.data?.marketName?.toLowerCase(),
+          // isBookmaker = differentMarket.includes(
+          //   mainMarket?.data?.marketName?.toLowerCase(),
+          // );
+          isBookmaker = differentMarket.some((m) =>
+            mainMarket?.data?.marketName?.toLowerCase()?.includes(m),
           );
         } catch {
           this.logger.warn(`Error to perse Normal market during bet place`);
@@ -915,7 +918,6 @@ export class BetService extends BaseService {
         };
       return { success: true, message: '' };
     } else {
-      console.log('stage 4');
       if (data.event.inplay) {
         if (
           Number(betConfig.inPlayMinBetAmount) > data.stake ||
@@ -972,6 +974,7 @@ export class BetService extends BaseService {
     const existingExposure = await this.prisma.exposure.findMany({
       where: {
         sportId,
+        eventId,
         marketExternalId,
         marketId: marketId,
         userId,
