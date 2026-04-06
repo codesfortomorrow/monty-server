@@ -471,6 +471,11 @@ export class EventsService extends BaseService {
     return `${raviTvBaseUrl}?eventid=${event.externalId}&sport=${event.sport.toLowerCase()}`;
   };
 
+  manisTv: TvFn = async (event) => {
+    const manisTvBaseUrl = this.scorecardConfig.manisTvUrl;
+    return `${manisTvBaseUrl}?btid=${event.externalId}`;
+  };
+
   gliveTv: TvFn = async (event, user?: { id: number; ip: string }) => {
     if (!user) {
       this.logger.warn(`User details not found`);
@@ -551,6 +556,7 @@ export class EventsService extends BaseService {
     SAT: this.satLiveTv,
     RAVI: this.raviTv,
     GLIVE: this.gliveTv,
+    MANIS: this.manisTv,
   };
 
   getScorecardStrategy = (provider: string): ScorecardFn =>
