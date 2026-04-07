@@ -349,7 +349,7 @@ export class ExposureService extends BaseService {
     path: string,
     type: string,
   ) {
-    const { eventId, selectionId } = dto;
+    const { eventId, selectionId, marketId } = dto;
     console.log(path, 'path');
 
     const bets = await this.prisma.$queryRaw<any[]>`
@@ -373,6 +373,7 @@ export class ExposureService extends BaseService {
       um.upline <@ (${path})::ltree
       AND b.event_id = ${BigInt(eventId)}
       AND b.selection_id = ${selectionId}
+      AND b.market_id = ${marketId}
       AND b.status = 'pending'::bet_status_type
 `;
 

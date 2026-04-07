@@ -7,6 +7,11 @@ export class GetSessionPLDto {
   @IsNotEmpty()
   eventId: number;
 
+  @ApiProperty({ example: 98765 })
+  @IsString()
+  @IsNotEmpty()
+  marketId: string;
+
   @ApiProperty({ example: '12345' })
   @IsString()
   @IsNotEmpty()
