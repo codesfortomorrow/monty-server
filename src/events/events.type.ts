@@ -69,5 +69,8 @@ export type ScorecardFn = (event: Event) => Promise<string | null>;
 
 export type TvFn = (
   event: Event,
-  scorecardApiResponse?: any,
+  user?: {
+    id: number;
+    ip: string;
+  },
 ) => Promise<string | null>;
