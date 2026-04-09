@@ -1426,6 +1426,10 @@ export class BetService extends BaseService {
       };
     }
 
+    if (filter.status) {
+      where.status = filter.status;
+    }
+
     const count = await this.prisma.bet.count({ where });
     const bets = await this.prisma.bet.findMany({
       where,

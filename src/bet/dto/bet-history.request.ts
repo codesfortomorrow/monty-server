@@ -1,8 +1,8 @@
-import { PaginationRequest } from '@Common';
+import { DateFilterWithPaginationRequest } from '@Common';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SportType } from '@prisma/client';
+import { BetStatusType, SportType } from '@prisma/client';
 import {
-  IsDate,
+  // IsDate,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -13,20 +13,25 @@ export enum BetTime {
   CURRENT = 'CURRENT',
   PAST = 'PAST',
 }
-export class BetHistoryRequest extends PaginationRequest {
+export class BetHistoryRequest extends DateFilterWithPaginationRequest {
   @ApiProperty({ enum: BetTime })
   @IsEnum(BetTime)
-  betTime: BetTime;
+  betTime: BetTime = BetTime.CURRENT;
 
-  @ApiPropertyOptional({ description: 'Filter bet history by from date' })
-  @IsDate()
+  @ApiPropertyOptional({ enum: BetStatusType })
+  @IsEnum(BetStatusType)
   @IsOptional()
-  fromDate?: Date;
+  status?: BetStatusType;
 
-  @ApiPropertyOptional({ description: 'Filter bet history by to date' })
-  @IsDate()
-  @IsOptional()
-  toDate?: Date;
+  // @ApiPropertyOptional({ description: 'Filter bet history by from date' })
+  // @IsDate()
+  // @IsOptional()
+  // fromDate?: Date;
+
+  // @ApiPropertyOptional({ description: 'Filter bet history by to date' })
+  // @IsDate()
+  // @IsOptional()
+  // toDate?: Date;
 
   @ApiPropertyOptional({ description: 'Filter bet history by eventId' })
   @IsNumber()
