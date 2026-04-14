@@ -21,8 +21,14 @@ import utc from 'dayjs/plugin/utc';
 import stringSimilarity from 'string-similarity';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { ScorecardFn, ScorecardResponse, TvFn } from './events.type';
+import {
+  CricketScoreCard,
+  ScorecardFn,
+  ScorecardResponse,
+  TvFn,
+} from './events.type';
 import { SportsProviderService } from 'src/sports-provider/sports-provider.service';
+import { CricketSocketService } from './cricket-socket.service';
 
 dayjs.extend(utc);
 
@@ -44,9 +50,12 @@ export class EventsService extends BaseService {
     private readonly closeEventQueue: Queue,
     @InjectQueue('active-event')
     private readonly activeEventQueue: Queue,
+
+    private readonly socket: CricketSocketService,
   ) {
     super({ loggerDefaultMeta: { service: EventsService.name } });
   }
+  private readonly inFlight = new Map<string, Promise<any>>();
 
   async getEvents(query: EventRequest) {
     const redisKey = `events:${query.sport || 'all'}:${query.competitionId || 'all'}:${query.status || 'ALL'}:${query.search || 'null'}:${query.inplay || 'all'}:${query.page || '1'}:${query.limit || '10'}`;
@@ -459,6 +468,41 @@ export class EventsService extends BaseService {
     return `${raviScorecardBaseUrl}/${sportRadarId}`;
   };
 
+  starrexchScorecard: ScorecardFn = async (event) => {
+    const sport = event.sport?.toLowerCase();
+
+    switch (sport) {
+      case 'cricket': {
+        try {
+          const score = await this.getScore(event.externalId);
+
+          if (score) {
+            return score;
+          }
+
+          this.logger.error(
+            `❌ Score not available after retries (${event.externalId})`,
+          );
+          return null;
+        } catch (err: any) {
+          this.logger.error(
+            `❌ Error fetching score (${event.externalId}): ${err.message}`,
+          );
+          return null;
+        }
+      }
+      case 'soccer':
+        return `${this.scorecardConfig.starrexchScoreCardURL}?gmid=${event.externalId}&sportid=1`;
+
+      case 'tennis':
+        return `${this.scorecardConfig.starrexchScoreCardURL}?gmid=${event.externalId}&sportid=2`;
+
+      default:
+        this.logger.warn(`Unsupported sport: ${event.sport}`);
+        return null;
+    }
+  };
+
   raviTv: TvFn = async (event) => {
     if (this.isRaceEvent(event.sport)) {
       const raviRaceTvBaseUrl = this.scorecardConfig.raviTvUrlForRace;
@@ -609,6 +653,189 @@ export class EventsService extends BaseService {
     }
 
     return null;
+  }
+
+  async getScore(eventId: string) {
+    const cacheKey = `cricket:score:${eventId}`; // 1. Fast path (cache hit)
+
+    const cached = await this.redis.client.get(cacheKey);
+    if (cached) return JSON.parse(cached); // 2. Deduplicate concurrent requests (single-flight)
+
+    if (this.inFlight.has(eventId)) {
+      return this.inFlight.get(eventId);
+    }
+
+    const promise = this.fetchWithSocketFallback(eventId);
+    this.inFlight.set(eventId, promise);
+
+    try {
+      return await promise;
+    } finally {
+      this.inFlight.delete(eventId);
+    }
+  }
+
+  private async fetchWithSocketFallback(eventId: string) {
+    const cacheKey = `cricket:score:${eventId}`; // Mark active (starts socket lifecycle)
+
+    await this.socket.markEventActive(eventId);
+
+    const TIMEOUT = 2500; // socket wait window
+    const POLL_INTERVAL = 100;
+
+    const start = Date.now(); // 3. WAIT for socket to populate Redis
+
+    while (Date.now() - start < TIMEOUT) {
+      const cached = await this.redis.client.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    } // 4. SOCKET FAILED → FALLBACK
+
+    this.logger.warn(`Socket timeout for ${eventId}, falling back to HTTP`);
+
+    await this.startCricketScoreServiceFallback(eventId); // Wait again briefly for HTTP result
+
+    const FALLBACK_TIMEOUT = 2000;
+    const fallbackStart = Date.now();
+
+    while (Date.now() - fallbackStart < FALLBACK_TIMEOUT) {
+      const cached = await this.redis.client.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    }
+
+    return null;
+  }
+
+  async startCricketScoreServiceFallback(eventId: string) {
+    const lockKey = `cricket:http:lock:${eventId}`;
+
+    const lock = await this.redis.client.set(lockKey, '1', 'EX', 10, 'NX');
+
+    if (!lock) {
+      this.logger.debug(`HTTP fallback already running for ${eventId}`);
+      return;
+    }
+
+    const providerUrl = ` ${this.scorecardConfig.starrexchCricketScoreCardURL}?oldgmid=${eventId}`; // Fire and forget (but controlled)
+
+    this.startCricketScoreService(providerUrl, eventId).catch((err) => {
+      this.logger.error(`Fallback failed for ${eventId}`, err);
+    });
+  }
+
+  async startCricketScoreService(providerUrl: string, eventId: string) {
+    const lockKey = `cricket:http:lock:${eventId}`; // :white_check_mark: separate from socket
+    const activeKey = `cricket:active:${eventId}`;
+
+    const POLL_INTERVAL = 2000;
+    const CACHE_TTL = 5;
+    const LOCK_TTL = 10; // short lock to prevent duplicates
+    // :white_check_mark: acquire lock (prevent duplicate polling across pods)
+
+    const lock = await this.redis.client.set(
+      lockKey,
+      '1',
+      'EX',
+      LOCK_TTL,
+      'NX',
+    );
+
+    if (!lock) {
+      this.logger.debug(`Polling already active for ${eventId}`);
+      return;
+    }
+
+    this.logger.warn(`Started HTTP polling for ${eventId}`);
+
+    let stopped = false;
+
+    const interval = setInterval(async () => {
+      try {
+        // :white_check_mark: stop if no active consumers (TTL expired)
+        const isActive = await this.redis.client.exists(activeKey);
+        if (!isActive) {
+          this.logger.warn(`Polling killed (inactive) ${eventId}`);
+          clearInterval(interval);
+          stopped = true;
+          return;
+        }
+
+        const response = await firstValueFrom(
+          this.http.get(providerUrl).pipe(timeout(this.REQUEST_TIMEOUT_MS)),
+        );
+
+        if (!response?.data?.success) return;
+
+        const api = response.data;
+        const data = api.data;
+
+        const mapped: CricketScoreCard = {
+          matchId: api.gmid,
+          matchName: api.match,
+          betfairEventId: api.betfair,
+
+          team1: {
+            name: data.Nation1?.trim(),
+            score: data.score1,
+            runRate: data.CRR1 ? Number(data.CRR1) : null,
+            requiredRate: data.RR1 ? Number(data.RR1) : null,
+            isBatting: data.activenation1 === '1',
+          },
+
+          team2: {
+            name: data.Nation2?.trim(),
+            score: data.score2,
+            runRate: data.CRR2 ? Number(data.CRR2) : null,
+            requiredRate: data.RR2 ? Number(data.RR2) : null,
+            isBatting: data.activenation2 === '1',
+          },
+
+          lastBalls: data.balls || [],
+
+          innings: {
+            ballRunningStatus: data.ballrunningstatus || '',
+            day: data.dayno || '',
+          },
+
+          status: {
+            isFinished: data.isfinished === '1',
+            message: data.message || '',
+          },
+
+          updatedAt: Date.now(),
+        }; // :white_check_mark: cache score
+
+        await this.redis.client.setex(
+          `cricket:score:${eventId}`,
+          CACHE_TTL,
+          JSON.stringify(mapped),
+        ); // :white_check_mark: refresh lock (keep polling alive)
+
+        await this.redis.client.expire(lockKey, LOCK_TTL); // :white_check_mark: stop if match finished
+
+        if (mapped.status.isFinished) {
+          this.logger.warn(`Polling stopped (finished) ${eventId}`);
+          clearInterval(interval);
+          stopped = true;
+
+          await this.redis.client.del(lockKey);
+          return;
+        }
+      } catch (error) {
+        this.logger.error(`Score polling failed for ${eventId}`, error);
+      }
+    }, POLL_INTERVAL); // :white_check_mark: safety timeout (hard stop after 30s)
+
+    setTimeout(async () => {
+      if (!stopped) {
+        clearInterval(interval);
+        await this.redis.client.del(lockKey);
+        this.logger.warn(`Polling force-stopped (timeout) ${eventId}`);
+      }
+    }, 30000);
   }
 
   async closedEvent(eventExternalId: string, sport: string) {
