@@ -24,4 +24,9 @@ export const scorecardConfigFactory = registerAs('scorecard', () => ({
   manisTvUrl:
     process.env.MANIS_TV_BASE_URL ||
     'https://stream-s-43.xink.site/sports-stream',
+
+  starrexchScoreCardURL:
+    process.env.STARREXCH_SCORECARD_PROVIDER || 'STARREXCH',
+  starrexchCricketScoreCardURL:
+    process.env.STARREXCH_CRICKET_SCORECARD_PROVIDER || 'STARREXCH',
 }));

@@ -74,3 +74,40 @@ export type TvFn = (
     ip: string;
   },
 ) => Promise<string | null>;
+
+export type CricketScoreCard = {
+  matchId: string;
+  matchName: string;
+  betfairEventId: string;
+
+  team1: {
+    name: string;
+    score: string;
+    runRate: number | null;
+    requiredRate?: number | null;
+    isBatting: boolean;
+  };
+
+  team2: {
+    name: string;
+    score: string;
+    runRate: number | null;
+    requiredRate?: number | null;
+    isBatting: boolean;
+  };
+
+  lastBalls: string[];
+
+  innings?: {
+    currentOver?: string;
+    ballRunningStatus?: string;
+    day?: string;
+  };
+
+  status: {
+    isFinished: boolean;
+    message?: string;
+  };
+
+  updatedAt: number;
+};
