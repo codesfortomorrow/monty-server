@@ -594,6 +594,7 @@ export class EventsService extends BaseService {
   scorecardStrategies: Record<string, ScorecardFn> = {
     SAT: this.satScorecard,
     RAVI: this.raviScorecard,
+    STARREXCH: this.starrexchScorecard,
   };
 
   tvStrategies: Record<string, TvFn> = {
