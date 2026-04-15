@@ -333,6 +333,16 @@ export class EventsService extends BaseService {
     };
   }
 
+  async getRawScorecard(eventId: number) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) throw new Error('Event not found');
+    const scorecard = await this.starrexchScorecard(event);
+
+    return scorecard;
+  }
+
   satScorecard: ScorecardFn = async (event) => {
     const redisKey = `scorecard:${event.id}`;
     const data = await this.redis.client.get(redisKey);
