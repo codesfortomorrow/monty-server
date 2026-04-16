@@ -364,8 +364,6 @@ export class OddsService {
   async mapEventsWithMatchOdds(events: any[]) {
     if (!events?.length) return [];
 
-    const start = Date.now();
-
     const keys: string[] = [];
     const eventMarketMap = new Map<string, { event: any; market: any }>();
 
