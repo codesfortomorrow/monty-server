@@ -26,7 +26,6 @@ export class MyWalletController {
 
   @Get('summary')
   async getWalletSummary(@Req() req: AuthenticatedRequest) {
-    console.log('userId : ', req.user);
     const userId = BigInt(req.user.id);
     return this.myWalletService.getWalletSummary(userId);
   }

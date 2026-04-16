@@ -19,8 +19,6 @@ export class FixtureService extends BaseService {
   }
 
   async getFixtureDetails(query: FixtureRequest) {
-    const apiStart = Date.now();
-
     try {
       const { sport, search, inplay, competitionId, matchTime } = query;
 
@@ -33,7 +31,6 @@ export class FixtureService extends BaseService {
       // -----------------------------
       // 🔍 REDIS CACHE (WITH TIMEOUT)
       // -----------------------------
-      const redisStart = Date.now();
       let cached: string | null = null;
 
       try {
@@ -47,8 +44,6 @@ export class FixtureService extends BaseService {
         cached = null;
       }
 
-      console.log('⏱ Redis fixture get:', Date.now() - redisStart, 'ms');
-
       if (cached) {
         events = JSON.parse(cached);
       }
@@ -59,7 +54,7 @@ export class FixtureService extends BaseService {
       if (!events || events.length === 0) {
         const where: Prisma.EventWhereInput = {
           startTime: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            // gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
             lte: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
           },
           status: {
@@ -115,7 +110,6 @@ export class FixtureService extends BaseService {
           }
         }
 
-        const dbStart = Date.now();
         const dbEvents = await this.prisma.event.findMany({
           where,
           orderBy: { startTime: 'asc' },
@@ -165,9 +159,6 @@ export class FixtureService extends BaseService {
           return false;
         });
 
-        console.log('⏱ Prisma query:', Date.now() - dbStart, 'ms');
-        console.log('📦 Events count:', events.length, sport);
-
         // ⚠️ NOTE: abhi same data cache kar rahe hain
         // (next step me isko light cache bana denge)
         await this.redis.client.setex(
@@ -180,11 +171,8 @@ export class FixtureService extends BaseService {
       // -----------------------------
       // 🔥 ODDS ATTACH
       // -----------------------------
-      const oddsStart = Date.now();
       const enriched = await this.oddsService.mapEventsWithMatchOdds(events);
-      console.log('⏱ Odds mapping:', Date.now() - oddsStart, 'ms');
 
-      console.log('🚀 TOTAL API TIME:', Date.now() - apiStart, 'ms');
       // let final = enriched;
       // if (inplay === 'true') {
       //   final = enriched.filter((e) => e.inplay === true);

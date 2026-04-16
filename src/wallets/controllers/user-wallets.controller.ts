@@ -80,7 +80,6 @@ export class UserWalletsController extends BaseController {
     @Body() body: CreditLimitRequest,
   ) {
     const ctx = this.getContext(req);
-    console.log('Controller crerdit amoumnt', body.creditLimit);
     await this.walletsService.giveCreditLimitToUser({
       userId,
       creatorId: ctx.user.id,

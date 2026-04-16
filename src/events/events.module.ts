@@ -12,6 +12,7 @@ import { SportsProviderModule } from 'src/sports-provider/sports-provider.module
 import { GliveTvProcessor } from './glive-tv.processor';
 import { AlertModule } from 'src/alert/alert.module';
 import { GliveEventProcessor } from './glive-event.processor';
+import { CricketSocketService } from './cricket-socket.service';
 
 @Module({
   imports: [
@@ -30,8 +31,9 @@ import { GliveEventProcessor } from './glive-event.processor';
     EventsProcessor,
     ActiveEventProcessor,
     CloseEventProcessor,
-    GliveTvProcessor,
-    GliveEventProcessor,
+    // GliveTvProcessor,
+    // GliveEventProcessor,
+    CricketSocketService,
   ],
   exports: [EventsProcessor, EventsService],
 })

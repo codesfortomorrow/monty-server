@@ -90,6 +90,19 @@ export class EventsController extends BaseController {
     };
   }
 
+  @ApiBearerAuth()
+  @Get('/raw-scorecard/:eventId')
+  @CacheTTL(2 * 60 * 1000) // 2 min
+  @UseGuards(JwtAuthGuard)
+  async getRawScorecard(@Param('eventId', ParseIntPipe) eventId: number) {
+    const scorecard = await this.eventsService.getRawScorecard(eventId);
+    return {
+      success: true,
+      message: 'Scorecard fetched successfully',
+      scorecard,
+    };
+  }
+
   // Event Management
   @Patch('/:id')
   async changeEventStatus(

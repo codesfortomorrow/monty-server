@@ -136,8 +136,8 @@ export class KafkaService
     const queue = this.topicQueues[topic]; //  CREATE UNIQUE KEY (event + market)
 
     const market = Array.isArray(payload) ? payload[0] : payload;
-    if (market.timestamp)
-      console.log(Date.now() - market.timestamp, 'delayaaaaaa');
+    // if (market.timestamp)
+    //   console.log(Date.now() - market.timestamp, 'delayaaaaaa');
     const eventId =
       market?.data?.eventID || market?.eventID || market?.data?.matchId;
 

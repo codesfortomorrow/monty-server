@@ -150,7 +150,7 @@ export class SettledBetBatchProcessor
       this.logger.debug('No unsettled PL bets found');
       return;
     }
-    this.logger.info(`Found ${settledBets.length} bets for PL settlement`);
+    this.logger.debug(`Found ${settledBets.length} bets for PL settlement`);
     for (const bet of settledBets) {
       try {
         await this.prisma.$transaction(async (tx) => {
@@ -161,7 +161,6 @@ export class SettledBetBatchProcessor
             );
           }
 
-          console.log('bet', bet);
           await this.processBetProfitLoss(
             bet,
             hierarchy.data,

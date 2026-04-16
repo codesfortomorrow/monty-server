@@ -37,7 +37,6 @@ export class BetController extends BaseController {
     @Req() req: AuthenticatedRequest,
     @Body() body: BetPlaceRequest,
   ) {
-    console.log(body.acceptOddsChange);
     const ctx = this.getContext(req);
     const ip = this.getIp(req);
     const bet = await this.betService.placeBet(ctx.user.id, body, ip);

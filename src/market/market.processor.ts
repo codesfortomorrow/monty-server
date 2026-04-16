@@ -419,7 +419,6 @@ export class MarketProcessor
 
       if (!baseUrl) throw new Error('Base Url is not configured');
       const url = `${baseUrl}/markets/subscribe-market`;
-      console.log('Subscribing markets, url', url, 'EventIds', eventIds);
 
       const response = await firstValueFrom(
         this.httpService
@@ -435,7 +434,6 @@ export class MarketProcessor
       }
       return true;
     } catch (error: any) {
-      console.log(error);
       this.logger.error(`Error to subscribe markets ${error.message}`);
       return false;
     }

@@ -96,7 +96,6 @@ export class ExportsService extends BaseService implements OnModuleInit {
     timeZone?: string,
   ): string {
     if (!dateInput) return '-';
-    console.log('timeZone', timeZone);
 
     const tz = timeZone || 'Asia/Kolkata';
 
@@ -2482,7 +2481,6 @@ export class ExportsService extends BaseService implements OnModuleInit {
       true,
     );
 
-    console.log('params', result);
     const rawData = result.downlineUsers as any[];
     const columns: string[] = [
       'S.No',
@@ -3530,7 +3528,6 @@ export class ExportsService extends BaseService implements OnModuleInit {
       }
 
       doc.end();
-      console.log('export', this.storageService.getFileUrl1(filename));
       await this.prisma.export.update({
         where: { id: exportId },
         data: {

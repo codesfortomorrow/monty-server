@@ -80,7 +80,6 @@ export class WinAmountLockProcessor
 
   private async processWinningTransactions(): Promise<void> {
     while (!this.isShuttingDown) {
-      console.log('--------------------------------');
       const transactions = await this.prisma.walletTransactions.findMany({
         where: {
           context: {
@@ -113,11 +112,6 @@ export class WinAmountLockProcessor
         take: this.BATCH_SIZE,
         orderBy: { id: 'asc' },
       });
-
-      console.log(
-        '-------------------------------- transactions.length',
-        transactions.length,
-      );
 
       if (transactions.length === 0) return;
 
@@ -207,9 +201,6 @@ export class WinAmountLockProcessor
     const betStake = await this.getBetStake(txn.entityId, txn.context);
     const winAmount = txn.amount;
 
-    console.log('betStake : ', betStake);
-    console.log('winAmount : ', winAmount);
-
     if (!betStake || betStake.lte(0)) {
       this.logger.warn(
         `Skipping transaction ${txn.id}: could not find valid bet stake for ${txn.context} ${txn.entityId}`,
@@ -223,8 +214,6 @@ export class WinAmountLockProcessor
       await this.markAsProcessed(txn.id);
       return;
     }
-
-    console.log('line 226 : ');
     // Process in a transaction with proper isolation
     await this.prisma.$transaction(
       async (tx) => {
@@ -311,7 +300,6 @@ export class WinAmountLockProcessor
     },
     tx: Prisma.TransactionClient,
   ): Promise<void> {
-    console.log('line 314 : ');
     if (betStake.lte(0) || winAmount.lte(0)) {
       this.logger.debug(
         `Skipping FIFO allocation: invalid stake (${betStake}) or win amount (${winAmount})`,
@@ -327,10 +315,6 @@ export class WinAmountLockProcessor
 
     const totalWalletAmount = wallet.amount;
     const walletType = wallet.type;
-
-    console.log('userId : ', userId);
-    console.log('walletId : ', walletId);
-    console.log('walletType : ', walletType);
 
     // Get all pending turnovers ordered by FIFO
     const turnovers = await tx.userTurnoverAccount.findMany({
@@ -349,8 +333,6 @@ export class WinAmountLockProcessor
         lockedWinning: true,
       },
     });
-
-    console.log('turnovers  : ', turnovers.length);
     if (turnovers.length === 0) {
       this.logger.debug(
         `No pending turnovers found for user ${userId}, wallet ${walletId}`,

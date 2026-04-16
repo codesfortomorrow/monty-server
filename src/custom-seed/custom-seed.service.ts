@@ -18,7 +18,6 @@ export class CustomSeedService {
   ) {}
   async seedCasinoGamesFromCSV() {
     const filePath = path.join(__dirname, '../../casino_games.csv');
-    console.log(filePath, 'casino path');
     const casinoRows: any[] = [];
 
     // Parse CSV
