@@ -51,7 +51,6 @@ export class CompetitionsService extends BaseService {
     if (query.search) {
       where.name = { contains: query.search, mode: 'insensitive' };
     }
-    console.log('Where in competition', where);
     // ✅ Fetch from DB
     const competitions = await this.prisma.competition.findMany({
       where,

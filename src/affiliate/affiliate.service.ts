@@ -1382,8 +1382,6 @@ export class AffiliateService extends BaseService {
       },
     });
 
-    console.log(totals, 'totals');
-
     let weeklyCommissionAmount = totals._sum.commissionAmount ?? 0;
 
     if (options.status) {

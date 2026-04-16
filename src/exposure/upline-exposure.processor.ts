@@ -105,7 +105,6 @@ export class UplineExposureBatchProcessor
             );
           }
 
-          console.log('exposure', exposure);
           await this.processBetProfitLoss(
             exposure,
             hierarchy.data,
@@ -181,11 +180,11 @@ export class UplineExposureBatchProcessor
     const forwardUpAmount = settlementAmount * -1;
     const addAp = 100;
 
-    this.logger.info(`---- Processing Exposure ${exposure.id} ----`);
-    this.logger.info(`UserId: ${userId}`);
-    this.logger.info(`Settlement Amount: ${settlementAmount}`);
-    this.logger.info(`Forward Up Amount: ${forwardUpAmount}`);
-    this.logger.info(`Total Hierarchy Users: ${betUsers.length}`);
+    this.logger.debug(`---- Processing Exposure ${exposure.id} ----`);
+    this.logger.debug(`UserId: ${userId}`);
+    this.logger.debug(`Settlement Amount: ${settlementAmount}`);
+    this.logger.debug(`Forward Up Amount: ${forwardUpAmount}`);
+    this.logger.debug(`Total Hierarchy Users: ${betUsers.length}`);
 
     for (let k = 0; k < betUsers.length; k++) {
       const user = betUsers[k];
@@ -220,7 +219,7 @@ export class UplineExposureBatchProcessor
         }
       }
 
-      this.logger.info(`Calculated apAmount: ${apAmount}`);
+      this.logger.debug(`Calculated apAmount: ${apAmount}`);
 
       const isOwner = user.role === 'OWNER';
 

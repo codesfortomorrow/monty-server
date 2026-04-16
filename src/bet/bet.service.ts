@@ -410,7 +410,6 @@ export class BetService extends BaseService {
           return apiRes.data;
         }, 3);
 
-        console.log('Validator result:', JSON.stringify(result), apiUrl);
         updatedOdd = result.updatedOdds;
 
         if (!result.status || result.status == 3 || result.status == 9) {
@@ -532,7 +531,6 @@ export class BetService extends BaseService {
           return apiRes.data;
         }, 3);
 
-        console.log('Validator result:', result, apiUrl);
         updatedOdd = result.updatedOdds;
 
         if (!result.status || result.status == 3 || result.status == 9) {
@@ -656,7 +654,6 @@ export class BetService extends BaseService {
           return apiRes.data;
         }, 3);
 
-        console.log('Validator result:', result, apiUrl);
         updatedOdd = result.updatedOdds;
 
         if (!result.status || result.status == 3 || result.status == 9) {
@@ -1123,12 +1120,6 @@ export class BetService extends BaseService {
         data.potentialProfit > 0 &&
         maxUpdatedProfit > Number(data.potentialProfit)
       ) {
-        console.log(
-          'maxUpdatedProfit',
-          maxUpdatedProfit,
-          'data.potentialProfit',
-          data.potentialProfit,
-        );
         throw new Error('Maximum profit limit exceeded');
       }
 
@@ -1742,7 +1733,6 @@ export class BetService extends BaseService {
       };
     }
 
-    console.log('Bet WHere condition', JSON.stringify(where));
     const count = await this.prisma.bet.count({ where });
     const bets = await this.prisma.bet.findMany({
       where,

@@ -576,7 +576,6 @@ export class BonusService {
     if (!applicant) {
       throw new Error('Bonus Applicant not found');
     }
-    console.log('applicant.status : ', applicant.status);
 
     if (
       applicant.status !== BonusApplicantStatus.ACTIVE &&

@@ -145,7 +145,7 @@ export class CasinoService extends BaseService {
           },
         });
 
-        this.logger.info('✅ CREDIT transaction recorded');
+        this.logger.debug('✅ CREDIT transaction recorded');
       } else if (completed) {
         // ⚠️ Handle completed but no credit (loss case)
         const hasCredit = await tx.casinoTransaction.findFirst({
@@ -198,7 +198,7 @@ export class CasinoService extends BaseService {
         },
       );
 
-      console.log(
+      this.logger.info(
         `Filtered ${games.length} games from ${allGames.length} total games`,
       );
 
@@ -285,7 +285,7 @@ export class CasinoService extends BaseService {
         message: `Casino games synced successfully. ${successCount} synced, ${skipCount} skipped, ${allGames.length - games.length} filtered out`,
       };
     } catch (error: any) {
-      console.log('Error to sync casino games', error.message);
+      this.logger.error('Error to sync casino games', error.message);
       return {
         success: false,
         total: 0,
@@ -329,7 +329,6 @@ export class CasinoService extends BaseService {
         //{ name: { contains: cleanCategory, mode: 'insensitive' } },
       );
     }
-    console.log(orConditions, 'andar bahar');
 
     if (cleanProvider) {
       // For provider filter — assuming sub_provider is stored as providerName or linked model
@@ -1316,7 +1315,6 @@ export class CasinoService extends BaseService {
   async getUserFavoriteCasinoGames(userId: bigint, page = 1, limit = 10) {
     page = page < 1 ? 1 : page;
     const skip = (page - 1) * limit;
-    this.logger.info('User id', userId);
     // Get total count of favorites
     const count = await this.prisma.favoriteGame.count({
       where: { userId },
@@ -1885,7 +1883,6 @@ export class CasinoService extends BaseService {
   private normalizeProvider(provider: string): string {
     const key = provider.toUpperCase().replace(/[_\s]+/g, '');
     // .replace(/(LOBBY|VIRTUAL|LIVE)$/g, '');
-    console.log('Provider', provider);
 
     switch (key) {
       case 'ROYALGAMING':
@@ -2356,7 +2353,6 @@ export class CasinoService extends BaseService {
         where.createdAt.lte = query.toDate;
       }
     }
-    console.log('Where', where);
 
     const rounds = await this.prisma.casinoRoundHistory.findMany({
       where,
@@ -2372,7 +2368,6 @@ export class CasinoService extends BaseService {
         },
       },
     });
-    console.log(rounds);
     const providers: any = {};
 
     for (const r of rounds) {

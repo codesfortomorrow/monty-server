@@ -46,7 +46,7 @@ export class BonusProcessor
     private readonly walletService: WalletsService,
     private readonly utilService: UtilsService,
   ) {
-    super();
+    super({ loggerDefaultMeta: { processor: BonusProcessor.name } });
   }
 
   async onModuleDestroy() {
@@ -116,7 +116,6 @@ export class BonusProcessor
         },
       },
     });
-    console.log('Turnover Event', applicants);
     if (!applicants.length) return;
     await this.processTurnover(applicants, gameId, amount, bet, casino);
   }
@@ -152,36 +151,21 @@ export class BonusProcessor
 
     // ✅ Use the actual deposit amount from the database
     const actualDepositAmount = Number(depositAmount);
-
-    console.log('✅ Listen deposit event', {
-      userId,
-      depositId,
-      ftd,
-      requestedAmount: depositAmount.toNumber(),
-      actualAmount: actualDepositAmount,
-    });
-
     const joiningBonuses = await this.checkAvailableBonus(
       BonusCategory.JoiningBonus,
       userId,
     );
 
-    console.log('joiningBonuses : ', joiningBonuses);
-
     const depositBonuses = await this.checkAvailableBonus(
       BonusCategory.DepositBonus,
       userId,
     );
-
-    console.log('depositBonuses : ', depositBonuses);
-
     const referralBonuses = await this.checkAvailableBonus(
       BonusCategory.ReferralBonus,
       userId,
     );
 
     if (joiningBonuses.length > 0 && ftd) {
-      console.log('✅ Processing joining bonus for user:', userId);
       await this.handleJoingingBonus(
         joiningBonuses,
         userId,
@@ -191,7 +175,6 @@ export class BonusProcessor
     }
 
     if (depositBonuses.length > 0 && !ftd) {
-      console.log('✅ Processing deposit bonus for user:', userId);
       await this.handleDepositBonus(
         depositBonuses,
         userId,
@@ -218,20 +201,16 @@ export class BonusProcessor
           firstTimeDepositId: depositId,
         },
       });
-
-      console.log('✅ Processing referral bonus for user:', userId);
       await this.handleReferralBonus(referralBonuses, userId, updatedReferral);
     }
   }
 
   public async emitReferralEvent(userId: number, referralCode: string) {
     try {
-      console.log('line 232', userId);
       if (!userId || isNaN(userId)) return;
 
       const isValidUser = await this.validateUser(userId);
 
-      console.log('line 237', isValidUser);
       if (!isValidUser) return;
 
       // ✅ Find referrer by referral code
@@ -240,7 +219,6 @@ export class BonusProcessor
           referralCode,
         },
       });
-      console.log('line 244 ');
 
       if (!referrer) return;
 
@@ -250,7 +228,6 @@ export class BonusProcessor
           refereeId: BigInt(userId),
         },
       });
-      console.log('line 254 ');
       if (existingReferral) return;
 
       // ✅ Create referral (BigInt-safe)
@@ -262,15 +239,12 @@ export class BonusProcessor
           referredThrough: referralCode,
         },
       });
-      console.log('line 266 ');
 
       // ✅ Fetch referral bonuses
       const bonuses = await this.checkAvailableBonus(
         BonusCategory.ReferralBonus,
         userId,
       );
-
-      console.log('line 271 : ', bonuses);
 
       if (!bonuses.length) return;
 
@@ -402,22 +376,15 @@ export class BonusProcessor
   }
 
   private calculateAwardAmount(bonus: Bonus, deposit?: number) {
-    console.log('line 337 bonus: ', bonus);
     if (!bonus.maxBonusAmount) return 0;
-    console.log('line 339 : ');
     if (bonus.releaseType == ReleaseType.FIXED.toLowerCase()) {
       return bonus.maxBonusAmount;
     }
-    console.log('line 341 : ', bonus.maxBonusAmount);
-    console.log('line 342  :', bonus.percentage);
-    console.log('line 343  :', deposit);
-    console.log('bonus.releaseType : ', bonus.releaseType);
     if (
       deposit &&
       bonus.percentage &&
       bonus.releaseType == ReleaseType.PERCENTAGE.toLowerCase()
     ) {
-      console.log('line 351');
       return Number(
         Math.min(
           deposit * (bonus.percentage / 100),
@@ -425,7 +392,6 @@ export class BonusProcessor
         ).toFixed(2),
       );
     }
-    console.log('line 293 : ');
 
     return 0;
   }
@@ -477,7 +443,6 @@ export class BonusProcessor
     // Define start & end date ranges based on frequency
     const now = new Date();
     let startDate: Date, endDate: Date;
-    console.log('bonus.frequency line-469 : ', bonus.frequency);
     switch (bonus.frequency) {
       case Frequency.DAILY.toLocaleLowerCase(): {
         startDate = new Date(
@@ -529,8 +494,6 @@ export class BonusProcessor
         return true;
     }
 
-    console.log(startDate, ' line 522 : ', endDate);
-
     const alreadyClaimed = await this.prisma.bonusApplicant.findFirst({
       where: {
         bonusId: bonus.id,
@@ -559,7 +522,6 @@ export class BonusProcessor
     if (bonus.claimDays && bonus.claimDays.length > 0) {
       // JS getDay(): 0=Sunday → map to 7, otherwise 1-6
       const today = now.getDay() == 0 ? 7 : now.getDay();
-      console.log('claim day at approve', today);
       if (!bonus.claimDays.includes(today)) {
         return false;
       }
@@ -568,7 +530,6 @@ export class BonusProcessor
     // ✅ 2. Check claim months
     if (bonus.claimMonths && bonus.claimMonths.length > 0) {
       const currentMonth = now.getMonth() + 1; // JS months: 0-11
-      console.log('claim month at approve', currentMonth);
       if (!bonus.claimMonths.includes(currentMonth)) {
         return false;
       }
@@ -581,24 +542,18 @@ export class BonusProcessor
       const from =
         bonus.claimFrom.getHours() * 60 + bonus.claimFrom.getMinutes();
       const to = bonus.claimTo.getHours() * 60 + bonus.claimTo.getMinutes();
-
-      console.log('Current time', currentTime, 'from', from, 'to', to);
       if (from <= to) {
         // Normal case: e.g. 09:00 → 18:00
-        console.log('Inside if', currentTime < from || currentTime > to);
         if (currentTime < from || currentTime > to) {
           return false;
         }
       } else {
         // Overnight case: e.g. 22:00 → 02:00 (wraps past midnight)
-        console.log('Inside else', currentTime < from && currentTime > to);
         if (currentTime < from && currentTime > to) {
           return false;
         }
       }
     }
-
-    console.log('All cases passed in claim');
     return true; // Passed all checks
   }
 
@@ -612,7 +567,7 @@ export class BonusProcessor
     });
 
     if (!gameCategory) {
-      console.log(`Game with externalId ${gameId} not found`);
+      this.logger.warn(`Game with externalId ${gameId} not found`);
       return false;
     }
 
@@ -657,12 +612,6 @@ export class BonusProcessor
     const maxOdd = bonus.maxOdd ?? Number.POSITIVE_INFINITY;
 
     const odds = Number(bet.odds); // ✅ use odds not amount
-
-    console.log('---------------');
-    console.log('minOdd : ', minOdd);
-    console.log('maxOdd : ', maxOdd);
-    console.log('odds : ', odds);
-    console.log('bet.betOn : ', bet.betOn);
 
     if (bonus.betType === BetType.Back) {
       return bet.betOn === BetType.Back && odds >= minOdd && odds <= maxOdd;
@@ -746,7 +695,6 @@ export class BonusProcessor
         role: true,
       },
     });
-    console.log('line 754 : ', user);
     if (!user) return false;
 
     return user.role?.name == 'USER';
@@ -767,7 +715,6 @@ export class BonusProcessor
         },
       });
 
-      console.log('Inside handler deposit', deposit);
       if (!deposit) return;
 
       // Ensure deposit amount is accurate
@@ -776,7 +723,6 @@ export class BonusProcessor
       if (depositAmount !== depositAmountFromDb) {
         depositAmount = depositAmountFromDb;
       }
-      console.log('deposit amount', depositAmount);
     }
 
     for (const bonus of bonuses) {
@@ -787,8 +733,6 @@ export class BonusProcessor
       ) {
         continue;
       }
-
-      console.log('bonus min deposit', bonus.minDepositAmount);
 
       await this.processJoiningBonus(bonus, userId, depositAmount, deposit);
     }
@@ -827,9 +771,7 @@ export class BonusProcessor
 
       // Frequency validation
       const isValid = await this.validateFrequency(bonus, userId);
-      console.log('line 809 : ', isValid);
       if (!isValid) continue;
-      console.log('line 811 : ');
       // Process bonus
       this.processDepositBonus(bonus, userId, depositAmount, deposit);
     }
@@ -842,10 +784,8 @@ export class BonusProcessor
   ) {
     try {
       for (const bonus of bonuses) {
-        console.log('referral.type : ', bonus.referralType);
         const isValid = await this.validateReferral(bonus, referral);
 
-        console.log('referral line 827 : ', isValid);
         if (!isValid) continue;
 
         await this.prisma.$transaction(async (tx) => {
@@ -867,10 +807,6 @@ export class BonusProcessor
           const referrerAwardedAmount = this.calculateReferralAmount(
             bonus,
             depositAmount,
-          );
-          console.log(
-            'line 851 bonus.bonusEligibleRole : ',
-            bonus.bonusEligibleRole,
           );
           // Award referee only
           if (
@@ -903,7 +839,6 @@ export class BonusProcessor
             );
             return;
           }
-          console.log('line 899 : ');
           // Award both
           await this.processReferralBonus(
             bonus,
@@ -937,17 +872,13 @@ export class BonusProcessor
     deposit: DepositWithdrawRequest | null,
   ) {
     try {
-      console.log('line 776 : ');
       await this.prisma.$transaction(async (tx) => {
-        console.log('line 781 : ', bonus);
         const awardedAmount = this.calculateAwardAmount(bonus, depositAmount);
         const turnoverRequired = this.calculateTurnover(
           bonus,
           depositAmount,
           awardedAmount,
         );
-        console.log('turnoverRequired : ', turnoverRequired);
-        console.log('awardedAmount : ', awardedAmount);
 
         const applicant = await tx.bonusApplicant.create({
           data: {
@@ -966,8 +897,6 @@ export class BonusProcessor
             depositId: deposit ? deposit.id : null,
           },
         });
-
-        console.log('line 804 :');
 
         // ---------------- Installments ----------------
         if (bonus.installments && bonus.installments > 1) {
@@ -998,8 +927,6 @@ export class BonusProcessor
             data: installments,
           });
         }
-
-        console.log('line 836 :');
 
         // ---------------- Audit Log ----------------
         await tx.bonusAuditLog.create({
@@ -1143,7 +1070,7 @@ export class BonusProcessor
         }
       });
     } catch (error) {
-      console.log('Error to process Deposit Bonus: ', error);
+      this.logger.error('Error to process Deposit Bonus: ', error);
     }
   }
 
@@ -1155,7 +1082,6 @@ export class BonusProcessor
     tx: Prisma.TransactionClient,
     depositAmount?: number,
   ) {
-    console.log('line 1147 :');
     // 1. Create BonusApplicant
     const applicant = await tx.bonusApplicant.create({
       data: {
@@ -1178,8 +1104,6 @@ export class BonusProcessor
         depositId: referral.firstTimeDepositId ?? undefined,
       },
     });
-
-    console.log('applicant 1167:', applicant.turnoverRequired);
 
     // 2. Create installments if bonus is installment-based
     if (bonus.installments && bonus.installments > 1) {
@@ -1487,8 +1411,6 @@ export class BonusProcessor
               data: { timesClaimed: { increment: 1 } },
             });
 
-            console.log('line 1389 : ', Date.now());
-
             // Create transaction log
             await tx.walletTransactions.create({
               data: {
@@ -1511,7 +1433,6 @@ export class BonusProcessor
                 isBonusProcessed: true,
               },
             });
-            console.log('line 1412 : ');
 
             // Bonus audit log
             await tx.bonusAuditLog.create({
@@ -1777,7 +1698,6 @@ export class BonusProcessor
 
       for (const applicant of approvedApplicants) {
         if (applicant.status == BonusApplicantStatus.APPROVED) {
-          console.log('Bonus Claim Scheduler applicant', applicant);
           await this.processApprovedBonus(applicant);
         } else {
           const count = await this.prisma.bonusInstallment.count({
@@ -1821,7 +1741,7 @@ export class BonusProcessor
   }
 
   public async turnoverCalculateScheduler() {
-    console.log('Running Turnover Scheduler');
+    this.logger.debug('Running Turnover Scheduler');
 
     // Get distinct applicants with pending/active bonuses
     const applicants = await this.prisma.bonusApplicant.findMany({

@@ -105,9 +105,7 @@ export class ActivityService extends BaseService {
       if (!baseUrl) {
         throw Error('invalide activityBase Url');
       }
-      console.log(ipAddress);
       const apiUrl = `${baseUrl}/${ipAddress}`;
-      console.log(apiUrl);
       try {
         const result = await this.utils.rerunnable(async () => {
           const apiRes = await firstValueFrom(
@@ -116,7 +114,6 @@ export class ActivityService extends BaseService {
           return apiRes.data;
         }, 3);
 
-        console.log(result);
         if (result?.success) {
           isp = result.connection?.isp;
           city = result.city;

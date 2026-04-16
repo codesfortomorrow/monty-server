@@ -297,7 +297,6 @@ export class DashboardService extends BaseService {
     let remainingCredit = 0;
 
     const url = `${this.casinoConfig.gapBaseUrl}/gap-casino/total-summary?platformId=${this.casinoConfig.operatorId}&t=${Date.now()}`;
-    console.log('url', url);
     try {
       const response = await this.utils.rerunnable(async () => {
         const res = await firstValueFrom(this.http.get(url));
