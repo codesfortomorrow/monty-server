@@ -22,7 +22,6 @@ export class DepositTurnoverDto {
 export class MyWalletService {
   constructor(private readonly prisma: PrismaService) {}
   async getWalletSummary(userId: bigint) {
-    console.log('userId : ', userId);
     // Fetch wallet balances
     const wallets = await this.prisma.wallet.findMany({
       where: { userId },
@@ -49,8 +48,6 @@ export class MyWalletService {
       },
       _sum: { amount: true },
     });
-
-    console.log('locked : ', locked);
 
     // Completed turnover accounts for available withdrawals
     const availableWithdrawals = await this.getAvailableWithdrawals(userId);

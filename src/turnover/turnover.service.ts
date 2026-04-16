@@ -87,7 +87,6 @@ export class TurnoverService
   async createSportTurnoverHistory(
     data: CreateTurnoverHistoryDto & { tx: Prisma.TransactionClient },
   ) {
-    console.log('line 91 : ');
     const payoutAmount = new Decimal(data.payout ?? 0).abs();
     const betAmount = new Decimal(data.amount ?? 0);
 
@@ -96,7 +95,6 @@ export class TurnoverService
 
     const tx = data.tx;
 
-    console.log('line 100 : ');
     try {
       const existing = await tx.turnoverHistory.findFirst({
         where: {
@@ -106,11 +104,7 @@ export class TurnoverService
         },
       });
 
-      console.log('line 110 : ', existing);
-
       if (existing) {
-        console.log('line 112 : ');
-
         await tx.turnoverHistory.update({
           where: { id: existing.id },
           data: {
@@ -118,10 +112,7 @@ export class TurnoverService
             turnoverMain,
           },
         });
-        console.log('line 112 : ');
       } else {
-        console.log('line 122 : ');
-
         await tx.turnoverHistory.create({
           data: {
             userId: data.userId,
@@ -326,8 +317,6 @@ export class TurnoverService
       orderBy: { settledAt: 'asc' },
     });
 
-    console.log('line 320 : ');
-
     if (!bets.length) {
       this.logger.debug('No settled bets pending for turnover');
       return;
@@ -362,11 +351,9 @@ export class TurnoverService
       where: { id: betId },
     });
 
-    console.log('line 356  :', bet?.id);
     if (!bet) return;
     if (bet.isTurnOverCalculated) return;
 
-    console.log('line 361 :');
     await this.prisma.$transaction(async (tx) => {
       await this.createSportTurnoverHistory({
         userId: bet.userId,
@@ -375,8 +362,6 @@ export class TurnoverService
         payout: bet.payout,
         tx,
       });
-
-      console.log('line 371---');
 
       await tx.bet.update({
         where: { id: bet.id },

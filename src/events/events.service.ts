@@ -673,7 +673,7 @@ export class EventsService extends BaseService {
     if (cached) return JSON.parse(cached); // 2. Deduplicate concurrent requests (single-flight)
 
     if (this.inFlight.has(eventId)) {
-      return this.inFlight.get(eventId);
+      return await this.inFlight.get(eventId);
     }
 
     const promise = this.fetchWithSocketFallback(eventId);
@@ -1065,7 +1065,7 @@ export class EventsService extends BaseService {
           jobId: `active-${externalId}`,
         },
       );
-      this.logger.info(`Initialize event to be active, eventId ${externalId}`);
+      // this.logger.info(`Initialize event to be active, eventId ${externalId}`);
     } catch (error) {
       this.logger.error(`Error to initialize active event job, ${error}`);
     }

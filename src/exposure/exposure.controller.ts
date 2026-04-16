@@ -116,7 +116,6 @@ export class ExposureController extends BaseController {
     @Req() req: AuthenticatedRequest,
   ) {
     const ctx = this.getContext(req);
-    console.log(ctx?.user, 'ctx.user.id');
     return this.exposureService.getMarketBookSetCalc(
       dto,
       dto.userpath || ctx.user.path,

@@ -350,7 +350,6 @@ export class ExposureService extends BaseService {
     type: string,
   ) {
     const { eventId, selectionId, marketId } = dto;
-    console.log(path, 'path');
 
     const bets = await this.prisma.$queryRaw<any[]>`
   SELECT
@@ -379,7 +378,6 @@ export class ExposureService extends BaseService {
 
     // AND b.market_type = 'Fancy'
     if (!bets.length) return 'No bets found';
-    console.log(bets, 'bets');
     // Extract min/max price range
     const prices = bets.map((b) => Number(b.odds));
     const minPrice = Math.min(...prices);
@@ -427,7 +425,6 @@ export class ExposureService extends BaseService {
     return results;
   }
   async getUserwithTopExposure(uplinePath: string) {
-    console.log(uplinePath, 'uplinePath');
     return this.prisma.$queryRaw<
       { id: number; username: string; total_exposure: string }[]
     >`
@@ -734,7 +731,6 @@ GROUP BY
 
 ORDER BY e.market_external_id;
 `;
-      console.log(result, 'result');
       const grouped = result.reduce(
         (acc, row) => {
           if (!acc[row.market_external_id]) {
@@ -1045,7 +1041,6 @@ ORDER BY e.market_external_id;
     userType: UserType,
   ) {
     const isAdmin = userType === UserType.Admin;
-    console.log(query, 'uplineId', uplineId, userType);
     const uplineCondition = isAdmin
       ? Prisma.sql`ue.user_type = 'OWNER'`
       : Prisma.sql`ue.upline_id = ${BigInt(uplineId)}`;
@@ -1058,7 +1053,6 @@ ORDER BY e.market_external_id;
     } else if (userType === UserType.User) {
       uplinePath = await this.userService.getUplinePathById(uplineId);
     }
-    console.log(uplinePath, 'uplinePath');
 
     if (!uplinePath) throw new Error('User not found');
 
@@ -1070,10 +1064,8 @@ ORDER BY e.market_external_id;
       if (role) userRole = role.name;
     } else if (userType === UserType.User) {
       const role = await this.userService.getRoleByUserId(uplineId);
-      console.log(role, 'role');
       if (role) userRole = role.name;
     }
-    console.log(userRole, 'userRole');
 
     // 🔹 3. Report depth condition (Prisma.sql ONLY)
     let reportDepthQuery = Prisma.sql``;

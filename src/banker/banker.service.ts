@@ -260,7 +260,6 @@ export class BankerService extends BaseService {
   ) {
     let take: number | undefined;
     let skip: number | undefined;
-    console.log('options', options);
 
     if (!isExport) {
       if (
@@ -361,9 +360,9 @@ export class BankerService extends BaseService {
       take,
     });
 
-    this.logger.info(
-      `Requests fetched | returned=${requests.length} | page=${options.page ?? 1}`,
-    );
+    // this.logger.info(
+    //   `Requests fetched | returned=${requests.length} | page=${options.page ?? 1}`,
+    // );
 
     const totalPage = Math.ceil(
       total /
@@ -612,8 +611,6 @@ export class BankerService extends BaseService {
         username = banker.username;
       }
 
-      console.log('updatedRequest');
-
       let finalAmount = new Prisma.Decimal(request.amount);
 
       if (request.cryptoId) {
@@ -628,12 +625,10 @@ export class BankerService extends BaseService {
         const rate = new Prisma.Decimal(request.conversionRate);
         finalAmount = finalAmount.mul(rate);
 
-        this.logger.info(
+        this.logger.debug(
           `Crypto conversion: original=${request.amount} rate=${rate.toString()} final=${finalAmount.toString()}`,
         );
       }
-
-      console.log('updatedRequest');
 
       // let finalAmount = new Prisma.Decimal(request.amount);
 
@@ -642,7 +637,7 @@ export class BankerService extends BaseService {
 
         if (request.type === WalletTransactionType.Debit) {
           if (status === WalletTransactionStatus.Approved) {
-            this.logger.info(
+            this.logger.debug(
               `Approving withdrawal of ${amount} from user=${request.userId} to banker=${bankerId}`,
             );
 
@@ -766,7 +761,6 @@ export class BankerService extends BaseService {
             const context = request.cryptoId
               ? WalletTransactionContext.CryptoDeposit
               : WalletTransactionContext.Deposit;
-            console.log(amount);
 
             try {
               await this.walletService.addBalance(
@@ -1010,8 +1004,6 @@ export class BankerService extends BaseService {
     // Generate QR as Base64 Image
     const qrImage = await QRCode.toDataURL(walletAddress);
 
-    console.log(qrImage);
-
     return {
       crypto,
       qr: qrImage,
@@ -1108,7 +1100,7 @@ export class BankerService extends BaseService {
       data.minWithdraw = new Prisma.Decimal(dto.minWithdraw);
     }
 
-    this.logger.info(`Payment config updated successfully | configId=${id}`);
+    this.logger.debug(`Payment config updated successfully | configId=${id}`);
     return await this.prisma.paymentConfig.update({
       where: { id },
       data,
@@ -1155,7 +1147,9 @@ export class BankerService extends BaseService {
       where: { id: bankerId },
       data: { deletedAt: new Date() },
     });
-    this.logger.info(`Banker soft deleted successfully | bankerId=${bankerId}`);
+    this.logger.debug(
+      `Banker soft deleted successfully | bankerId=${bankerId}`,
+    );
     return { message: 'Banker soft deleted successfully', bankerId };
   }
 
@@ -1535,7 +1529,6 @@ export class BankerService extends BaseService {
     let Bank: any[] = [];
     let eWallet: any[] = [];
     let Crypto: any[] = [];
-    console.log(uplineId, ' uplineId');
     const user = await this.userService.getById(userId);
 
     if (uplineId === BigInt(0) || user.isSelfRegistered) {
@@ -1615,7 +1608,6 @@ export class BankerService extends BaseService {
         orderBy: { createdAt: 'desc' },
       });
 
-      console.log('upi', eWallet);
       eWallet = await this.prisma.digitalPayment.findMany({
         where: {
           userId: uplineId,

@@ -179,7 +179,6 @@ export class StorageService {
     if (this.config.exporturl) {
       const STORE_PREFIX = 'storage';
       const url = new URL(this.config.exporturl);
-      console.log(url);
       const filePath = join(STORE_PREFIX, url.pathname, dir || '', file);
       return new URL(filePath, url.origin).href;
     } else {

@@ -59,7 +59,6 @@ export class UsersController extends BaseController {
   @Get('me')
   async getProfile(@Req() req: AuthenticatedRequest) {
     const ctx = this.getContext(req);
-    console.log(ctx.user.type);
     return await this.usersService.getProfile(ctx.user.id, ctx.user.type);
   }
 
@@ -80,7 +79,6 @@ export class UsersController extends BaseController {
     @Query() query: GetSummaryRequest,
     @Req() req: AuthenticatedRequest,
   ) {
-    console.log('here');
     const ctx = this.getContext(req);
 
     const summary = await this.usersService.getSummary(

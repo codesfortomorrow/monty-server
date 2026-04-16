@@ -25,7 +25,6 @@ export class CaptchaService {
       captcha.text,
     );
 
-    console.log('captcha', captcha.text);
     return {
       captchaId,
       svg: captcha.data,

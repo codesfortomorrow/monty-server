@@ -82,9 +82,9 @@ export class CommissionService extends BaseService {
         orderBy: { id: 'asc' },
       });
 
-      this.logger.info(
-        `Fetched affiliate referrals: ${affiliateReferrals.length}`,
-      );
+      // this.logger.info(
+      //   `Fetched affiliate referrals: ${affiliateReferrals.length}`,
+      // );
 
       if (affiliateReferrals.length === 0) {
         this.logger.info('No more affiliate referrals — breaking loop');
@@ -125,9 +125,7 @@ export class CommissionService extends BaseService {
           // const weekEnd = dayjs().toDate(); // current time
           // const weekStart = dayjs().subtract(1, 'hour').toDate(); // last 3 hours from now
 
-          //console.log(endDay, 'endDay');
-          console.log('weekend', weekEnd);
-          console.log('weekStart', weekStart);
+          //console.log(endDay, 'endDay')
           const grouped = await this.prisma.turnoverHistory.groupBy({
             by: ['userId'],
             where: {
@@ -155,15 +153,12 @@ export class CommissionService extends BaseService {
             const uid = BigInt(ref.referredUserId);
             const weeklyTurnover =
               turnoverMap.get(uid) ?? new Prisma.Decimal(0);
-            console.log(uid, weeklyTurnover);
             if (weeklyTurnover.gte(requiredTurnover)) {
               activeReferralIds.push(BigInt(ref.id));
             } else {
               inactiveReferralIds.push(BigInt(ref.id));
             }
           }
-          console.log('activeReferralIds', activeReferralIds);
-          console.log('inactiveReferralIds', inactiveReferralIds);
           if (activeReferralIds.length > 0) {
             await this.prisma.affiliateReferral.updateMany({
               where: { id: { in: activeReferralIds } },
@@ -266,7 +261,7 @@ export class CommissionService extends BaseService {
           orderBy: { id: 'asc' },
         });
 
-        this.logger.info(`Fetched affiliates: ${affiliates.length}`);
+        // this.logger.info(`Fetched affiliates: ${affiliates.length}`);
         if (!affiliates.length) break;
 
         const batchAffiliateIds = affiliates.map((a) => Number(a.id));
