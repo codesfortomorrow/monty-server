@@ -220,12 +220,6 @@ export class OddsService {
       };
     });
 
-    console.log(
-      '🚀 mapEventsWithOdds GRAND TOTAL:',
-      Date.now() - apiStart,
-      'ms',
-    );
-
     return enrichedEvents.filter((e): e is NonNullable<typeof e> => e !== null);
   }
 
@@ -413,8 +407,6 @@ export class OddsService {
       eventMarketMap.set(key, { event, market });
     }
 
-    console.log('📦 Odds redis keys:', keys.length);
-
     // -----------------------------------
     // 🔥 CHUNKED MGET (KEY FIX)
     // -----------------------------------
@@ -453,7 +445,6 @@ export class OddsService {
     // RESPONSE
     // -----------------------------------
     const enriched: any[] = [];
-    console.log('📦 Events with eventMarketMap:', eventMarketMap.size);
     for (const [key, { event, market }] of eventMarketMap.entries()) {
       const liveData = oddsMap.get(key);
 
@@ -492,9 +483,6 @@ export class OddsService {
           : market.runner,
       });
     }
-
-    console.log('🚀 mapEventsWithMatchOdds TOTAL:', Date.now() - start, 'ms');
-    console.log('📦 Events with odds:', enriched.length);
     return enriched;
   }
 

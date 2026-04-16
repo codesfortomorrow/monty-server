@@ -397,7 +397,6 @@ export class UsersService {
       // }
 
       // Refferal Bonus -------------------------------
-      console.log('line 401 : ', data.referralCode);
       if (data.referralCode) {
         this.bonusProcessor.emitReferralEvent(
           Number(user.id),

@@ -466,8 +466,6 @@ export class WalletTransactionsService {
       },
     });
 
-    console.log('successfulDepositsCount : ', successfulDepositsCount);
-
     return successfulDepositsCount === 1;
   }
 }

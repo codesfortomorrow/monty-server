@@ -196,11 +196,11 @@ export class MarketService extends BaseService {
     );
 
     if (!isFirstTime) {
-      console.log(`⚠️ Duplicate close ignored: ${marketId}`);
+      // console.log(`⚠️ Duplicate close ignored: ${marketId}`);
       return;
     }
 
-    console.log(`✅ Processing market close: ${marketId}`);
+    // console.log(`✅ Processing market close: ${marketId}`);
     await this.closeMarket(marketId, eventId);
   }
 

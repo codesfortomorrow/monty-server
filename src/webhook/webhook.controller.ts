@@ -22,7 +22,6 @@ export class WebhookController {
   @UseFilters(SentryExceptionFilter)
   @Post('/sports/market/status')
   async changeMarketStatus(@Body() body: any) {
-    console.log('Market status change webhook hit', body);
     return {
       success: true,
       message: 'Market status changed successfully',

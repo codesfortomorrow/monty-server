@@ -390,7 +390,6 @@ export class ReportsService extends BaseService {
       sport = null,
     } = query;
 
-    console.log('query', query);
     const skip = (page - 1) * limit;
 
     let reportLimit = '';
@@ -1294,7 +1293,6 @@ export class ReportsService extends BaseService {
         });
 
       const users: any[] = [];
-      console.log(downlineUsers, 'downlineUsers');
       for (const usr of downlineUsers) {
         const plSummary = await this.prisma.$queryRawUnsafe<
           { totalPl: number; uplinePl: number }[]
@@ -1313,7 +1311,6 @@ export class ReportsService extends BaseService {
           query.fromDate ?? null,
           query.toDate ?? null,
         );
-        console.log(plSummary, 'plSummary');
         let profitLoss = Number(plSummary[0]?.totalPl ?? 0);
         const clientPl =
           usr.role === 'USER'
@@ -1326,13 +1323,6 @@ export class ReportsService extends BaseService {
             : (profitLoss * partnership) / 100;
 
         const downlinePl = usr.role === 'USER' ? 0 : profitLoss - uplinePl;
-        console.log(
-          'usr.role',
-          usr.role,
-          'downlinePl',
-          downlinePl,
-          Number(plSummary[0]?.uplinePl ?? 0),
-        );
         profitLoss = profitLoss * -1;
         users.push({
           ...usr,
@@ -1661,13 +1651,6 @@ export class ReportsService extends BaseService {
             : (profitLoss * partnership) / 100;
 
         const downlinePl = usr.role === 'USER' ? 0 : profitLoss - uplinePl;
-        console.log(
-          'usr.role',
-          usr.role,
-          'downlinePl',
-          downlinePl,
-          Number(plSummary[0]?.uplinePl ?? 0),
-        );
         profitLoss = profitLoss * -1;
         users.push({
           ...usr,
