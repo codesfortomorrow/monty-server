@@ -146,6 +146,7 @@ export class OddsProcessor
       },
       include: {
         markets: true,
+        competition: true,
       },
     });
 
