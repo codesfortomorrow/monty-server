@@ -1809,6 +1809,8 @@ bpl.upline_pl,
         sport: string;
         totalBets: number;
         totalProfitLoss: number;
+        uplineProfitLoss: number;
+        downlineProfitLoss: number;
         totalStake: number;
         lastBetTime: Date;
       }[]
@@ -1847,7 +1849,44 @@ bpl.upline_pl,
 
     const totalItems = Number(countRes?.[0]?.total ?? 0);
 
-    const modified = markets.map((m) => ({
+    const groupedMarkets = Object.values(
+      markets.reduce(
+        (acc, curr) => {
+          const key = curr.marketId;
+
+          if (!acc[key]) {
+            acc[key] = {
+              ...curr,
+              totalBets: Number(curr.totalBets),
+              totalProfitLoss: Number(curr.totalProfitLoss),
+              uplineProfitLoss: Number(curr.uplineProfitLoss),
+              downlineProfitLoss: Number(curr.downlineProfitLoss),
+              totalStake: Number(curr.totalStake),
+              marketName: curr.marketName,
+            };
+          } else {
+            acc[key].totalBets += Number(curr.totalBets);
+            acc[key].totalProfitLoss += Number(curr.totalProfitLoss);
+            acc[key].totalStake += Number(curr.totalStake);
+            acc[key].uplineProfitLoss += Number(curr.uplineProfitLoss);
+            acc[key].downlineProfitLoss += Number(curr.downlineProfitLoss);
+
+            if (curr.marketName && acc[key].marketName == null) {
+              acc[key].marketName = curr.marketName;
+            }
+
+            if (new Date(curr.lastBetTime) > new Date(acc[key].lastBetTime)) {
+              acc[key].lastBetTime = curr.lastBetTime;
+            }
+          }
+
+          return acc;
+        },
+        {} as Record<string, any>,
+      ),
+    );
+
+    const modified = groupedMarkets.map((m) => ({
       ...m,
       totalProfitLoss: (m.totalProfitLoss ?? 0) * -1,
     }));

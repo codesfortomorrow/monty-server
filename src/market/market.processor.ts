@@ -469,13 +469,13 @@ export class MarketProcessor
     if (!this.utils.isMaster()) return;
     try {
       this.logger.info(`Started unsubscribe market processor`);
-      const unsubscribe = await this.getExpiredMarkets(2 * 60 * 1000); // 2 min
+      const unsubscribe = await this.getExpiredMarkets(1 * 60 * 1000); // 1 min
       if (unsubscribe.length > 0) {
-        const success = await this.unSubscribMarkets(unsubscribe);
-        if (success) {
-          await this.removeMarkets(unsubscribe);
-          this.logger.info(`Unsubscribed markets: ${unsubscribe}`);
-        }
+        // const success = await this.unSubscribMarkets(unsubscribe);
+        // if (success) {
+        await this.removeMarkets(unsubscribe);
+        this.logger.info(`Unsubscribed markets: ${unsubscribe}`);
+        // }
       }
     } catch (error: any) {
       this.logger.error(
@@ -533,8 +533,8 @@ export class MarketProcessor
           this.logger.info(`Subscribed markets: ${subscribe}`);
         }
       }
-      if (alreadySubscribedMatches.length > 0)
-        await this.touchMarket(alreadySubscribedMatches);
+      // if (alreadySubscribedMatches.length > 0)
+      //   await this.touchMarket(alreadySubscribedMatches);
     } catch (error: any) {
       this.logger.error(`Error to subscribe markets: ${error.message}`);
     }
