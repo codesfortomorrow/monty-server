@@ -670,6 +670,7 @@ export class EventsService extends BaseService {
     const cacheKey = `cricket:score:${eventId}`; // 1. Fast path (cache hit)
 
     const cached = await this.redis.client.get(cacheKey);
+    await this.socket.markEventActive(eventId);
     if (cached) return JSON.parse(cached); // 2. Deduplicate concurrent requests (single-flight)
 
     if (this.inFlight.has(eventId)) {
