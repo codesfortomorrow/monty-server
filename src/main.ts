@@ -57,11 +57,27 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));
-  const origins = appConfig.domain
+  // const origins = appConfig.domain
+  //   ? [
+  //       new RegExp(
+  //         `^http[s]{0,1}://(?:${appConfig.domain}|[a-z0-9-]+.${appConfig.domain})$`,
+  //         'https://monty7.xyz',
+  //       ),
+  //     ]
+  //   : [];
+
+  const domains = [
+    appConfig.domain,
+    appConfig.domain1,
+    appConfig.domain2,
+  ].filter(Boolean);
+
+  const origins = domains.length
     ? [
         new RegExp(
-          `^http[s]{0,1}://(?:${appConfig.domain}|[a-z0-9-]+.${appConfig.domain})$`,
-          'https://monty7.xyz',
+          `^http[s]{0,1}://(?:${domains
+            .map((d) => `${d}|[a-z0-9-]+\\.${d}`)
+            .join('|')})$`,
         ),
       ]
     : [];
@@ -71,7 +87,6 @@ async function bootstrap() {
       : [
           'null',
           new RegExp(`^http[s]{0,1}://(?:127.0.0.1|localhost)(:[0-9]+)*$`),
-          'https://monty7.xyz',
           ...origins,
         ],
     credentials: true,
