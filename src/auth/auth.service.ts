@@ -131,6 +131,7 @@ export class AuthService {
       transactionCode: string | null = null;
     let passwordChanged: boolean | null;
     let isSelfRegistered: boolean | null;
+    let createdBy: string | null;
     if (userType === UserType.User || userType === UserType.ResultManager) {
       const userMeta = await this.usersService.getMetaById(userId);
       if (userMeta.isMfaEnabled && userMeta.mfaSecret) {
@@ -144,6 +145,7 @@ export class AuthService {
       const user = await this.usersService.getById(userId);
       passwordChanged = user.passwordChanged;
       isSelfRegistered = user.isSelfRegistered;
+      createdBy = user.createdBy;
     } else {
       const adminMeta = await this.adminService.getMetaById(userId);
       if (adminMeta.isMfaEnabled && adminMeta.mfaSecret) {
@@ -152,6 +154,7 @@ export class AuthService {
       role = await this.adminService.getRoleByAdminId(userId);
       passwordChanged = null;
       isSelfRegistered = null;
+      createdBy = null;
     }
     const { accessToken, type } = await this.login(BigInt(userId), userType);
     // this.setAuthCookie(res, accessToken, type);
@@ -163,6 +166,7 @@ export class AuthService {
       ...(transactionCode ? { transactionCode } : {}),
       ...(passwordChanged !== null ? { passwordChanged } : {}),
       ...(isSelfRegistered !== null ? { isSelfRegistered } : {}),
+      ...(createdBy !== null ? { createdBy } : {}),
     };
   }
 
