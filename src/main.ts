@@ -61,6 +61,7 @@ async function bootstrap() {
     ? [
         new RegExp(
           `^http[s]{0,1}://(?:${appConfig.domain}|[a-z0-9-]+.${appConfig.domain})$`,
+          'https://monty7.xyz',
         ),
       ]
     : [];
@@ -70,6 +71,7 @@ async function bootstrap() {
       : [
           'null',
           new RegExp(`^http[s]{0,1}://(?:127.0.0.1|localhost)(:[0-9]+)*$`),
+          'https://monty7.xyz',
           ...origins,
         ],
     credentials: true,
