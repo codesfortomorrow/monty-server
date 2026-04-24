@@ -4,6 +4,8 @@ import { Environment } from '@Common';
 export interface AppConfig {
   env: Environment;
   domain: string;
+  domain1: string;
+  domain2: string;
   appWebUrl: string;
   adminWebUrl: string;
   serverUrl: string;
@@ -23,6 +25,8 @@ export interface AppConfig {
 export const appConfigFactory = registerAs<AppConfig>('app', () => ({
   env: process.env.APP_ENV as Environment,
   domain: process.env.DOMAIN as string,
+  domain1: process.env.DOMAIN1 as string,
+  domain2: process.env.DOMAIN2 as string,
   appWebUrl: process.env.APP_WEB_URL as string,
   adminWebUrl: process.env.ADMIN_WEB_URL as string,
   serverUrl: process.env.SERVER_URL as string,
