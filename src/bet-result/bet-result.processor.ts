@@ -571,7 +571,7 @@ export class BetResultProccessor
       };
     }
 
-    const isWinner = data.bet.selectionId === data.selectionId.toString();
+    const isWinner = data.bet.selectionId === data.result.toString();
     const stake = Number(data.bet.amount);
     const odds = Number(data.bet.odds);
     const bonusUsed = Number(data.bet.bonusUsages);
