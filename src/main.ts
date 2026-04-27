@@ -94,7 +94,7 @@ async function bootstrap() {
   app.use(cookieParser());
   app.use(
     helmet.crossOriginResourcePolicy({
-      policy: utilsService.isProductionApp() ? 'same-site' : 'cross-origin',
+      policy: utilsService.isProductionApp() ? 'cross-origin' : 'cross-origin',
     }),
   );
   app.enableShutdownHooks();
