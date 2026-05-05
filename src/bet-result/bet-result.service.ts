@@ -274,7 +274,7 @@ export class BetResultService extends BaseService {
             COUNT(*) OVER (PARTITION BY b.event_id, b.market_id) AS "betCount"
         FROM bet b
         JOIN event e ON e.id = b.event_id
-        WHERE b.status = 'pending'
+        WHERE (b.status = 'pending' OR b.status = 'rollback')
           AND NOT EXISTS (
             SELECT 1
             FROM result r
@@ -330,7 +330,7 @@ export class BetResultService extends BaseService {
             b.market_id
         FROM bet b
         JOIN event e ON e.id = b.event_id
-        WHERE b.status = 'pending'
+        WHERE (b.status = 'pending' OR b.status = 'rollback')
           AND NOT EXISTS (
             SELECT 1
             FROM result r
@@ -668,81 +668,148 @@ export class BetResultService extends BaseService {
   async manualRollback(
     result: ManualRollbackRequest,
     providedBy: ResultProvider,
+    userId?: bigint,
+    ip?: string,
   ) {
-    const event = await this.eventService.getByExternalId(result.eventId);
+    // let newResult: string | null;
+    // let oldResult: string | null;
+    // let resultId: bigint | null;
+    let eventId: bigint | null;
 
-    if (!event) {
-      this.logger.warn(`Event not found: ${result.eventId}`);
-      throw new Error('Event not found');
-    }
+    try {
+      const event = await this.eventService.getByExternalId(result.eventId);
 
-    const existResult = await this.prisma.result.findFirst({
-      where: {
-        eventId: event.id,
-        marketExternalId: result.marketId,
-      },
-    });
-
-    if (!existResult) throw new Error('Result not declared');
-    if (existResult.status !== ResultStatusType.Proceed)
-      throw new Error('Result not proceed');
-
-    if (existResult.count >= 2) {
-      throw new Error('You cannot rollback this result more than two times.');
-    }
-
-    await this.prisma.rolebackHistory.create({
-      data: {
-        resultId: existResult.id,
-        selectionId: existResult.selectionId,
-        result: existResult.result,
-        isRollbacked: existResult.isRollbacked,
-        status: existResult.status,
-        outcome: JSON.parse(JSON.stringify(existResult.outcome)),
-      },
-    });
-
-    const market = await this.marketService.getByEventIdAndExternalId(
-      event.id,
-      result.marketId,
-    );
-
-    let resultSelection: string | null = null;
-    if (market) {
-      const runners = market.runner as {
-        runnerId?: string;
-        selectionId?: string;
-        runnerName: string;
-      }[];
-      this.logger.info(`Market Runners ${runners}`);
-      if (Array.isArray(runners) && runners.length > 0) {
-        const selectionObj = runners.find(
-          (a) =>
-            a?.runnerId == result.selectionId ||
-            a?.selectionId == result.selectionId,
-        );
-        this.logger.info(`Result Selection Object ${selectionObj}`);
-        if (selectionObj) {
-          resultSelection = selectionObj.runnerName;
-        }
+      if (!event) {
+        this.logger.warn(`Event not found: ${result.eventId}`);
+        throw new Error('Event not found');
       }
-    }
+      eventId = event.id;
 
-    await this.prisma.result.update({
-      where: { id: existResult.id },
-      data: {
-        status: ResultStatusType.RollbackPending,
-        isRollbacked: true,
-        selectionId: String(result.selectionId),
-        result: String(result.result),
-        resultSelection: resultSelection,
-        rollbackedBy: providedBy,
-        outcome: JSON.parse(JSON.stringify(result)),
-        count: {
-          increment: 1,
+      const existResult = await this.prisma.result.findFirst({
+        where: {
+          eventId: event.id,
+          marketExternalId: result.marketId,
         },
-      },
-    });
+      });
+
+      if (!existResult) throw new Error('Result not declared');
+
+      // resultId = existResult.id;
+
+      if (existResult.status !== ResultStatusType.Proceed)
+        throw new Error('Result not proceed');
+
+      if (existResult.count >= 2) {
+        throw new Error('You cannot rollback this result more than two times.');
+      }
+
+      // if (userId) {
+      //   const isValid = await this.prisma.resultManagerSports.findUnique({
+      //     where: { userId_sport: { userId, sport: event.sport } },
+      //   });
+
+      //   if (!isValid) throw new Error("You don't have permission.");
+      // }
+
+      await this.prisma.rolebackHistory.create({
+        data: {
+          resultId: existResult.id,
+          selectionId: existResult.selectionId,
+          result: existResult.result,
+          isRollbacked: existResult.isRollbacked,
+          status: existResult.status,
+          outcome: JSON.parse(JSON.stringify(existResult.outcome)),
+        },
+      });
+
+      const market = await this.marketService.getByEventIdAndExternalId(
+        event.id,
+        result.marketId,
+      );
+
+      // let resultSelection: string | null = null;
+      // if (market) {
+      //   const runners = market.runner as {
+      //     runnerId?: string;
+      //     selectionId?: string;
+      //     runnerName: string;
+      //   }[];
+      //   this.logger.info(`Market Runners ${runners}`);
+      //   if (Array.isArray(runners) && runners.length > 0) {
+      //     const selectionObj = runners.find(
+      //       (a) =>
+      //         a?.runnerId == result.selectionId ||
+      //         a?.selectionId == result.selectionId,
+      //     );
+      //     this.logger.info(`Result Selection Object ${selectionObj}`);
+      //     if (selectionObj) {
+      //       resultSelection = selectionObj.runnerName;
+      //     }
+      //   }
+      // }
+
+      await this.prisma.$transaction(async (tx) => {
+        const resultDetails = await tx.result.update({
+          where: { id: existResult.id },
+          data: {
+            status: ResultStatusType.RollbackPending,
+            isRollbacked: true,
+            rollbackedBy: providedBy,
+            outcome: JSON.parse(JSON.stringify(result)),
+            count: {
+              increment: 1,
+            },
+          },
+        });
+
+        // if (userId) {
+        //   // newResult =
+        //   //   result.marketType === 'FANCY'
+        //   //     ? String(result.result)
+        //   //     : resultSelection;
+        //   oldResult =
+        //     result.marketType === 'FANCY'
+        //       ? String(existResult.result)
+        //       : existResult.resultSelection;
+        // await this.resultAuditService.createResultAuditLog(tx, {
+        //   resultId: resultDetails.id,
+        //   eventId: event.id,
+        //   eventExternalId: result.eventId,
+        //   marketId: result.marketId,
+        //   marketType: result.marketType,
+        //   action: 'ROLLBACK',
+        //   userId: userId,
+        //   isRollback: true,
+        //   oldResult: oldResult || '',
+        //   result: '',
+        //   meta: JSON.parse(JSON.stringify(result)),
+        //   status: 'SUCCESS',
+        //   ip: ip,
+        // });
+        // }
+      });
+    } catch (error: any) {
+      this.logger.error(`Error to store result: ${error.message}`);
+      await this.prisma.$transaction(async (tx) => {
+        // await this.resultAuditService.createResultAuditLog(tx, {
+        //   resultId: resultId,
+        //   eventId: eventId,
+        //   eventExternalId: result.eventId,
+        //   marketId: result.marketId,
+        //   marketType: result.marketType,
+        //   action: 'ROLLBACK',
+        //   userId: userId!,
+        //   isRollback: true,
+        //   oldResult: oldResult || '',
+        //   result: '',
+        //   meta: JSON.parse(JSON.stringify(result)),
+        //   error: error.message,
+        //   status: 'FAILED',
+        //   ip: ip,
+        // });
+      });
+      throw error;
+    }
   }
 
   async getByEventIdAndMarketExternalId(
