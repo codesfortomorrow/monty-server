@@ -634,8 +634,25 @@ export class BetResultService extends BaseService {
       }
     }
 
-    await this.prisma.result.create({
-      data: {
+    await this.prisma.result.upsert({
+      where: {
+        eventId_marketExternalId: {
+          eventId: event.id,
+          marketExternalId: result.marketId,
+        },
+      },
+      update: {
+        selectionId: String(result.selectionId),
+        result: String(result.result),
+        outcome: JSON.parse(JSON.stringify(result)),
+        providedBy: providedBy,
+        status: isBetExist
+          ? ResultStatusType.Pending
+          : ResultStatusType.Proceed,
+        resultSelection: resultSelection,
+        selection: !market ? selection : null,
+      },
+      create: {
         eventId: event.id,
         marketId: market?.id,
         marketExternalId: result.marketId,
@@ -650,6 +667,23 @@ export class BetResultService extends BaseService {
         resultSelection: resultSelection,
       },
     });
+
+    // await this.prisma.result.create({
+    //   data: {
+    //     eventId: event.id,
+    //     marketId: market?.id,
+    //     marketExternalId: result.marketId,
+    //     selectionId: String(result.selectionId),
+    //     result: String(result.result),
+    //     outcome: JSON.parse(JSON.stringify(result)),
+    //     providedBy: providedBy,
+    //     status: isBetExist
+    //       ? ResultStatusType.Pending
+    //       : ResultStatusType.Proceed,
+    //     selection: !market ? selection : null,
+    //     resultSelection: resultSelection,
+    //   },
+    // });
 
     if (market) {
       await this.marketService.changeMarketStatus(market.id, 'INACTIVE');
