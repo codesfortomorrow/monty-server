@@ -274,13 +274,12 @@ export class BetResultService extends BaseService {
             COUNT(*) OVER (PARTITION BY b.event_id, b.market_id) AS "betCount"
         FROM bet b
         JOIN event e ON e.id = b.event_id
-        WHERE (b.status = 'pending' OR b.status = 'rollback')
-          AND NOT EXISTS (
+         WHERE ((b.status = 'pending' AND NOT EXISTS (
             SELECT 1
             FROM result r
             WHERE r.event_id = b.event_id
-              AND r.market_external_id = b.market_id
-          )
+            AND r.market_external_id = b.market_id
+          )) OR b.status = 'rollback')
           AND (
                 $1::text IS NULL
                 OR e.name ILIKE '%' || $1 || '%'
@@ -330,13 +329,12 @@ export class BetResultService extends BaseService {
             b.market_id
         FROM bet b
         JOIN event e ON e.id = b.event_id
-        WHERE (b.status = 'pending' OR b.status = 'rollback')
-          AND NOT EXISTS (
+        WHERE ((b.status = 'pending' AND NOT EXISTS (
             SELECT 1
             FROM result r
             WHERE r.event_id = b.event_id
-              AND r.market_external_id = b.market_id
-          )
+            AND r.market_external_id = b.market_id
+          )) OR b.status = 'rollback')
           AND (
               $1::text IS NULL
               OR e.name ILIKE '%' || $1 || '%'
