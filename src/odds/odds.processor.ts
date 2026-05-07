@@ -41,7 +41,7 @@ export class OddsProcessor
       try {
         await Promise.allSettled([
           this.triggerInplay(),
-          // this.triggerMarketNameSync(),
+          this.triggerMarketNameSync(),
         ]);
       } catch (err) {
         this.logger.error(`Sprots inplay syncing loop error ${err}`);
@@ -132,7 +132,7 @@ export class OddsProcessor
       where: {
         startTime: {
           gte: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // past 1 days
-          lte: new Date(Date.now() + 60 * 1000), // next 2 days
+          lte: new Date(Date.now() + 60 * 1000), // next 1 mins
         },
         status: {
           in: [
@@ -274,8 +274,8 @@ export class OddsProcessor
   private async syncMarketName() {
     try {
       // Step 1: Scan all keys by category
-      const [extraKeys, fancyKeys, bookmakerKeys] = await Promise.all([
-        this.scanKeys('extra:*'),
+      const [fancyKeys, bookmakerKeys] = await Promise.all([
+        // this.scanKeys('extra:*'),
         this.scanKeys('fancy:*'),
         this.scanKeys('bookmaker:*'),
       ]);
@@ -283,14 +283,12 @@ export class OddsProcessor
       // Step 2: Extract event IDs
       const extractIds = (keys: string[]) =>
         keys.map((key) => key.split(':')[1]);
-      const extraIds = new Set(extractIds(extraKeys));
+      // const extraIds = new Set(extractIds(extraKeys));
       const fancyIds = new Set(extractIds(fancyKeys));
       const bookmakerIds = new Set(extractIds(bookmakerKeys));
 
       // Step 3: Collect all unique event IDs
-      const allEventIds = Array.from(
-        new Set([...extraIds, ...fancyIds, ...bookmakerIds]),
-      );
+      const allEventIds = Array.from(new Set([...fancyIds, ...bookmakerIds]));
 
       this.logger.debug(
         `[syncMarketName] Found total ${allEventIds.length} unique events to sync.`,
@@ -298,17 +296,17 @@ export class OddsProcessor
 
       // Step 4: Batch update for better performance
       await this.utils.batchable(allEventIds, async (eventId) => {
-        const isPremiumFancy = extraIds.has(eventId);
+        // const isPremiumFancy = extraIds.has(eventId);
         const isFancy = fancyIds.has(eventId);
         const isBookmaker = bookmakerIds.has(eventId);
 
         await this.prisma.event.updateMany({
           where: { externalId: eventId },
-          data: { isPremiumFancy, isFancy, isBookmaker },
+          data: { isFancy, isBookmaker },
         });
 
         this.logger.debug(
-          `[syncMarketName] Updated event ${eventId} → { isPremiumFancy: ${isPremiumFancy}, isFancy: ${isFancy}, isBookMaker: ${isBookmaker} }`,
+          `[syncMarketName] Updated event ${eventId} → { isFancy: ${isFancy}, isBookMaker: ${isBookmaker} }`,
         );
       });
 
