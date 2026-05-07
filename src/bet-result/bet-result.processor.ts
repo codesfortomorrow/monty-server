@@ -751,6 +751,7 @@ export class BetResultProccessor
         where: {
           status: ResultStatusType.RollbackPending,
         },
+        take: 1,
       });
 
       await this.utils.batchable(unsettleRollbackedResult, async (result) => {
@@ -763,7 +764,7 @@ export class BetResultProccessor
           rollbackProvider: result.rollbackedBy,
         });
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error in Bet rollback resolver: ${error.message}`);
     }
   }
@@ -776,32 +777,146 @@ export class BetResultProccessor
     result: string | number;
     rollbackProvider: ResultProvider | null;
   }) {
-    if (!data.selectionId) {
-      this.logger.info('No selections provided for resolution');
+    const BATCH_SIZE = 100;
+    const users = await this.prisma.bet.findMany({
+      where: {
+        eventId: data.eventId,
+        marketId: data.externalMarketId,
+        status: {
+          in: [BetStatusType.Won, BetStatusType.Lost, BetStatusType.Cancelled],
+        },
+      },
+      distinct: ['userId'],
+      select: { userId: true },
+      take: BATCH_SIZE,
+    });
+
+    if (!users.length) {
+      await this.markRollbackIfCompleted({
+        resultId: data.resultId,
+        eventIds: [data.eventId],
+        marketId: data.externalMarketId,
+        rollbackProvider: data.rollbackProvider,
+      });
       return;
     }
 
-    const pendingBetUsers = await this.prisma.bet.findMany({
+    const pendingBets = await this.prisma.bet.findFirst({
       where: {
         eventId: data.eventId,
         marketId: data.externalMarketId,
       },
-      distinct: ['userId'],
-      select: { userId: true },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            externalId: true,
+          },
+        },
+      },
     });
 
-    await this.utils.batchable(pendingBetUsers, async (user) => {
-      const pendingBets = await this.prisma.bet.findMany({
-        where: {
-          userId: user.userId,
-          eventId: data.eventId,
-          marketId: data.externalMarketId,
-        },
+    if (!pendingBets) {
+      await this.markRollbackIfCompleted({
+        resultId: data.resultId,
+        eventIds: [data.eventId],
+        marketId: data.externalMarketId,
+        rollbackProvider: data.rollbackProvider,
       });
+      return;
+    }
 
+    const marketName = pendingBets.marketName;
+    const eventName = pendingBets.event.name;
+    const sport = pendingBets.sport;
+    const entityId = pendingBets.id;
+
+    for (const user of users) {
+      console.log('user : ', user);
       await this.prisma.$transaction(async (tx) => {
-        for (const pendingBet of pendingBets) {
-          await this.rollbackSettelment({ tx, bet: pendingBet });
+        const agg = await tx.bet.aggregate({
+          where: {
+            userId: user.userId,
+            eventId: data.eventId,
+            marketId: data.externalMarketId,
+            status: {
+              in: [
+                BetStatusType.Won,
+                BetStatusType.Lost,
+                BetStatusType.Cancelled,
+              ],
+            },
+          },
+          _sum: {
+            payout: true,
+          },
+        });
+        const totalPayout = new Prisma.Decimal(agg._sum.payout || 0);
+
+        const updated = await tx.bet.updateMany({
+          where: {
+            userId: user.userId,
+            eventId: data.eventId,
+            marketId: data.externalMarketId,
+            status: {
+              in: [
+                BetStatusType.Won,
+                BetStatusType.Lost,
+                BetStatusType.Cancelled,
+              ],
+            },
+          },
+          data: {
+            payout: 0,
+            status: BetStatusType.Rollback,
+            isTurnOverCalculated: false,
+            isPlCalculated: false,
+          },
+        });
+        console.log('updated : ', updated);
+        if (updated.count === 0) return;
+
+        if (totalPayout.gt(0)) {
+          await this.walletService.subtractBalance(
+            user.userId,
+            totalPayout.toDecimalPlaces(2),
+            WalletType.Main,
+            true,
+            {
+              tx,
+              context: WalletTransactionContext.Rollback,
+              entityId: entityId,
+              narration: `Rollback ${sport}/${eventName}/${marketName}`,
+              meta: {
+                eventId: entityId.toString(),
+                marketId: pendingBets.marketId,
+                selectionId: pendingBets.selectionId,
+                marketType: pendingBets.marketType,
+                sport: sport,
+              },
+            },
+          );
+        } else {
+          await this.walletService.addBalance(
+            user.userId,
+            totalPayout.abs().toDecimalPlaces(2),
+            WalletType.Main,
+            true,
+            {
+              tx,
+              context: WalletTransactionContext.Rollback,
+              entityId: entityId,
+              narration: `Rollback ${sport}/${eventName}/${marketName}`,
+              meta: {
+                eventId: entityId.toString(),
+                marketId: pendingBets.marketId,
+                selectionId: pendingBets.selectionId,
+                marketType: pendingBets.marketType,
+                sport: sport,
+              },
+            },
+          );
         }
 
         await this.resultExposureSettlement({
@@ -811,17 +926,7 @@ export class BetResultProccessor
           marketExternalId: data.externalMarketId,
         });
       });
-    });
-
-    const resultStatus =
-      data.rollbackProvider === ResultProvider.Webhook
-        ? ResultStatusType.Rollbacked
-        : ResultStatusType.Pending;
-
-    await this.prisma.result.update({
-      where: { id: data.resultId },
-      data: { status: resultStatus, settledAt: new Date() },
-    });
+    }
   }
 
   private async rollbackSettelment(data: {
@@ -890,5 +995,39 @@ export class BetResultProccessor
       tx: data.tx,
       context: WalletTransactionContext.Bet,
     });
+  }
+
+  private async markRollbackIfCompleted(data: {
+    resultId: bigint;
+    eventIds: bigint[];
+    marketId: string;
+    rollbackProvider: ResultProvider | null;
+  }) {
+    const pending = await this.prisma.bet.findFirst({
+      where: {
+        eventId: { in: data.eventIds },
+        marketId: data.marketId,
+        status: {
+          in: [BetStatusType.Won, BetStatusType.Lost, BetStatusType.Cancelled],
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!pending) {
+      // const resultStatus =
+      // data.rollbackProvider === ResultProvider.Webhook
+      //   ? ResultStatusType.Rollbacked
+      //   : ResultStatusType.Pending;
+      const resultStatus = ResultStatusType.Rollbacked;
+
+      await this.prisma.result.update({
+        where: { id: data.resultId },
+        data: {
+          status: resultStatus,
+          settledAt: new Date(),
+        },
+      });
+    }
   }
 }

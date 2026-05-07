@@ -30,11 +30,11 @@ export class ManualRollbackRequest {
   @IsString()
   marketId: string;
 
-  @ApiProperty({ description: 'Selection id' })
-  @IsString()
-  selectionId: string;
+  // @ApiProperty({ description: 'Selection id' })
+  // @IsString()
+  // selectionId: string;
 
-  @ApiProperty({ description: 'Result' })
-  @IsString()
-  result: string;
+  // @ApiProperty({ description: 'Result' })
+  // @IsString()
+  // result: string;
 }
